@@ -4,6 +4,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ───────────────────────────────────────────────────────────
+   IRC theme — warm paper, emerald-teal ink, manuscript gilt
+   Drop-in editorial design system.
+   ─────────────────────────────────────────────────────────── */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -24,25 +29,34 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* Brand */
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-soft: var(--brand-soft);
   --color-brand-muted: var(--brand-muted);
+
+  /* Gilt */
   --color-gold: var(--gold);
+  --color-gold-2: var(--gold-2);
   --color-gold-foreground: var(--gold-foreground);
   --color-gold-soft: var(--gold-soft);
+
+  /* Ink scale — text hierarchy */
   --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
   --color-paper: var(--paper);
+
+  /* In-content accents */
   --color-accent-rust: var(--accent-rust);
   --color-accent-sage: var(--accent-sage);
   --color-accent-violet: var(--accent-violet);
   --color-accent-amber: var(--accent-amber);
   --color-accent-sky: var(--accent-sky);
-  --radius-sm: calc(var(--radius) * 0.5);
-  --radius-md: calc(var(--radius) * 0.75);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.5);
-  --radius-2xl: calc(var(--radius) * 2);
+
+  /* Sidebar */
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -52,13 +66,17 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Typography — native system stack. Same font on every OS the user
-     already trusts (San Francisco on Apple, Segoe on Windows, Roboto on
-     Android, Inter-fallback on Linux). No download, no FOUT. */
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+
+  /* Type stack — system sans for UI, Fraunces for editorial display */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-serif: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Fraunces", "Cormorant Garamond", Georgia, serif;
+  --font-serif: "Fraunces", "Cormorant Garamond", Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco,
     Consolas, "Liberation Mono", monospace;
 }
@@ -66,28 +84,23 @@
 :root {
   --radius: 0.85rem;
 
-  /* ── Surfaces — warm off-white paper, charcoal ink ───────── */
+  /* Surfaces — warm paper */
   --background: oklch(0.985 0.003 95);
   --foreground: oklch(0.20 0.012 270);
-
+  --paper: oklch(1 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.20 0.012 270);
-
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.20 0.012 270);
 
   --primary: oklch(0.24 0.015 270);
   --primary-foreground: oklch(0.985 0.003 95);
-
   --secondary: oklch(0.965 0.005 250);
   --secondary-foreground: oklch(0.24 0.015 270);
-
   --muted: oklch(0.97 0.004 95);
   --muted-foreground: oklch(0.50 0.012 270);
-
   --accent: oklch(0.96 0.006 175);
   --accent-foreground: oklch(0.24 0.015 270);
-
   --destructive: oklch(0.58 0.20 27);
   --destructive-foreground: oklch(0.99 0 0);
 
@@ -95,21 +108,25 @@
   --input: oklch(0.94 0.005 250);
   --ring: oklch(0.55 0.10 175);
 
-  /* ── Brand — deep emerald-teal evoking calligraphic ink ─── */
+  /* Ink scale (text hierarchy — use these instead of opacity) */
+  --ink: oklch(0.20 0.012 270);
+  --ink-2: oklch(0.40 0.012 270);
+  --ink-3: oklch(0.55 0.010 270);
+  --ink-4: oklch(0.72 0.008 270);
+
+  /* Brand — emerald-teal calligraphic ink */
   --brand: oklch(0.42 0.10 175);
   --brand-foreground: oklch(0.985 0.003 95);
-  --brand-soft: oklch(0.95 0.025 175);
+  --brand-soft: oklch(0.94 0.025 175);
   --brand-muted: oklch(0.78 0.05 175);
 
-  /* ── Gold — manuscript gilt (subtle highlight only) ─────── */
+  /* Gilt — manuscript gold (use sparingly) */
   --gold: oklch(0.72 0.13 80);
+  --gold-2: oklch(0.62 0.13 65);
   --gold-foreground: oklch(0.20 0.015 270);
   --gold-soft: oklch(0.96 0.04 85);
 
-  --ink: oklch(0.20 0.012 270);
-  --paper: oklch(0.985 0.003 95);
-
-  /* In-content accents (badges, chips, illustrations) */
+  /* In-content accents */
   --accent-rust: oklch(0.62 0.13 38);
   --accent-sage: oklch(0.55 0.08 150);
   --accent-violet: oklch(0.52 0.12 285);
@@ -127,61 +144,151 @@
 }
 
 .dark {
-  /* ── Surfaces — true app-dark, with elevation between bg/card ── */
-  --background: oklch(0.155 0.012 270);
+  /* Surfaces — warmer charcoal so paper still glows next to background */
+  --background: oklch(0.165 0.014 270);
   --foreground: oklch(0.96 0.006 95);
-
-  --card: oklch(0.195 0.014 270);
+  --paper: oklch(0.215 0.016 270);
+  --card: oklch(0.215 0.016 270);
   --card-foreground: oklch(0.96 0.006 95);
-
-  --popover: oklch(0.195 0.014 270);
+  --popover: oklch(0.215 0.016 270);
   --popover-foreground: oklch(0.96 0.006 95);
 
   --primary: oklch(0.96 0.006 95);
   --primary-foreground: oklch(0.20 0.012 270);
-
-  --secondary: oklch(0.235 0.014 270);
+  --secondary: oklch(0.245 0.014 270);
   --secondary-foreground: oklch(0.96 0.006 95);
-
-  --muted: oklch(0.215 0.012 270);
-  --muted-foreground: oklch(0.70 0.012 270);
-
-  --accent: oklch(0.255 0.018 175);
+  --muted: oklch(0.235 0.014 270);
+  --muted-foreground: oklch(0.72 0.012 270);
+  --accent: oklch(0.265 0.020 175);
   --accent-foreground: oklch(0.96 0.006 95);
-
-  --destructive: oklch(0.66 0.20 27);
+  --destructive: oklch(0.68 0.20 27);
   --destructive-foreground: oklch(0.155 0.012 270);
 
-  --border: oklch(1 0 0 / 9%);
+  --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.62 0.10 175);
+  --ring: oklch(0.66 0.10 175);
 
-  --brand: oklch(0.78 0.10 175);
-  --brand-foreground: oklch(0.18 0.018 175);
-  --brand-soft: oklch(0.30 0.06 175);
-  --brand-muted: oklch(0.42 0.06 175);
+  /* Ink scale — readable across the warmer paper */
+  --ink: oklch(0.97 0.006 95);
+  --ink-2: oklch(0.85 0.008 95);
+  --ink-3: oklch(0.70 0.010 95);
+  --ink-4: oklch(0.54 0.010 95);
 
-  --gold: oklch(0.82 0.14 80);
+  /* Brand — slightly brighter teal so it pops on dark paper */
+  --brand: oklch(0.80 0.10 175);
+  --brand-foreground: oklch(0.16 0.018 175);
+  --brand-soft: oklch(0.32 0.06 175);
+  --brand-muted: oklch(0.46 0.06 175);
+
+  /* Gilt — warmer in dark mode */
+  --gold: oklch(0.84 0.14 80);
+  --gold-2: oklch(0.74 0.13 65);
   --gold-foreground: oklch(0.18 0.012 270);
-  --gold-soft: oklch(0.30 0.06 85);
+  --gold-soft: oklch(0.32 0.06 85);
 
-  --ink: oklch(0.96 0.006 95);
-  --paper: oklch(0.155 0.012 270);
+  --accent-rust: oklch(0.76 0.13 38);
+  --accent-sage: oklch(0.76 0.08 150);
+  --accent-violet: oklch(0.76 0.12 285);
+  --accent-amber: oklch(0.84 0.14 75);
+  --accent-sky: oklch(0.76 0.10 220);
 
-  --accent-rust: oklch(0.74 0.13 38);
-  --accent-sage: oklch(0.74 0.08 150);
-  --accent-violet: oklch(0.74 0.12 285);
-  --accent-amber: oklch(0.82 0.14 75);
-  --accent-sky: oklch(0.74 0.10 220);
-
-  --sidebar: oklch(0.135 0.012 270);
+  /* Sidebar — a touch deeper than background for a quiet step-down */
+  --sidebar: oklch(0.145 0.012 270);
   --sidebar-foreground: oklch(0.96 0.006 95);
-  --sidebar-primary: oklch(0.78 0.10 175);
-  --sidebar-primary-foreground: oklch(0.18 0.018 175);
-  --sidebar-accent: oklch(0.255 0.018 175);
+  --sidebar-primary: oklch(0.80 0.10 175);
+  --sidebar-primary-foreground: oklch(0.16 0.018 175);
+  --sidebar-accent: oklch(0.265 0.020 175);
   --sidebar-accent-foreground: oklch(0.92 0.04 175);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.62 0.10 175);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.66 0.10 175);
+}
+
+/* ───────────────────────────────────────────────────────────
+   Tweaks — runtime accent + display-font variants.
+   The TweaksProvider applies `data-accent` and `data-font`
+   to <html>, and these rules swap the matching tokens.
+   ─────────────────────────────────────────────────────────── */
+
+/* Accent: Rust (madder) */
+:root[data-accent="rust"] {
+  --brand: oklch(0.62 0.13 38);
+  --brand-soft: oklch(0.95 0.04 38);
+  --brand-muted: oklch(0.78 0.07 38);
+  --ring: oklch(0.62 0.13 38);
+  --sidebar-primary: oklch(0.62 0.13 38);
+  --sidebar-accent: oklch(0.95 0.04 38);
+  --sidebar-accent-foreground: oklch(0.34 0.10 38);
+  --sidebar-ring: oklch(0.62 0.13 38);
+}
+.dark[data-accent="rust"] {
+  --brand: oklch(0.78 0.13 38);
+  --brand-soft: oklch(0.32 0.08 38);
+  --brand-muted: oklch(0.46 0.08 38);
+  --ring: oklch(0.74 0.13 38);
+  --sidebar-primary: oklch(0.78 0.13 38);
+  --sidebar-accent: oklch(0.32 0.08 38);
+  --sidebar-accent-foreground: oklch(0.92 0.06 38);
+  --sidebar-ring: oklch(0.74 0.13 38);
+}
+
+/* Accent: Violet (indigo) */
+:root[data-accent="violet"] {
+  --brand: oklch(0.52 0.12 285);
+  --brand-soft: oklch(0.95 0.03 285);
+  --brand-muted: oklch(0.78 0.06 285);
+  --ring: oklch(0.52 0.12 285);
+  --sidebar-primary: oklch(0.52 0.12 285);
+  --sidebar-accent: oklch(0.95 0.03 285);
+  --sidebar-accent-foreground: oklch(0.30 0.08 285);
+  --sidebar-ring: oklch(0.52 0.12 285);
+}
+.dark[data-accent="violet"] {
+  --brand: oklch(0.78 0.12 285);
+  --brand-soft: oklch(0.30 0.07 285);
+  --brand-muted: oklch(0.44 0.07 285);
+  --ring: oklch(0.74 0.12 285);
+  --sidebar-primary: oklch(0.78 0.12 285);
+  --sidebar-accent: oklch(0.30 0.07 285);
+  --sidebar-accent-foreground: oklch(0.92 0.06 285);
+  --sidebar-ring: oklch(0.74 0.12 285);
+}
+
+/* Accent: Pure ink (monochrome) */
+:root[data-accent="ink"] {
+  --brand: oklch(0.22 0.012 270);
+  --brand-soft: oklch(0.94 0.005 270);
+  --brand-muted: oklch(0.72 0.008 270);
+  --ring: oklch(0.40 0.012 270);
+  --sidebar-primary: oklch(0.22 0.012 270);
+  --sidebar-accent: oklch(0.94 0.005 270);
+  --sidebar-accent-foreground: oklch(0.22 0.012 270);
+  --sidebar-ring: oklch(0.40 0.012 270);
+}
+.dark[data-accent="ink"] {
+  --brand: oklch(0.92 0.006 95);
+  --brand-foreground: oklch(0.18 0.012 270);
+  --brand-soft: oklch(0.28 0.010 270);
+  --brand-muted: oklch(0.42 0.010 270);
+  --ring: oklch(0.78 0.010 270);
+  --sidebar-primary: oklch(0.92 0.006 95);
+  --sidebar-primary-foreground: oklch(0.18 0.012 270);
+  --sidebar-accent: oklch(0.28 0.010 270);
+  --sidebar-accent-foreground: oklch(0.92 0.006 95);
+  --sidebar-ring: oklch(0.78 0.010 270);
+}
+
+/* Display font swaps */
+:root[data-font="cormorant"] {
+  --font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --font-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+}
+:root[data-font="system"] {
+  --font-display: var(--font-sans);
+  --font-serif: var(--font-sans);
+}
+:root[data-font="system"] .font-display {
+  letter-spacing: -0.018em;
+  font-weight: 700;
 }
 
 @layer base {
@@ -200,35 +307,26 @@
     font-family: var(--font-sans);
   }
 
-  /* Used for big headings — same family, just tighter tracking and
-     a bolder weight so the type does the work, not the typeface. */
+  /* Editorial display — Fraunces serif, tight tracking, balanced wrap. */
   .font-display {
-    font-family: var(--font-sans);
-    letter-spacing: -0.022em;
+    font-family: var(--font-display);
+    letter-spacing: -0.012em;
     font-weight: 600;
   }
 
-  /* Tabular monospace for numbers / IDs / counts */
   .font-mono,
   .tabular-nums {
     font-family: var(--font-mono);
     font-feature-settings: "tnum" 1;
   }
 
-  /* Selection — subtle brand wash */
   ::selection {
     background-color: color-mix(in oklch, var(--brand) 25%, transparent);
     color: var(--foreground);
   }
 
-  /* Native scrollbar — slimmer, monochrome */
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
     background: color-mix(in oklch, var(--foreground) 14%, transparent);
     border: 2px solid transparent;
@@ -242,30 +340,6 @@
 }
 
 @layer utilities {
-  /* Back-compat shims for legacy class names */
-  .bg-islamic-gradient {
-    background-color: var(--secondary);
-    color: var(--foreground);
-  }
-  .bg-islamic-gradient-soft {
-    background-color: var(--muted);
-  }
-  .text-gradient-islamic {
-    color: var(--foreground);
-  }
-  .ring-islamic {
-    background: var(--border);
-  }
-
-  .scrollbar-none::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-none {
-    scrollbar-width: none;
-  }
-
-  /* ── Modern surface utilities ──────────────────────────────── */
-
   /* Frosted, glass-like top chrome */
   .glass-panel {
     background: color-mix(in oklch, var(--background) 78%, transparent);
@@ -273,7 +347,10 @@
     -webkit-backdrop-filter: saturate(140%) blur(14px);
   }
 
-  /* Hairline gradient — used on the top edge of hero cards */
+  /* Multicolor hairline used on top edge of hero cards */
+  .hairline-gradient {
+    position: relative;
+  }
   .hairline-gradient::before {
     content: "";
     position: absolute;
@@ -282,9 +359,9 @@
     background: linear-gradient(
       90deg,
       transparent,
-      color-mix(in oklch, var(--accent-sky) 50%, transparent),
+      color-mix(in oklch, var(--brand) 60%, transparent),
+      color-mix(in oklch, var(--gold) 70%, transparent),
       color-mix(in oklch, var(--accent-violet) 50%, transparent),
-      color-mix(in oklch, var(--gold) 50%, transparent),
       transparent
     );
     pointer-events: none;
@@ -301,6 +378,56 @@
       0 1px 0 0 color-mix(in oklch, var(--foreground) 4%, transparent),
       0 24px 60px -28px color-mix(in oklch, var(--foreground) 32%, transparent);
   }
+
+  /* Brand wash on inset bar (used for active nav indicator) */
+  .brand-bar { background: var(--brand); }
+
+  /* Editorial first-letter for long-form post bodies */
+  .first-letter-display::first-letter {
+    font-family: var(--font-display);
+    font-size: 2.6em;
+    line-height: 0.9;
+    float: left;
+    padding: 0.05em 0.12em 0 0;
+    color: var(--foreground);
+  }
+
+  /* Manuscript ornament divider */
+  .ornament-rule {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--ink-4);
+  }
+  .ornament-rule::before,
+  .ornament-rule::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--border),
+      transparent
+    );
+  }
+
+  /* Avatar conic ring (use behind <UserAvatar /> for spotlit users) */
+  .ring-conic {
+    background: conic-gradient(
+      from 180deg,
+      var(--accent-violet),
+      var(--accent-rust),
+      var(--gold),
+      var(--brand),
+      var(--accent-violet)
+    );
+    padding: 2px;
+    border-radius: 9999px;
+  }
+
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .scrollbar-none { scrollbar-width: none; }
 
   .bg-pattern {
     background-image: radial-gradient(
@@ -326,32 +453,9 @@
     background-size: 32px 32px;
   }
 
-  .ring-gradient {
-    background: conic-gradient(
-      from 180deg,
-      var(--accent-violet),
-      var(--accent-rust),
-      var(--gold),
-      var(--brand),
-      var(--accent-violet)
-    );
-  }
-
-  /* Brand text colour shortcut */
-  .text-brand {
-    color: var(--brand);
-  }
-  .bg-brand-soft {
-    background-color: var(--brand-soft);
-  }
-
-  /* Editorial drop-cap helper for post bodies (opt-in via class) */
-  .first-letter-display::first-letter {
-    font-family: var(--font-serif);
-    font-size: 2.6em;
-    line-height: 0.9;
-    float: left;
-    padding: 0.05em 0.12em 0 0;
-    color: var(--foreground);
-  }
+  /* Back-compat shims for legacy class names */
+  .bg-islamic-gradient { background-color: var(--secondary); color: var(--foreground); }
+  .bg-islamic-gradient-soft { background-color: var(--muted); }
+  .text-gradient-islamic { color: var(--foreground); }
+  .ring-islamic { background: var(--border); }
 }

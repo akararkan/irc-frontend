@@ -77,13 +77,13 @@ const TYPE_META = {
     label: 'Voice',
     icon: Mic,
     accent:
-      'bg-[oklch(0.62_0.12_285/0.12)] text-[oklch(0.42_0.13_285)] dark:text-[oklch(0.85_0.10_285)]',
+      'bg-[color-mix(in_oklch,var(--accent-violet)_12%,transparent)] text-accent-violet',
   },
   REEL: {
     label: 'Reel',
     icon: Clapperboard,
     accent:
-      'bg-[oklch(0.62_0.13_38/0.12)] text-[oklch(0.45_0.13_38)] dark:text-[oklch(0.85_0.12_38)]',
+      'bg-[color-mix(in_oklch,var(--accent-rust)_12%,transparent)] text-accent-rust',
   },
 }
 
@@ -317,7 +317,7 @@ function PostText({ text, postType }) {
 
   if (isVeryShort) {
     return (
-      <p className="text-[20px] font-medium leading-[1.35] tracking-[-0.01em] text-foreground sm:text-[22px]">
+      <p className="font-display text-pretty text-[19px] font-normal leading-[1.45] tracking-[-0.005em] text-ink sm:text-[21px]">
         {text}
       </p>
     )
@@ -327,9 +327,9 @@ function PostText({ text, postType }) {
     <div className="space-y-1">
       <p
         className={cn(
-          'whitespace-pre-wrap break-words text-foreground',
+          'whitespace-pre-wrap break-words text-pretty text-ink',
           postType === 'TEXT'
-            ? 'text-[15px] leading-[1.6]'
+            ? 'font-display text-[17px] font-normal leading-[1.5] tracking-[-0.005em]'
             : 'text-[14.5px] leading-[1.55]',
         )}
       >
@@ -339,7 +339,7 @@ function PostText({ text, postType }) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          className="text-xs font-semibold text-ink-3 transition-colors hover:text-ink"
         >
           {expanded ? 'Show less' : 'Show more'}
         </button>
@@ -666,17 +666,17 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
   return (
     <article
       className={cn(
-        'group/post relative overflow-hidden rounded-2xl border border-border bg-card transition-all duration-200',
-        'hover:border-foreground/15 hover:shadow-soft',
+        'group/post relative overflow-hidden rounded-2xl border border-border bg-paper transition-colors duration-200',
+        'hover:border-brand/25',
       )}
     >
       {/* ── Repost banner — when this card IS a repost ─────── */}
       {(post.isRepost || postType === 'REPOST') && post.sharedPost ? (
-        <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-1.5 text-[11.5px] text-muted-foreground sm:px-5">
+        <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-1.5 text-[11.5px] text-ink-3 sm:px-5">
           <Repeat2 className="size-3.5" />
           <Link
             to={`/profile/${authorUsername}`}
-            className="font-semibold text-foreground hover:underline"
+            className="font-semibold text-ink hover:underline"
           >
             {displayName}
           </Link>
@@ -717,11 +717,11 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
               </span>
             ) : null}
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-ink-3">
             {authorUsername ? <span>@{authorUsername}</span> : null}
-            <span aria-hidden>·</span>
+            <span aria-hidden className="text-ink-4">·</span>
             <span title={post.formattedDate || ''}>{displayTime(post)}</span>
-            <span aria-hidden>·</span>
+            <span aria-hidden className="text-ink-4">·</span>
             <span className="inline-flex items-center gap-1" title={visLabel}>
               <VisIcon className="size-3" />
             </span>
@@ -800,7 +800,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
         {post.sharedPost ? <QuotedPost post={post.sharedPost} /> : null}
 
         {post.locationName ? (
-          <p className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+          <p className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium text-ink-3">
             <MapPin className="size-3" />
             {post.locationName}
           </p>
@@ -815,7 +815,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       ) : null}
 
       {/* ── Action bar — Threads / X style with inline counts ─── */}
-      <div className="mt-2 flex items-center gap-1 border-t border-border px-2 py-1.5 sm:px-3">
+      <div className="mx-4 mt-2.5 flex items-center gap-1 border-t border-dashed border-border px-0 py-1.5 sm:mx-5">
         <ReactionPicker
           current={post.myReaction}
           onSelect={handlePickReaction}
@@ -835,7 +835,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
                       current.ring,
                       'hover:brightness-95',
                     )
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  : 'text-ink-3 hover:bg-muted hover:text-ink',
               )}
             >
               <span className="text-[17px] leading-none transition-transform group-hover/like:scale-110">
@@ -853,7 +853,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
         <button
           type="button"
           onClick={() => setShowComments((value) => !value)}
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12.5px] font-medium text-ink-3 transition-colors hover:bg-muted hover:text-ink"
         >
           <MessageCircle className="size-[17px]" strokeWidth={1.75} />
           {commentCount > 0 ? (
@@ -865,7 +865,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
 
         <div className="ml-auto flex items-center">
           {(post.shareCount ?? 0) > 0 ? (
-            <span className="hidden px-2 text-[11px] text-muted-foreground tabular-nums sm:inline">
+            <span className="hidden px-2 text-[11px] text-ink-3 tabular-nums sm:inline">
               {formatNumber(post.shareCount)}{' '}
               {post.shareCount === 1 ? 'share' : 'shares'}
             </span>

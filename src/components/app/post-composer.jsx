@@ -250,13 +250,13 @@ function VisibilityMenu({ value, onChange }) {
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 rounded-full border-border bg-background"
+          className="h-8 gap-1.5 rounded-lg border-border bg-paper text-ink-2 hover:border-brand/40 hover:bg-brand-soft/40 hover:text-brand"
         >
           <Icon className="size-3.5" />
-          {option.label}
+          <span className="text-[12.5px] font-semibold">{option.label}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64">
+      <DropdownMenuContent align="start" className="w-64 rounded-xl border-border bg-paper p-1 shadow-soft-lg">
         {VISIBILITY_OPTIONS.map((item) => {
           const ItemIcon = item.icon
           const active = item.value === value
@@ -264,12 +264,15 @@ function VisibilityMenu({ value, onChange }) {
             <DropdownMenuItem
               key={item.value}
               onSelect={() => onChange(item.value)}
-              className={cn('gap-3 py-2', active && 'bg-muted')}
+              className={cn(
+                'gap-3 rounded-lg py-2',
+                active ? 'bg-brand-soft/60 text-brand' : 'text-ink-2',
+              )}
             >
               <ItemIcon className="size-4" />
               <div className="leading-tight">
                 <p className="text-sm font-medium">{item.label}</p>
-                <p className="text-xs text-muted-foreground">{item.hint}</p>
+                <p className="text-xs text-ink-3">{item.hint}</p>
               </div>
             </DropdownMenuItem>
           )
@@ -303,8 +306,9 @@ function DropZone({ onFiles, accept, multiple = true, hint, className, children 
       }}
       onClick={() => inputRef.current?.click()}
       className={cn(
-        'group/drop relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-muted/30 px-6 py-8 text-center transition-colors hover:border-foreground/30 hover:bg-muted/50',
-        drag && 'border-foreground/40 bg-muted/70',
+        'group/drop relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-muted/40 px-6 py-7 text-center transition-colors',
+        'hover:border-brand/40 hover:bg-brand-soft/40',
+        drag && 'border-brand/60 bg-brand-soft/60',
         className,
       )}
     >
@@ -321,13 +325,13 @@ function DropZone({ onFiles, accept, multiple = true, hint, className, children 
       />
       {children ?? (
         <>
-          <span className="grid size-10 place-items-center rounded-full bg-foreground/5 text-muted-foreground transition-colors group-hover/drop:bg-foreground/10 group-hover/drop:text-foreground">
-            <Upload className="size-4" />
+          <span className="grid size-11 place-items-center rounded-full bg-brand-soft/60 text-brand transition-colors group-hover/drop:bg-brand group-hover/drop:text-brand-foreground">
+            <Upload className="size-[15px]" />
           </span>
-          <p className="text-sm font-medium text-foreground">
+          <p className="font-display text-[14px] font-semibold tracking-[-0.005em] text-ink">
             {drag ? 'Drop to attach' : 'Drag & drop, or click to browse'}
           </p>
-          {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+          {hint ? <p className="text-[11.5px] text-ink-3">{hint}</p> : null}
         </>
       )}
     </div>
@@ -335,7 +339,7 @@ function DropZone({ onFiles, accept, multiple = true, hint, className, children 
 }
 
 // ─── File previews (for EMBEDDED) ───────────────────────────────────
-function FilePreview({ file, onRemove }) {
+function FilePreview({ file, onRemove, single = false }) {
   const url = useMemo(() => URL.createObjectURL(file), [file])
   useEffect(() => () => URL.revokeObjectURL(url), [url])
   const video = fileIsVideo(file)
@@ -355,10 +359,22 @@ function FilePreview({ file, onRemove }) {
         <video
           src={url}
           controls
-          className="aspect-square w-full bg-black object-contain"
+          playsInline
+          preload="metadata"
+          className={cn(
+            'w-full bg-black object-contain',
+            single ? 'max-h-[320px]' : 'aspect-square',
+          )}
         />
       ) : (
-        <img src={url} alt="" className="aspect-square w-full object-cover" />
+        <img
+          src={url}
+          alt=""
+          className={cn(
+            'w-full bg-muted',
+            single ? 'max-h-[320px] object-contain' : 'aspect-square object-cover',
+          )}
+        />
       )}
       <button
         type="button"
@@ -366,7 +382,7 @@ function FilePreview({ file, onRemove }) {
           event.stopPropagation()
           onRemove()
         }}
-        className="absolute right-1.5 top-1.5 grid size-7 place-items-center rounded-full bg-background/90 text-muted-foreground shadow ring-1 ring-border transition-colors hover:text-foreground"
+        className="absolute right-1.5 top-1.5 grid size-7 place-items-center rounded-full bg-paper/95 text-ink-3 shadow-soft ring-1 ring-border transition-colors hover:text-ink"
         aria-label="Remove"
       >
         <X className="size-3.5" />
@@ -377,17 +393,19 @@ function FilePreview({ file, onRemove }) {
 
 function FilePreviewGrid({ files, onRemove }) {
   if (!files.length) return null
+  const single = files.length === 1
   return (
     <div
       className={cn(
         'grid gap-2',
-        files.length === 1 ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-4',
+        single ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-4',
       )}
     >
       {files.map((file, index) => (
         <FilePreview
           key={`${file.name}-${file.size}-${index}`}
           file={file}
+          single={single}
           onRemove={() => onRemove(index)}
         />
       ))}
@@ -622,7 +640,7 @@ function VoiceRecorder({ value, previewUrl, onCapture, onClear, onError }) {
             variant="ghost"
             size="sm"
             onClick={onClear}
-            className="rounded-full text-muted-foreground hover:text-destructive"
+            className="rounded-lg text-ink-3 hover:bg-[color-mix(in_oklch,var(--accent-rust)_8%,transparent)] hover:text-accent-rust"
           >
             <Trash2 className="size-3.5" />
             Discard & retake
@@ -633,13 +651,13 @@ function VoiceRecorder({ value, previewUrl, onCapture, onClear, onError }) {
   }
 
   return (
-    <div className="relative isolate overflow-hidden rounded-3xl border border-foreground/10 bg-card p-5 shadow-[0_1px_0_oklch(1_0_0/0.5)_inset,0_22px_60px_-30px_oklch(0_0_0/0.18)]">
+    <div className="relative isolate overflow-hidden rounded-2xl border border-border bg-paper p-5 shadow-soft">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-60"
+        className="pointer-events-none absolute inset-0 -z-10 opacity-70"
         style={{
           background:
-            'radial-gradient(120% 80% at 85% -10%, oklch(0.62 0.12 285 / 0.20), transparent 60%)',
+            'radial-gradient(120% 80% at 85% -10%, color-mix(in oklch, var(--accent-violet) 18%, transparent), transparent 60%)',
         }}
       />
       <div className="flex flex-col items-center gap-4">
@@ -648,22 +666,22 @@ function VoiceRecorder({ value, previewUrl, onCapture, onClear, onError }) {
           onClick={recording ? stopRecording : startRecording}
           whileTap={{ scale: 0.94 }}
           className={cn(
-            'relative grid size-16 place-items-center rounded-full text-background shadow-md transition-all',
+            'relative grid size-16 place-items-center rounded-full shadow-soft transition-all',
             recording
-              ? 'bg-destructive text-destructive-foreground'
-              : 'bg-foreground hover:shadow-lg',
+              ? 'bg-accent-rust text-white'
+              : 'bg-gradient-to-br from-brand to-brand/85 text-brand-foreground hover:shadow-soft-lg',
           )}
           aria-label={recording ? 'Stop recording' : 'Start recording'}
         >
           {recording ? (
-            <Square className="size-5 fill-destructive-foreground" />
+            <Square className="size-5 fill-current" />
           ) : (
             <Mic className="size-6" />
           )}
           {recording ? (
             <motion.span
               aria-hidden
-              className="absolute inset-0 rounded-full ring-4 ring-destructive/30"
+              className="absolute inset-0 rounded-full ring-4 ring-accent-rust/30"
               animate={{ scale: [1, 1.25, 1], opacity: [0.7, 0, 0.7] }}
               transition={{ duration: 1.6, repeat: Infinity }}
             />
@@ -671,10 +689,10 @@ function VoiceRecorder({ value, previewUrl, onCapture, onClear, onError }) {
         </motion.button>
 
         <div className="text-center">
-          <p className="font-mono text-2xl font-semibold tabular-nums tracking-tight">
+          <p className="font-mono text-[26px] font-semibold tabular-nums leading-none tracking-tight text-ink">
             {formatRecorderTime(elapsed)}
           </p>
-          <p className="mt-0.5 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="mt-1 text-[10.5px] font-bold uppercase tracking-[0.18em] text-ink-3">
             {recording ? 'Recording…' : 'Tap to record'}
           </p>
         </div>
@@ -686,7 +704,7 @@ function VoiceRecorder({ value, previewUrl, onCapture, onClear, onError }) {
               aria-hidden
               className={cn(
                 'flex-1 rounded-full transition-[height] duration-75',
-                recording ? 'bg-foreground/85' : 'bg-foreground/20',
+                recording ? 'bg-brand' : 'bg-ink/15',
               )}
               style={{
                 height: `${Math.max(4, (recording ? value : 0.04 + Math.abs(Math.sin(i * 0.4)) * 0.18) * 100)}%`,
@@ -861,9 +879,9 @@ export function PostComposer({ onPosted, bare = false }) {
     <form onSubmit={handleSubmit} className="flex gap-3">
       <UserAvatar user={user} className="hidden size-10 shrink-0 sm:block" />
 
-      <div className="flex min-w-0 flex-1 flex-col gap-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-3.5">
         {/* Type tabs */}
-        <div className="flex items-center gap-1 rounded-full border border-border bg-muted/40 p-1">
+        <div className="flex items-center gap-1 rounded-xl border border-border bg-muted/50 p-1">
           {POST_TYPES.map((item) => {
             const Icon = item.icon
             const active = item.value === postType
@@ -873,21 +891,21 @@ export function PostComposer({ onPosted, bare = false }) {
                 type="button"
                 onClick={() => changeType(item.value)}
                 className={cn(
-                  'relative flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                  'relative flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors',
                   active
-                    ? 'text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
+                    ? 'text-brand'
+                    : 'text-ink-3 hover:text-ink',
                 )}
               >
                 {active ? (
                   <motion.span
                     layoutId="composerTypePill"
-                    className="absolute inset-0 rounded-full bg-background shadow-sm ring-1 ring-border"
+                    className="absolute inset-0 rounded-lg border border-brand/25 bg-paper shadow-soft"
                     transition={{ type: 'spring', stiffness: 360, damping: 30 }}
                   />
                 ) : null}
                 <span className="relative z-10 inline-flex items-center gap-1.5">
-                  <Icon className="size-3.5" />
+                  <Icon className="size-[14px]" strokeWidth={active ? 2.1 : 1.75} />
                   <span className="hidden sm:inline">{item.label}</span>
                 </span>
               </button>
@@ -896,29 +914,38 @@ export function PostComposer({ onPosted, bare = false }) {
         </div>
 
         {/* Text area */}
-        <div className="relative">
+        <div
+          className={cn(
+            'relative rounded-2xl border border-border bg-paper px-4 pb-2 pt-3.5 transition',
+            'focus-within:border-brand/40 focus-within:ring-[4px] focus-within:ring-brand/10',
+          )}
+        >
           <Textarea
             value={text}
             onChange={(event) => setText(event.target.value.slice(0, MAX_TEXT))}
             placeholder={activeType.placeholder}
             rows={postType === 'TEXT' ? 3 : 2}
             className={cn(
-              'resize-none rounded-2xl border-0 bg-muted/50 px-4 py-3 leading-relaxed shadow-none focus-visible:ring-1',
+              'resize-none border-0 bg-transparent p-0 text-ink shadow-none placeholder:text-ink-4 focus-visible:ring-0 focus-visible:ring-offset-0',
               postType === 'TEXT'
-                ? 'min-h-[88px] text-base'
-                : 'min-h-[64px] text-[15px]',
+                ? 'font-display min-h-[96px] text-[18px] leading-[1.5] tracking-[-0.005em]'
+                : 'min-h-[64px] text-[14.5px] leading-[1.55]',
             )}
           />
-          {text.length > MAX_TEXT - 200 ? (
+          <div className="mt-1 flex items-center justify-end">
             <span
               className={cn(
-                'absolute bottom-2 right-3 text-[11px] font-mono tabular-nums',
-                charactersLeft < 0 ? 'text-destructive' : 'text-muted-foreground',
+                'font-mono text-[11px] tabular-nums transition-colors',
+                charactersLeft < 0
+                  ? 'text-destructive'
+                  : charactersLeft < 200
+                    ? 'text-accent-rust'
+                    : 'text-ink-4',
               )}
             >
               {charactersLeft}
             </span>
-          ) : null}
+          </div>
         </div>
 
         {/* Type-specific panel */}
@@ -963,13 +990,13 @@ export function PostComposer({ onPosted, bare = false }) {
                   multiple={false}
                   hint="Vertical video looks best · 9:16"
                 >
-                  <span className="grid size-10 place-items-center rounded-full bg-foreground/5 text-muted-foreground">
-                    <Clapperboard className="size-4" />
+                  <span className="grid size-11 place-items-center rounded-full bg-[color-mix(in_oklch,var(--accent-rust)_14%,transparent)] text-accent-rust">
+                    <Clapperboard className="size-[15px]" />
                   </span>
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="font-display text-[14px] font-semibold tracking-[-0.005em] text-ink">
                     Drop a video, or click to browse
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[11.5px] text-ink-3">
                     Vertical video works best · 9:16
                   </p>
                 </DropZone>
@@ -992,13 +1019,13 @@ export function PostComposer({ onPosted, bare = false }) {
                     multiple={false}
                     hint="…or upload an existing audio file"
                   >
-                    <span className="grid size-10 place-items-center rounded-full bg-foreground/5 text-muted-foreground">
-                      <Music className="size-4" />
+                    <span className="grid size-11 place-items-center rounded-full bg-[color-mix(in_oklch,var(--accent-violet)_14%,transparent)] text-accent-violet">
+                      <Music className="size-[15px]" />
                     </span>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="font-display text-[14px] font-semibold tracking-[-0.005em] text-ink">
                       Upload audio file
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-mono text-[11px] text-ink-3">
                       mp3 · m4a · ogg · wav · webm
                     </p>
                   </DropZone>
@@ -1018,13 +1045,13 @@ export function PostComposer({ onPosted, bare = false }) {
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden"
             >
-              <div className="flex items-center gap-2 rounded-2xl border border-dashed border-border bg-muted/30 px-3 py-2">
-                <MapPin className="size-4 shrink-0 text-muted-foreground" />
+              <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 px-3 py-2">
+                <MapPin className="size-4 shrink-0 text-ink-3" />
                 <Input
                   value={locationName}
                   onChange={(event) => setLocationName(event.target.value)}
                   placeholder="Where is this from?"
-                  className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                  className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none placeholder:text-ink-4 focus-visible:ring-0"
                 />
                 <button
                   type="button"
@@ -1032,7 +1059,7 @@ export function PostComposer({ onPosted, bare = false }) {
                     setShowLocation(false)
                     setLocationName('')
                   }}
-                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-ink-3 transition-colors hover:text-ink"
                   aria-label="Close"
                 >
                   <X className="size-4" />
@@ -1049,14 +1076,14 @@ export function PostComposer({ onPosted, bare = false }) {
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden"
             >
-              <div className="space-y-2 rounded-2xl border border-dashed border-border bg-muted/30 px-3 py-2.5">
+              <div className="space-y-2 rounded-xl border border-dashed border-border bg-muted/40 px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <Music className="size-4 shrink-0 text-muted-foreground" />
+                  <Music className="size-4 shrink-0 text-ink-3" />
                   <Input
                     value={audioTrackName}
                     onChange={(event) => setAudioTrackName(event.target.value)}
                     placeholder="Track name"
-                    className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                    className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none placeholder:text-ink-4 focus-visible:ring-0"
                   />
                   <button
                     type="button"
@@ -1065,7 +1092,7 @@ export function PostComposer({ onPosted, bare = false }) {
                       setAudioTrackName('')
                       setAudioTrackUrl('')
                     }}
-                    className="text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-ink-3 transition-colors hover:text-ink"
                     aria-label="Close"
                   >
                     <X className="size-4" />
@@ -1075,7 +1102,7 @@ export function PostComposer({ onPosted, bare = false }) {
                   value={audioTrackUrl}
                   onChange={(event) => setAudioTrackUrl(event.target.value)}
                   placeholder="Track URL (https://…)"
-                  className="h-8"
+                  className="h-8 rounded-lg border-border bg-paper text-[13px] placeholder:text-ink-4"
                 />
               </div>
             </motion.div>
@@ -1083,19 +1110,19 @@ export function PostComposer({ onPosted, bare = false }) {
         </AnimatePresence>
 
         {/* Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-dashed border-border pt-3">
           <div className="flex flex-wrap items-center gap-1.5">
             <Button
               type="button"
               variant="ghost"
               size="sm"
               className={cn(
-                'rounded-full text-muted-foreground hover:text-foreground',
-                showLocation && locationName && 'text-foreground',
+                'h-8 gap-1.5 rounded-lg text-[12.5px] font-semibold text-ink-3 hover:bg-muted hover:text-ink',
+                showLocation && locationName && 'text-brand',
               )}
               onClick={() => setShowLocation((v) => !v)}
             >
-              <MapPin className="size-4" />
+              <MapPin className="size-[15px]" />
               <span className="hidden sm:inline">
                 {locationName ? locationName : 'Location'}
               </span>
@@ -1107,12 +1134,12 @@ export function PostComposer({ onPosted, bare = false }) {
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  'rounded-full text-muted-foreground hover:text-foreground',
-                  showAudioTrack && (audioTrackName || audioTrackUrl) && 'text-foreground',
+                  'h-8 gap-1.5 rounded-lg text-[12.5px] font-semibold text-ink-3 hover:bg-muted hover:text-ink',
+                  showAudioTrack && (audioTrackName || audioTrackUrl) && 'text-brand',
                 )}
                 onClick={() => setShowAudioTrack((v) => !v)}
               >
-                <Music className="size-4" />
+                <Music className="size-[15px]" />
                 <span className="hidden sm:inline">
                   {audioTrackName || audioTrackUrl ? 'Track set' : 'Audio'}
                 </span>
@@ -1125,13 +1152,18 @@ export function PostComposer({ onPosted, bare = false }) {
           <Button
             type="submit"
             size="default"
-            className="h-9 gap-1.5 rounded-full px-4"
+            className={cn(
+              'h-9 gap-1.5 rounded-lg px-4 text-[12.5px] font-semibold',
+              'bg-gradient-to-br from-brand to-brand/85 text-brand-foreground shadow-soft',
+              'transition-transform hover:-translate-y-px hover:from-brand hover:to-brand/90',
+              'disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none',
+            )}
             disabled={!canSubmit()}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
-              <CornerDownLeft className="size-3.5" />
+              <CornerDownLeft className="size-[14px]" />
             )}
             {submitting ? 'Sharing…' : `Share ${activeType.label.toLowerCase()}`}
           </Button>
@@ -1145,17 +1177,9 @@ export function PostComposer({ onPosted, bare = false }) {
   return (
     <Card
       className={cn(
-        'relative isolate overflow-hidden rounded-3xl border border-border bg-card shadow-sm',
+        'hairline-gradient relative isolate overflow-hidden rounded-2xl border border-border bg-paper shadow-soft',
       )}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 -top-px h-px"
-        style={{
-          background:
-            'linear-gradient(90deg, transparent, oklch(0.62 0.12 285 / 0.4), oklch(0.72 0.14 75 / 0.4), oklch(0.62 0.13 38 / 0.4), transparent)',
-        }}
-      />
       <CardContent className="space-y-4 px-4 py-4 sm:px-5">{formNode}</CardContent>
     </Card>
   )

@@ -16,23 +16,30 @@ import { displayTime, formatNumber, getFullName } from '@/lib/format'
 const STATUS_META = {
   OPEN: {
     label: 'Open',
-    className: 'bg-sky-500/10 text-sky-700 ring-sky-500/20 dark:text-sky-300',
+    className:
+      'bg-[color-mix(in_oklch,var(--accent-sky)_12%,transparent)] text-accent-sky ring-[color-mix(in_oklch,var(--accent-sky)_25%,transparent)]',
   },
   ANSWERED: {
     label: 'Answered',
     className:
-      'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
+      'bg-[color-mix(in_oklch,var(--accent-sage)_14%,transparent)] text-accent-sage ring-[color-mix(in_oklch,var(--accent-sage)_25%,transparent)]',
   },
   CLOSED: {
     label: 'Closed',
-    className: 'bg-zinc-500/10 text-zinc-700 ring-zinc-500/20 dark:text-zinc-300',
+    className: 'bg-muted text-ink-3 ring-border',
   },
   ARCHIVED: {
     label: 'Archived',
-    className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
+    className:
+      'bg-[color-mix(in_oklch,var(--accent-amber)_14%,transparent)] text-accent-amber ring-[color-mix(in_oklch,var(--accent-amber)_25%,transparent)]',
   },
 }
 
+/**
+ * QuestionFeedCard — editorial Q&A row.
+ * Vertical stat rail on the left (answers count + optional limit),
+ * Fraunces title and prose, dashed-rule footer with status pills.
+ */
 export function QuestionFeedCard({ question }) {
   const author = {
     id: question.authorId,
@@ -51,86 +58,58 @@ export function QuestionFeedCard({ question }) {
     <Link
       to={`/questions/${question.id}`}
       className={cn(
-        'group/card relative isolate block overflow-hidden rounded-3xl border border-border bg-card p-5 transition-all',
-        'hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-[0_22px_60px_-30px_oklch(0_0_0/0.18)]',
+        'group/card relative isolate block overflow-hidden rounded-2xl border border-border bg-paper',
+        'p-4 transition-colors hover:border-brand/25 sm:p-[18px]',
       )}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.03]"
-        style={{
-          backgroundImage:
-            'radial-gradient(circle at 1px 1px, oklch(0 0 0) 1px, transparent 0)',
-          backgroundSize: '18px 18px',
-        }}
-      />
-
       <div className="flex gap-4">
-        {/* Stats column */}
-        <div className="hidden shrink-0 flex-col items-stretch gap-1.5 sm:flex">
-          <div
-            className={cn(
-              'grid w-16 place-items-center rounded-xl border border-border px-2 py-2 text-center',
-              isAnswered && 'border-emerald-500/30 bg-emerald-500/5',
-            )}
-          >
-            <span className="font-mono text-xl font-semibold tabular-nums">
-              {formatNumber(answers)}
-            </span>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {answers === 1 ? 'answer' : 'answers'}
-            </span>
-          </div>
+        {/* Stat rail */}
+        <div className="hidden shrink-0 flex-col items-end gap-2 border-r border-border/70 pr-4 text-right sm:flex">
+          <Stat
+            value={formatNumber(answers)}
+            label={answers === 1 ? 'answer' : 'answers'}
+            tone={isAnswered ? 'gold' : 'brand'}
+          />
           {question.maxAnswers != null ? (
-            <div className="grid w-16 place-items-center rounded-xl border border-dashed border-border px-2 py-1.5 text-center">
-              <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                limit {question.maxAnswers}
-              </span>
-            </div>
+            <Stat
+              value={formatNumber(question.maxAnswers)}
+              label="limit"
+              tone="muted"
+            />
           ) : null}
         </div>
 
         {/* Body */}
-        <div className="min-w-0 flex-1 space-y-2">
+        <div className="min-w-0 flex-1">
+          {/* Title */}
+          <h3 className="font-display text-[18px] font-semibold leading-[1.3] tracking-[-0.012em] text-ink text-balance">
+            <span className="group-hover/card:text-brand">{question.title}</span>
+          </h3>
+
+          {/* Excerpt */}
+          {question.body ? (
+            <p className="mt-1.5 line-clamp-2 text-[13.5px] leading-[1.55] text-ink-3">
+              {question.body}
+            </p>
+          ) : null}
+
           {/* Author row */}
-          <div className="flex items-center gap-2.5">
-            <UserAvatar user={author} className="size-8" />
-            <div className="min-w-0 flex-1 leading-tight">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="truncate text-[13px] font-semibold">
-                  {getFullName(author) || `@${author.username}`}
-                </span>
-                {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                asked {displayTime(question)}
-              </p>
-            </div>
-
-            {/* Type pill */}
-            <span className="inline-flex items-center gap-1 rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground">
-              <MessageCircleQuestion className="size-3" />
-              Question
+          <div className="mt-3 flex items-center gap-2.5 text-[12px] text-ink-3">
+            <UserAvatar user={author} className="size-7" />
+            <span className="min-w-0 truncate">
+              <span className="font-semibold text-ink-2">
+                {getFullName(author) || `@${author.username}`}
+              </span>{' '}
+              <span className="text-ink-3">asked {displayTime(question)}</span>
             </span>
+            {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
           </div>
 
-          {/* Title + body preview */}
-          <div className="space-y-1">
-            <h3 className="line-clamp-2 text-[17px] font-semibold leading-snug tracking-[-0.005em] text-foreground group-hover/card:underline">
-              {question.title}
-            </h3>
-            {question.body ? (
-              <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
-                {question.body}
-              </p>
-            ) : null}
-          </div>
-
-          {/* Footer row */}
-          <div className="flex flex-wrap items-center gap-2 pt-2 text-xs text-muted-foreground">
+          {/* Footer */}
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-border pt-2.5 text-xs text-ink-3">
             <span
               className={cn(
-                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1',
+                'inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] ring-1',
                 status.className,
               )}
             >
@@ -138,17 +117,22 @@ export function QuestionFeedCard({ question }) {
               {status.label}
             </span>
 
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+              <MessageCircleQuestion className="size-3" />
+              Question
+            </span>
+
             {question.answersLocked ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-3">
                 <Lock className="size-3" />
                 Locked
               </span>
             ) : null}
 
             {limitReached ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+              <span className="inline-flex items-center gap-1 rounded-md bg-[color-mix(in_oklch,var(--accent-amber)_14%,transparent)] px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-accent-amber">
                 <Hash className="size-3" />
-                Limit reached
+                Limit
               </span>
             ) : null}
 
@@ -156,7 +140,7 @@ export function QuestionFeedCard({ question }) {
               {formatNumber(answers)} {answers === 1 ? 'answer' : 'answers'}
             </span>
 
-            <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-foreground transition-all group-hover/card:gap-2">
+            <span className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand transition-all group-hover/card:gap-2">
               {isAnswered ? (
                 <>
                   <Sparkles className="size-3.5" />
@@ -171,5 +155,29 @@ export function QuestionFeedCard({ question }) {
         </div>
       </div>
     </Link>
+  )
+}
+
+function Stat({ value, label, tone = 'default' }) {
+  const toneClasses = {
+    default: 'text-ink',
+    brand:   'text-brand',
+    gold:    'text-gold-2',
+    muted:   'text-ink-3',
+  }
+  return (
+    <div>
+      <div
+        className={cn(
+          'font-display text-[19px] font-semibold leading-none tracking-[-0.01em] tabular-nums',
+          toneClasses[tone],
+        )}
+      >
+        {value ?? 0}
+      </div>
+      <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-3">
+        {label}
+      </div>
+    </div>
   )
 }

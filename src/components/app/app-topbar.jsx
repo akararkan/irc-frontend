@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, Menu, Search } from 'lucide-react'
+import { Bell, Menu, Search, Sliders } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { BrandWordmark } from '@/components/app/brand-mark'
+import { TweaksMenu } from '@/components/app/tweaks-menu'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { useAuth } from '@/features/auth/auth-context'
 import { useNotifications } from '@/features/notifications/notifications-context'
@@ -106,7 +107,7 @@ function SearchBar() {
 
   return (
     <form ref={containerRef} onSubmit={handleSubmit} className="relative w-full max-w-md">
-      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Search className="pointer-events-none absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-ink-4" />
       <Input
         ref={inputRef}
         type="search"
@@ -116,12 +117,15 @@ function SearchBar() {
           setIsOpen(true)
         }}
         onFocus={() => setIsOpen(true)}
-        placeholder="Search people, research, posts…"
-        className="h-10 rounded-full border-border/70 bg-muted/50 pl-9 pr-16 text-[13.5px] transition-colors focus-visible:bg-background"
+        placeholder="Search papers, threads, scholars…"
+        className={cn(
+          'h-10 rounded-lg border border-border bg-paper pl-9 pr-16 text-[13px] text-ink placeholder:text-ink-4',
+          'transition focus:border-brand/50 focus-visible:bg-paper focus-visible:ring-[3px] focus-visible:ring-brand/15',
+        )}
         aria-label="Search"
       />
       <kbd
-        className="pointer-events-none absolute right-3 top-1/2 inline-flex h-5 -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-background/70 px-1.5 font-mono text-[10px] font-medium text-muted-foreground"
+        className="pointer-events-none absolute right-2 top-1/2 inline-flex h-5 -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-ink-3"
         aria-hidden
       >
         {isMac ? '⌘' : 'Ctrl'}K
@@ -129,9 +133,9 @@ function SearchBar() {
       {isOpen && query.trim().length >= 2 ? (
         <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-border bg-popover/95 shadow-soft-lg backdrop-blur">
           {isLoading ? (
-            <p className="px-4 py-3 text-sm text-muted-foreground">Searching…</p>
+            <p className="px-4 py-3 text-sm text-ink-3">Searching…</p>
           ) : results.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-muted-foreground">No people found.</p>
+            <p className="px-4 py-3 text-sm text-ink-3">No people found.</p>
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1.5">
               {results.map((user) => (
@@ -143,8 +147,8 @@ function SearchBar() {
                   >
                     <UserAvatar user={user} className="size-8" />
                     <div className="min-w-0">
-                      <p className="truncate font-medium">{getFullName(user)}</p>
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className="truncate font-medium text-ink">{getFullName(user)}</p>
+                      <p className="truncate text-xs text-ink-3">
                         @{user.username}
                       </p>
                     </div>
@@ -282,7 +286,7 @@ export function AppTopbar({ onMenuClick, title, className }) {
       </Link>
 
       {title ? (
-        <h1 className="font-display truncate text-lg leading-none text-foreground md:text-xl">
+        <h1 className="font-display truncate text-[18px] font-semibold leading-none tracking-[-0.012em] text-ink md:text-[20px]">
           {title}
         </h1>
       ) : null}
@@ -295,6 +299,18 @@ export function AppTopbar({ onMenuClick, title, className }) {
         {isAuthenticated ? (
           <>
             <NotificationBellButton />
+            <TweaksMenu
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-ink-2 hover:bg-accent hover:text-ink"
+                  title="Tweaks · theme, accent, font"
+                >
+                  <Sliders className="size-[17px]" strokeWidth={1.75} />
+                </Button>
+              }
+            />
             <AccountMenu />
           </>
         ) : (
