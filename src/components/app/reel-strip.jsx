@@ -113,7 +113,7 @@ function ReelThumb({ post, index }) {
   )
 }
 
-export function ReelStrip() {
+export function ReelStrip({ onCreateReel }) {
   const { isAuthenticated } = useAuth()
   const [reels, setReels] = useState([])
   const [loading, setLoading] = useState(true)
@@ -166,8 +166,9 @@ export function ReelStrip() {
             transition={{ type: 'spring', stiffness: 340, damping: 26 }}
             className="shrink-0"
           >
-            <Link
-              to="/reels"
+            <button
+              type="button"
+              onClick={() => onCreateReel?.()}
               className={cn(
                 'group flex h-52 w-36 flex-col items-center justify-center gap-2.5 rounded-2xl border border-dashed border-border bg-paper p-3 text-center',
                 'transition-colors hover:border-brand/40 hover:bg-brand-soft/40',
@@ -178,7 +179,7 @@ export function ReelStrip() {
               </span>
               <span className="font-display text-[13px] font-semibold tracking-[-0.005em]">Create reel</span>
               <span className="text-[11px] text-ink-3">Short video</span>
-            </Link>
+            </button>
           </motion.div>
         ) : null}
 

@@ -1,4 +1,5 @@
 import { api } from '@/api/client'
+import { API_URL } from '@/config/env'
 
 // ══════════════════════════════════════════════════════════════
 //  POSTS  —  /api/v1/posts
@@ -13,6 +14,25 @@ export async function getFeed({ page = 0, size = 20 } = {}) {
 
 export async function getFollowingFeed({ page = 0, size = 20 } = {}) {
   const response = await api.get('/api/v1/posts/feed/following', { params: { page, size } })
+  return response.data
+}
+
+/**
+ * Cursor-paginated public feed. Preferred for infinite scroll — performance
+ * stays flat as the user scrolls (offset pagination degrades past page ~50).
+ *
+ * - First request: omit `cursor`.
+ * - Subsequent requests: pass the `nextCursor` returned by the previous call.
+ * - Treat the cursor as opaque (it's an ISO-8601 datetime today, but don't
+ *   manipulate it).
+ * - Server caps `limit` at 50.
+ *
+ * Response: { items: PostResponse[], nextCursor: string|null, hasMore: boolean }
+ */
+export async function getFeedCursor({ cursor, limit = 20 } = {}) {
+  const params = { limit }
+  if (cursor) params.cursor = cursor
+  const response = await api.get('/api/v1/posts/feed/cursor', { params })
   return response.data
 }
 
@@ -124,6 +144,27 @@ export async function sharePost(postId, caption) {
   return repostPost(postId, caption)
 }
 
+// ── Copy-link (counter-aware short link) ───────────────────────
+//
+// `getShareLink` previews the URL without bumping the counter — useful
+// for in-app preview surfaces. `copyShareLink` is the action: an
+// atomic increment of `shareCount`, broadcast on the post stream so
+// every viewer sees the count tick, and returns the short token URL
+// the caller should put on the clipboard.
+//
+// Both endpoints follow the canonical original even when called on a
+// repost — the share is attributed to the original author's counter.
+
+export async function getPostShareLink(postId) {
+  const response = await api.get(`/api/v1/posts/${postId}/share-link`)
+  return response.data
+}
+
+export async function copyPostShareLink(postId) {
+  const response = await api.post(`/api/v1/posts/${postId}/copy-link`)
+  return response.data
+}
+
 // ══════════════════════════════════════════════════════════════
 //  COMMENTS  —  /api/v1/posts/{postId}/comments
 // ══════════════════════════════════════════════════════════════
@@ -189,4 +230,19 @@ export async function reactToComment(postId, commentId, reactionType) {
 
 export async function removeCommentReaction(postId, commentId) {
   await api.delete(`/api/v1/posts/${postId}/comments/${commentId}/react`)
+}
+
+// ══════════════════════════════════════════════════════════════
+//  REALTIME  —  /api/v1/posts/{postId}/stream  (SSE)
+// ══════════════════════════════════════════════════════════════
+//
+// EventSource cannot send Authorization headers, so the access token
+// is appended as a query parameter and validated by the backend.
+// The stream emits PostRealtimeEventType events (POST_UPDATED,
+// POST_DELETED, POST_REACTED, POST_COMMENTED, POST_SHARED, …) plus
+// the standard `connected` / `heartbeat` envelope events.
+export function postStreamUrl(postId, token) {
+  const url = new URL(`/api/v1/posts/${postId}/stream`, API_URL)
+  if (token) url.searchParams.set('token', token)
+  return url.toString()
 }

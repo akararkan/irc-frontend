@@ -1,4 +1,5 @@
 import { api } from '@/api/client'
+import { API_URL } from '@/config/env'
 
 // ── Create / Update / Lifecycle ─────────────────────────────────
 
@@ -267,4 +268,20 @@ export async function requestResearchDownload(id, mediaId) {
     params: mediaId ? { mediaId } : undefined,
   })
   return response.data
+}
+
+// ══════════════════════════════════════════════════════════════
+//  REALTIME  —  /api/v1/researches/{id}/stream  (SSE)
+// ══════════════════════════════════════════════════════════════
+//
+// Mirrors the post + question streams. Emits ResearchRealtimeEventType:
+// REACTION_ADDED/CHANGED/REMOVED, COMMENT_CREATED/DELETED, REPLY_CREATED,
+// VIEW_COUNT_UPDATED, DOWNLOAD_COUNT_UPDATED, SAVE_COUNT_UPDATED,
+// SHARE_COUNT_UPDATED, CITATION_COUNT_UPDATED, RESEARCH_UPDATED,
+// RESEARCH_DELETED, RESEARCH_PUBLISHED, plus the standard
+// `connected` / `heartbeat` envelope events.
+export function researchStreamUrl(researchId, token) {
+  const url = new URL(`/api/v1/researches/${researchId}/stream`, API_URL)
+  if (token) url.searchParams.set('token', token)
+  return url.toString()
 }

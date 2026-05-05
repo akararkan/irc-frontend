@@ -78,7 +78,14 @@ export function EditPostDialog({ post, open, onOpenChange, onUpdated }) {
       onUpdated?.(updated)
       onOpenChange?.(false)
     } catch (error) {
-      toast.error(extractApiMessage(error, 'Could not update post.'))
+      // Backend uses optimistic locking via @Version on Post — a concurrent
+      // edit comes back as HTTP 409. Surface it as a refresh prompt rather
+      // than a generic error.
+      if (error?.response?.status === 409) {
+        toast.error('This post was edited elsewhere — please refresh and try again.')
+      } else {
+        toast.error(extractApiMessage(error, 'Could not update post.'))
+      }
     } finally {
       setSubmitting(false)
     }

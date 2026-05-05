@@ -27,6 +27,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { MentionTextarea } from '@/components/app/mention-textarea'
 import {
   createResearch,
   uploadResearchCover,
@@ -333,25 +334,27 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
 
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="research-description">Short description *</Label>
-              <Textarea
+              <MentionTextarea
                 id="research-description"
                 value={description}
-                onChange={(event) => setDescription(event.target.value)}
+                onChange={setDescription}
                 rows={2}
                 placeholder="One paragraph overview shown in feed cards."
+                allowFollowersToken
                 required
               />
             </div>
 
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="research-abstract">Abstract *</Label>
-              <Textarea
+              <MentionTextarea
                 id="research-abstract"
                 value={abstractText}
-                onChange={(event) => setAbstractText(event.target.value)}
+                onChange={setAbstractText}
                 rows={5}
                 maxLength={5000}
                 placeholder="Full abstract of your work (max 5000 chars)."
+                allowFollowersToken
                 required
               />
             </div>

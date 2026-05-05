@@ -189,7 +189,7 @@ function CompanionRow({ person, index, muted = false }) {
             {person.role ? <RoleBadge role={person.role} size="xs" /> : null}
           </div>
           <p className="truncate text-[11px] text-muted-foreground">
-            @{username}
+            {username}
           </p>
         </div>
         {muted ? (

@@ -29,6 +29,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { AudioPlayer } from '@/components/app/audio-player'
+import { MentionTextarea } from '@/components/app/mention-textarea'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { useAuth } from '@/features/auth/auth-context'
 import { createPost, createPostWithFiles } from '@/features/posts/posts.api'
@@ -84,6 +85,53 @@ const POST_TYPES = [
 ]
 
 // ─── Helpers ────────────────────────────────────────────────────────
+// Reels are short-form video — capped at 1:30 to keep the format snappy.
+const MAX_REEL_DURATION_SECONDS = 90
+
+/**
+ * Read the duration of a video file by loading metadata only. Resolves with
+ * the duration in seconds, or `null` if the browser can't decode it (in
+ * which case we let the upload proceed and trust server-side validation).
+ */
+function probeVideoDuration(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    video.muted = true
+    video.playsInline = true
+
+    function cleanup() {
+      try {
+        video.removeAttribute('src')
+        video.load()
+      } catch {
+        /* element may already be detached */
+      }
+      URL.revokeObjectURL(url)
+    }
+
+    video.addEventListener(
+      'loadedmetadata',
+      () => {
+        const duration = Number.isFinite(video.duration) ? video.duration : null
+        cleanup()
+        resolve(duration)
+      },
+      { once: true },
+    )
+    video.addEventListener(
+      'error',
+      () => {
+        cleanup()
+        resolve(null)
+      },
+      { once: true },
+    )
+    video.src = url
+  })
+}
+
 function fileIsVideo(file) {
   return file.type.startsWith('video/')
 }
@@ -501,7 +549,14 @@ function ReelPreview({ file, onClear }) {
         {duration ? (
           <>
             <span aria-hidden>·</span>
-            <span className="tabular-nums">{formatRecorderTime(duration)}</span>
+            <span
+              className={cn(
+                'tabular-nums',
+                duration > MAX_REEL_DURATION_SECONDS && 'font-semibold text-accent-rust',
+              )}
+            >
+              {formatRecorderTime(duration)} / 1:30
+            </span>
           </>
         ) : null}
         {width && height ? (
@@ -718,11 +773,11 @@ function VoiceRecorder({ value, previewUrl, onCapture, onClear, onError }) {
 }
 
 // ─── PostComposer ───────────────────────────────────────────────────
-export function PostComposer({ onPosted, bare = false }) {
+export function PostComposer({ onPosted, bare = false, initialType = 'TEXT' }) {
   const { user } = useAuth()
   const toast = useToast()
 
-  const [postType, setPostType] = useState('TEXT')
+  const [postType, setPostType] = useState(initialType)
   const [text, setText] = useState('')
   const [visibility, setVisibility] = useState('PUBLIC')
   const [files, setFiles] = useState([])
@@ -787,11 +842,19 @@ export function PostComposer({ onPosted, bare = false }) {
     })
   }
 
-  function handleReelFile(picked) {
+  async function handleReelFile(picked) {
     const file = picked[0]
     if (!file) return
     if (!fileIsVideo(file)) {
       toast.info('Reels need a video file.')
+      return
+    }
+    const duration = await probeVideoDuration(file)
+    if (duration != null && duration > MAX_REEL_DURATION_SECONDS) {
+      toast.error(
+        `Reels must be 1:30 or shorter — this clip is ${formatRecorderTime(duration)}. ` +
+          `Trim it and try again.`,
+      )
       return
     }
     setReelFile(file)
@@ -920,11 +983,12 @@ export function PostComposer({ onPosted, bare = false }) {
             'focus-within:border-brand/40 focus-within:ring-[4px] focus-within:ring-brand/10',
           )}
         >
-          <Textarea
+          <MentionTextarea
             value={text}
-            onChange={(event) => setText(event.target.value.slice(0, MAX_TEXT))}
+            onChange={(next) => setText(next.slice(0, MAX_TEXT))}
             placeholder={activeType.placeholder}
             rows={postType === 'TEXT' ? 3 : 2}
+            allowFollowersToken
             className={cn(
               'resize-none border-0 bg-transparent p-0 text-ink shadow-none placeholder:text-ink-4 focus-visible:ring-0 focus-visible:ring-offset-0',
               postType === 'TEXT'
@@ -988,7 +1052,7 @@ export function PostComposer({ onPosted, bare = false }) {
                   onFiles={handleReelFile}
                   accept="video/*"
                   multiple={false}
-                  hint="Vertical video looks best · 9:16"
+                  hint="Vertical 9:16 · 1:30 max"
                 >
                   <span className="grid size-11 place-items-center rounded-full bg-[color-mix(in_oklch,var(--accent-rust)_14%,transparent)] text-accent-rust">
                     <Clapperboard className="size-[15px]" />
@@ -997,7 +1061,7 @@ export function PostComposer({ onPosted, bare = false }) {
                     Drop a video, or click to browse
                   </p>
                   <p className="text-[11.5px] text-ink-3">
-                    Vertical video works best · 9:16
+                    Vertical works best · 9:16 · max 1:30
                   </p>
                 </DropZone>
               )

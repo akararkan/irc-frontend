@@ -1,21 +1,33 @@
 import { useEffect, useRef, useState } from 'react'
-import { CornerDownLeft, Loader2, X } from 'lucide-react'
+import {
+  CornerDownLeft,
+  Image as ImageIcon,
+  Loader2,
+  X,
+} from 'lucide-react'
 
 import { Textarea } from '@/components/ui/textarea'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { useAuth } from '@/features/auth/auth-context'
-import { createAnswer } from '@/features/qna/qna.api'
+import {
+  createAnswer,
+  createReanswerWithMedia,
+} from '@/features/qna/qna.api'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
-import { extractApiMessage } from '@/lib/api-error'
+import { friendlyApiMessage } from '@/lib/api-error'
 
 const REANSWER_MAX = 4000
 
 /**
- * Lightweight inline composer for a reanswer (reply to a top-level answer).
- * Intentionally text-only: scholars who need attachments or sources should
- * post a top-level answer instead. The compact UX keeps the discussion
- * thread fast to skim.
+ * Inline composer for a reanswer (reply to a top-level answer).
+ *
+ * Mirrors the post-comment composer 1:1: textarea + a single
+ * image/video pick. Heavier extras (sources, document attachments,
+ * accept-as-best, feedback) live on the top-level AnswerComposer only.
+ *
+ * If the user attaches a file, the multipart `/reanswers/upload`
+ * endpoint is used; otherwise the JSON `/answers` endpoint is.
  */
 export function ReanswerComposer({
   questionId,
@@ -27,35 +39,65 @@ export function ReanswerComposer({
   const { user, isAuthenticated } = useAuth()
   const toast = useToast()
   const textareaRef = useRef(null)
-  const [body, setBody] = useState('')
+
+  // Prefill the parent author's @username so the backend's MentionService
+  // notifies them — same affordance as a comment reply box. Skipped when
+  // the scholar is reanswering their own answer (don't ping yourself).
+  const parentUsername = parentAuthor?.username ?? null
+  const isSelfReply =
+    Boolean(parentUsername) &&
+    Boolean(user?.username) &&
+    user.username.toLowerCase() === parentUsername.toLowerCase()
+  const initialBody =
+    parentUsername && !isSelfReply ? `@${parentUsername} ` : ''
+
+  const [body, setBody] = useState(initialBody)
+  const [media, setMedia] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    textareaRef.current?.focus()
+    const el = textareaRef.current
+    if (!el) return
+    el.focus()
+    if (initialBody) {
+      const end = initialBody.length
+      try {
+        el.setSelectionRange(end, end)
+      } catch {
+        // Non-fatal — some inputs disallow setSelectionRange.
+      }
+    }
+    // initialBody is stable for the composer's lifetime; run-once focus.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (!isAuthenticated) return null
 
   const trimmed = body.trim()
   const charactersLeft = REANSWER_MAX - body.length
+  const canSubmit = (trimmed.length > 0 || Boolean(media)) && !submitting
   const placeholder = parentAuthor
-    ? `Reanswer @${parentAuthor.username ?? 'scholar'}…`
+    ? `Reanswer ${parentAuthor.username ?? 'scholar'}…`
     : 'Add a reanswer…'
 
   async function handleSubmit(event) {
     event.preventDefault()
-    if (!trimmed || submitting) return
+    if (!canSubmit) return
     setSubmitting(true)
     try {
-      const created = await createAnswer(questionId, {
-        body: trimmed,
-        parentAnswerId,
-      })
+      const data = { body: trimmed, parentAnswerId }
+      const created = media
+        ? await createReanswerWithMedia(questionId, parentAnswerId, {
+            data,
+            media,
+          })
+        : await createAnswer(questionId, data)
       onCreated?.(created)
       setBody('')
+      setMedia(null)
       toast.success('Reanswer posted.')
     } catch (error) {
-      toast.error(extractApiMessage(error, 'Could not post reanswer.'))
+      toast.error(friendlyApiMessage(error, 'Could not post reanswer.'))
     } finally {
       setSubmitting(false)
     }
@@ -95,10 +137,47 @@ export function ReanswerComposer({
           ) : null}
         </div>
 
+        {media ? (
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-xs">
+            <ImageIcon className="size-3.5 text-muted-foreground" />
+            <span className="truncate">{media.name}</span>
+            <button
+              type="button"
+              onClick={() => setMedia(null)}
+              className="ml-auto text-muted-foreground hover:text-foreground"
+              aria-label="Remove attachment"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        ) : null}
+
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[10.5px] text-muted-foreground">
-            ⌘/Ctrl + Enter to post
-          </span>
+          <div className="flex items-center gap-1.5">
+            <label
+              className={cn(
+                'inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-1 text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+                media && 'bg-muted text-foreground',
+              )}
+              title="Attach image or video"
+            >
+              <ImageIcon className="size-3.5" />
+              <span>Photo / Video</span>
+              <input
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={(event) => {
+                  const picked = event.target.files?.[0]
+                  if (picked) setMedia(picked)
+                  event.target.value = ''
+                }}
+              />
+            </label>
+            <span className="text-[10.5px] text-muted-foreground">
+              ⌘/Ctrl + Enter to post
+            </span>
+          </div>
           <div className="flex items-center gap-1.5">
             {onCancel ? (
               <button
@@ -112,7 +191,7 @@ export function ReanswerComposer({
             ) : null}
             <button
               type="submit"
-              disabled={!trimmed || submitting}
+              disabled={!canSubmit}
               className="inline-flex h-7 items-center gap-1 rounded-full bg-foreground px-3 text-[11.5px] font-semibold text-background transition-colors hover:bg-foreground/85 disabled:opacity-50"
             >
               {submitting ? (

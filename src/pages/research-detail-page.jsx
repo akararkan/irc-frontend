@@ -48,6 +48,8 @@ import {
 import { AudioPlayer } from '@/components/app/audio-player'
 import { EditResearchDialog } from '@/components/app/edit-research-dialog'
 import { EmptyState } from '@/components/app/empty-state'
+import { MentionText } from '@/components/app/mention-text'
+import { MentionTextarea } from '@/components/app/mention-textarea'
 import { ReactionPicker } from '@/components/app/reaction-picker'
 import { ReactionSummary } from '@/components/app/reaction-summary'
 import { RoleBadge } from '@/components/app/role-badge'
@@ -71,16 +73,17 @@ import {
   unpublishResearch,
   unsaveResearch,
 } from '@/features/research/research.api'
+import { useResearchStream } from '@/hooks/use-research-stream'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
 import {
-  displayTime,
   formatNumber,
   getFullName,
   resolveMediaUrl,
 } from '@/lib/format'
+import { RelativeTime } from '@/components/app/relative-time'
 const VISIBILITY_META = {
   PUBLIC: { label: 'Public', icon: Globe, hint: 'Anyone can read' },
   FOLLOWERS_ONLY: { label: 'Followers', icon: Users, hint: 'Only your followers' },
@@ -273,7 +276,7 @@ function EditorialHero({ research, status, visibility, scheduledDate, readingMin
           {research.publishedAt ? (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <Calendar className="size-3" />
-              {displayTime(research)}
+              <RelativeTime entity={research} />
             </span>
           ) : scheduledDate ? (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -419,7 +422,7 @@ function AuthorCard({ research }) {
               {getFullName(author) || author.username}
             </Link>
             <p className="truncate text-xs text-muted-foreground">
-              @{author.username}
+              {author.username}
             </p>
           </div>
           <RoleBadge role="RESEARCHER" size="xs" className="ml-auto shrink-0" />
@@ -880,11 +883,11 @@ function ResearchComment({ comment }) {
             {comment.userFullName ?? author.username}
           </Link>
           <p className="mt-0.5 whitespace-pre-wrap text-[14px] leading-[1.45]">
-            {comment.content}
+            <MentionText text={comment.content} />
           </p>
         </div>
         <p className="mt-1 pl-3 text-[11px] text-muted-foreground">
-          {displayTime(comment)}
+          <RelativeTime entity={comment} />
           {comment.isEdited ? ' · (edited)' : ''}
         </p>
       </div>
@@ -1031,6 +1034,197 @@ export function ResearchDetailPage() {
       cancelled = true
     }
   }, [research?.id])
+
+  // ── Realtime ─────────────────────────────────────────────────
+  // Subscribe to /api/v1/researches/{id}/stream so every counter and
+  // every comment / reply / deletion lands live without a refetch.
+  // Backend uses atomic clamp-at-zero UPDATEs for every counter, so
+  // the values arriving here are authoritative — we trust them over
+  // any optimistic local +1 / -1.
+  useResearchStream(
+    research?.id,
+    {
+      RESEARCH_UPDATED: (payload) => {
+        if (!payload?.id) return
+        setResearch((current) =>
+          current ? { ...current, ...payload, myReaction: current.myReaction } : current,
+        )
+      },
+      RESEARCH_PUBLISHED: (payload) => {
+        if (!payload?.id) return
+        setResearch((current) =>
+          current ? { ...current, ...payload, status: 'PUBLISHED' } : current,
+        )
+      },
+      RESEARCH_DELETED: () => {
+        toast.info('This research was removed by its author.')
+        navigate('/research', { replace: true })
+      },
+      REACTION_ADDED: (payload) => {
+        if (!payload) return
+        setResearch((current) =>
+          current
+            ? {
+                ...current,
+                reactionCount: payload.reactionCount ?? current.reactionCount,
+                topReactionTypes:
+                  payload.topReactionTypes ?? current.topReactionTypes,
+              }
+            : current,
+        )
+      },
+      REACTION_CHANGED: (payload) => {
+        if (!payload) return
+        setResearch((current) =>
+          current
+            ? {
+                ...current,
+                reactionCount: payload.reactionCount ?? current.reactionCount,
+                topReactionTypes:
+                  payload.topReactionTypes ?? current.topReactionTypes,
+              }
+            : current,
+        )
+      },
+      REACTION_REMOVED: (payload) => {
+        if (!payload) return
+        setResearch((current) =>
+          current
+            ? {
+                ...current,
+                reactionCount: payload.reactionCount ?? current.reactionCount,
+                topReactionTypes:
+                  payload.topReactionTypes ?? current.topReactionTypes,
+              }
+            : current,
+        )
+      },
+      COMMENT_CREATED: (payload) => {
+        if (!payload) return
+        const comment = payload.comment ?? payload
+        setResearch((current) =>
+          current
+            ? {
+                ...current,
+                commentCount:
+                  payload.commentCount ?? (current.commentCount ?? 0) + 1,
+              }
+            : current,
+        )
+        if (!comment?.id) return
+        setComments((list) =>
+          list.some((item) => item.id === comment.id)
+            ? list.map((item) =>
+                item.id === comment.id ? { ...item, ...comment } : item,
+              )
+            : [comment, ...list],
+        )
+      },
+      COMMENT_DELETED: (payload) => {
+        if (!payload) return
+        const id = payload.commentId ?? payload.id
+        setResearch((current) =>
+          current
+            ? {
+                ...current,
+                commentCount:
+                  payload.commentCount ??
+                  Math.max(0, (current.commentCount ?? 0) - 1),
+              }
+            : current,
+        )
+        if (!id) return
+        setComments((list) => list.filter((item) => item.id !== id))
+      },
+      REPLY_CREATED: (payload) => {
+        if (!payload) return
+        const parentId = payload.parentCommentId ?? payload.parentId
+        const reply = payload.reply ?? payload.comment
+        // Bump the parent's replyCount; render falls through to the
+        // existing comment thread which lazy-loads replies on expand.
+        if (parentId) {
+          setComments((list) =>
+            list.map((item) =>
+              item.id === parentId
+                ? {
+                    ...item,
+                    replyCount:
+                      payload.commentReplyCount ??
+                      payload.parentReplyCount ??
+                      (item.replyCount ?? 0) + 1,
+                  }
+                : item,
+            ),
+          )
+        }
+        // The thread itself stays as-is — viewers expanding the parent
+        // will see the new reply on their next replies-page fetch.
+        if (reply?.id && parentId) {
+          setComments((list) =>
+            list.map((item) => {
+              if (item.id !== parentId) return item
+              const existing = Array.isArray(item.replies) ? item.replies : null
+              if (!existing) return item
+              if (existing.some((r) => r.id === reply.id)) return item
+              return { ...item, replies: [...existing, reply] }
+            }),
+          )
+        }
+      },
+      VIEW_COUNT_UPDATED: (payload) => {
+        if (payload?.viewCount == null) return
+        setResearch((current) =>
+          current ? { ...current, viewCount: payload.viewCount } : current,
+        )
+      },
+      DOWNLOAD_COUNT_UPDATED: (payload) => {
+        if (payload?.downloadCount == null) return
+        setResearch((current) =>
+          current
+            ? { ...current, downloadCount: payload.downloadCount }
+            : current,
+        )
+      },
+      SAVE_COUNT_UPDATED: (payload) => {
+        if (payload?.saveCount == null) return
+        setResearch((current) =>
+          current ? { ...current, saveCount: payload.saveCount } : current,
+        )
+      },
+      SHARE_COUNT_UPDATED: (payload) => {
+        if (payload?.shareCount == null) return
+        setResearch((current) =>
+          current ? { ...current, shareCount: payload.shareCount } : current,
+        )
+      },
+      CITATION_COUNT_UPDATED: (payload) => {
+        if (payload?.citationCount == null) return
+        setResearch((current) =>
+          current
+            ? { ...current, citationCount: payload.citationCount }
+            : current,
+        )
+      },
+    },
+    {
+      // Catch-up after a reconnect: re-fetch the root entity so any
+      // counter we missed during the outage lands authoritatively.
+      onReconnect: () => {
+        if (!research?.id) return
+        getResearch(research.id)
+          .then((data) => {
+            if (data) {
+              setResearch((current) =>
+                current
+                  ? { ...current, ...data, myReaction: current.myReaction }
+                  : data,
+              )
+            }
+          })
+          .catch(() => {})
+      },
+    },
+  )
 
   async function handlePickReaction(type) {
     if (!isAuthenticated) {
@@ -1392,7 +1586,7 @@ export function ResearchDetailPage() {
               <SectionHeading icon={FileText} title="Abstract" />
               <div className="rounded-2xl border border-border bg-muted/30 p-5">
                 <p className="whitespace-pre-wrap font-serif text-[15px] leading-[1.7] text-foreground">
-                  {research.abstractText}
+                  <MentionText text={research.abstractText} />
                 </p>
               </div>
             </section>
@@ -1409,7 +1603,7 @@ export function ResearchDetailPage() {
                   </span>
                 ) : null}
                 <p className="whitespace-pre-wrap break-words">
-                  {descriptionRest}
+                  <MentionText text={descriptionRest} />
                 </p>
               </div>
             </section>
@@ -1484,11 +1678,12 @@ export function ResearchDetailPage() {
                 onSubmit={handleSubmitComment}
                 className="flex items-end gap-2 rounded-2xl border border-border bg-card px-2 py-2"
               >
-                <Textarea
+                <MentionTextarea
                   value={commentText}
-                  onChange={(event) => setCommentText(event.target.value)}
+                  onChange={setCommentText}
                   placeholder="Share your thoughts on this research…"
                   rows={2}
+                  wrapperClassName="flex-1"
                   className="min-h-9 resize-none rounded-xl border-0 bg-transparent px-3 py-2 text-sm shadow-none focus-visible:ring-0"
                 />
                 <Button

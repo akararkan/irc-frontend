@@ -22,8 +22,8 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
+import { RelativeTime } from '@/components/app/relative-time'
 import {
-  formatRelativeTime,
   getFullName,
   getUsername,
   resolveMediaUrl,
@@ -149,9 +149,10 @@ function ActivityRow({ item, onDelete }) {
             </>
           ) : null}
           <span className="text-muted-foreground">·</span>
-          <span className="text-[11.5px] text-muted-foreground">
-            {formatRelativeTime(item.createdAt)}
-          </span>
+          <RelativeTime
+            value={item.createdAt}
+            className="text-[11.5px] text-muted-foreground"
+          />
         </div>
 
         {preview ? (

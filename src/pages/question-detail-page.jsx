@@ -40,7 +40,9 @@ import { AnswerComposer } from '@/components/app/answer-composer'
 import { AnswerFeedbackPanel } from '@/components/app/answer-feedback-panel'
 import { AnswerSources } from '@/components/app/answer-sources'
 import { AudioPlayer } from '@/components/app/audio-player'
+import { MentionText } from '@/components/app/mention-text'
 import { EditAnswerDialog } from '@/components/app/edit-answer-dialog'
+import { ReactionPicker } from '@/components/app/reaction-picker'
 import { ReanswerComposer } from '@/components/app/reanswer-composer'
 import { EditQuestionDialog } from '@/components/app/edit-question-dialog'
 import { EmptyState } from '@/components/app/empty-state'
@@ -55,19 +57,23 @@ import {
   getQuestion,
   lockAnswers,
   setAnswerLimit,
+  reactToAnswer,
+  removeAnswerReaction,
   unacceptAnswer,
   unlockAnswers,
 } from '@/features/qna/qna.api'
+import { useQuestionStream } from '@/hooks/use-question-stream'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
-import { extractApiMessage } from '@/lib/api-error'
+import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
 import {
-  displayTime,
   formatNumber,
   getFullName,
   resolveMediaUrl,
 } from '@/lib/format'
+import { RelativeTime } from '@/components/app/relative-time'
+import { getPostReaction } from '@/lib/reactions'
 import {
   canManageAnswer,
   canManageQuestion,
@@ -189,7 +195,7 @@ function QuestionHeader({ question }) {
         {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
         <span className="text-muted-foreground">·</span>
         <span className="text-muted-foreground">
-          {displayTime(question)}
+          <RelativeTime entity={question} />
           {question.updatedAt && question.updatedAt !== question.createdAt
             ? ` · edited`
             : ''}
@@ -198,7 +204,7 @@ function QuestionHeader({ question }) {
 
       {question.body ? (
         <p className="max-w-prose whitespace-pre-wrap text-[15.5px] leading-[1.7] text-foreground/90">
-          {question.body}
+          <MentionText text={question.body} />
         </p>
       ) : null}
     </section>
@@ -239,6 +245,118 @@ function AnswerMedia({ url, type, thumbnailUrl }) {
   )
 }
 
+// ─── Inline reaction row for answers / reanswers ───────────────────
+// Mirrors the post-card affordance: 8-emoji palette on hover, count
+// inline. Optimistic updates flow back through `onPatch` so the SSE
+// stream can reconcile when `ANSWER_REACTION_ADDED/CHANGED/REMOVED`
+// echoes the same write back from the server.
+function AnswerReactionRow({ questionId, answer, isAuthenticated, onPatch }) {
+  const toast = useToast()
+  const [working, setWorking] = useState(false)
+  const myReaction = answer.myReaction ?? null
+  const reactionCount = answer.reactionCount ?? 0
+  const meta = myReaction ? getPostReaction(myReaction) : null
+
+  async function handlePick(type) {
+    if (!isAuthenticated) {
+      toast.info('Sign in to react.')
+      return
+    }
+    if (working) return
+    const wasReacting = Boolean(myReaction)
+    const previous = {
+      myReaction,
+      reactionCount,
+      topReactionTypes: answer.topReactionTypes,
+    }
+    onPatch?.({
+      id: answer.id,
+      parentAnswerId: answer.parentAnswerId,
+      myReaction: type,
+      reactionCount: wasReacting ? reactionCount : reactionCount + 1,
+    })
+    setWorking(true)
+    try {
+      const updated = await reactToAnswer(questionId, answer.id, type)
+      if (updated) {
+        onPatch?.({
+          ...updated,
+          parentAnswerId: answer.parentAnswerId ?? updated.parentAnswerId,
+          myReaction: type,
+        })
+      }
+    } catch (error) {
+      onPatch?.({
+        id: answer.id,
+        parentAnswerId: answer.parentAnswerId,
+        ...previous,
+      })
+      toast.error(friendlyApiMessage(error, 'Could not react.'))
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function handleClear() {
+    if (!myReaction || working) return
+    const previous = {
+      myReaction,
+      reactionCount,
+      topReactionTypes: answer.topReactionTypes,
+    }
+    onPatch?.({
+      id: answer.id,
+      parentAnswerId: answer.parentAnswerId,
+      myReaction: null,
+      reactionCount: Math.max(0, reactionCount - 1),
+    })
+    setWorking(true)
+    try {
+      await removeAnswerReaction(questionId, answer.id)
+    } catch (error) {
+      onPatch?.({
+        id: answer.id,
+        parentAnswerId: answer.parentAnswerId,
+        ...previous,
+      })
+      toast.error(friendlyApiMessage(error, 'Could not remove reaction.'))
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  return (
+    <ReactionPicker
+      current={myReaction}
+      onSelect={handlePick}
+      onClear={handleClear}
+      disabled={working}
+      trigger={({ toggleDefault, current }) => (
+        <button
+          type="button"
+          onClick={toggleDefault}
+          disabled={working}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold transition-all duration-200 active:scale-95',
+            current
+              ? cn(current.color, current.bg, 'ring-1', current.ring)
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+          )}
+        >
+          <span className="text-[15px] leading-none">
+            {current?.emoji ?? meta?.emoji ?? '👍'}
+          </span>
+          {reactionCount > 0 ? (
+            <span className="tabular-nums">{formatNumber(reactionCount)}</span>
+          ) : (
+            <span>{current?.label ?? 'Like'}</span>
+          )}
+        </button>
+      )}
+    />
+  )
+}
+
 // ─── Single answer card (collapsible — accepted answers open by default) ─
 function AnswerCard({
   questionId,
@@ -267,10 +385,13 @@ function AnswerCard({
   onLoadReplies,
   onReanswerCreated,
   onReanswerDelete,
+  /** Patch a single answer (top-level OR reply). Used by inline reactions. */
+  onAnswerPatch,
   /** Question-level role helpers, needed when judging delete on a reply. */
   user,
   question,
   canManageAnswer: canManageAnswerFn,
+  isAuthenticated,
 }) {
   const author = authorOf(answer)
   const expert = isExpertAnswerer(author.role)
@@ -377,7 +498,7 @@ function AnswerCard({
               </span>
             ) : null}
             <span className="text-xs text-muted-foreground">
-              · {displayTime(answer)}
+              · <RelativeTime entity={answer} />
               {answer.edited ? ' · edited' : ''}
             </span>
           </div>
@@ -508,7 +629,7 @@ function AnswerCard({
             <div className="space-y-4 border-t border-border px-4 py-5 sm:px-5">
               {answer.body ? (
                 <p className="whitespace-pre-wrap text-[15px] leading-[1.7] text-foreground/95">
-                  {answer.body}
+                  <MentionText text={answer.body} />
                 </p>
               ) : null}
 
@@ -576,6 +697,32 @@ function AnswerCard({
                 onChange={(next) => onSourcesChange?.(answer.id, next)}
               />
 
+              {/* Inline reaction (8-emoji palette) — sits above the
+                   feedback panel because reactions are open to anyone
+                   while feedback is question-author-only. */}
+              <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3">
+                <AnswerReactionRow
+                  questionId={questionId}
+                  answer={answer}
+                  isAuthenticated={isAuthenticated}
+                  onPatch={onAnswerPatch}
+                />
+                {(answer.reactionCount ?? 0) > 0 ? (
+                  <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-muted-foreground">
+                    {(answer.topReactionTypes ?? [])
+                      .slice(0, 3)
+                      .map((type) => (
+                        <span key={type} className="text-[14px] leading-none">
+                          {getPostReaction(type)?.emoji ?? '👍'}
+                        </span>
+                      ))}
+                    <span className="tabular-nums">
+                      {formatNumber(answer.reactionCount)}
+                    </span>
+                  </span>
+                ) : null}
+              </div>
+
               {/* Feedback */}
               <div className="border-t border-border pt-3">
                 <AnswerFeedbackPanel
@@ -639,12 +786,15 @@ function AnswerCard({
                     {replies.map((reply) => (
                       <ReplyItem
                         key={reply.id}
+                        questionId={questionId}
                         question={question}
                         reply={reply}
                         currentUser={user}
+                        isAuthenticated={isAuthenticated}
                         canManageAnswer={canManageAnswerFn?.(user, question, reply) ?? false}
                         onEdit={onEdit}
                         onDelete={(replyId) => onReanswerDelete?.(answer.id, replyId)}
+                        onAnswerPatch={onAnswerPatch}
                       />
                     ))}
                   </ul>
@@ -677,12 +827,15 @@ function AnswerCard({
 
 // ─── Reanswer row — compact, indented, scholar-to-scholar discussion ───
 function ReplyItem({
+  questionId,
   question,
   reply,
   currentUser,
+  isAuthenticated,
   canManageAnswer: canDelete,
   onEdit,
   onDelete,
+  onAnswerPatch,
 }) {
   const author = authorOf(reply)
   const expert = isExpertAnswerer(author.role)
@@ -727,14 +880,38 @@ function ReplyItem({
               </span>
             ) : null}
             <span className="text-[11px] text-muted-foreground">
-              · {displayTime(reply)}
+              · <RelativeTime entity={reply} />
               {reply.edited ? ' · edited' : ''}
             </span>
           </div>
 
           <p className="mt-1 whitespace-pre-wrap text-[13.5px] leading-[1.65] text-foreground/95">
-            {reply.body}
+            <MentionText text={reply.body} />
           </p>
+
+          {/* Inline media attached via the multipart reanswer upload —
+              kept compact since reanswers live inside the parent's body. */}
+          {reply.mediaUrl ? (
+            <div className="mt-2 max-w-[420px] overflow-hidden rounded-xl border border-border bg-muted">
+              <AnswerMedia
+                url={reply.mediaUrl}
+                type={reply.mediaType}
+                thumbnailUrl={reply.mediaThumbnailUrl}
+              />
+            </div>
+          ) : null}
+
+          {reply.voiceUrl ? (
+            <div className="mt-2">
+              <AudioPlayer
+                src={resolveMediaUrl(reply.voiceUrl)}
+                title="Voice reanswer"
+                subtitle="Voice"
+                trackKind="voice"
+                variant="compact"
+              />
+            </div>
+          ) : null}
 
           {links.length > 0 ? (
             <ul className="mt-1.5 space-y-0.5">
@@ -753,6 +930,15 @@ function ReplyItem({
               ))}
             </ul>
           ) : null}
+
+          <div className="mt-1.5">
+            <AnswerReactionRow
+              questionId={questionId}
+              answer={reply}
+              isAuthenticated={isAuthenticated}
+              onPatch={onAnswerPatch}
+            />
+          </div>
         </div>
 
         {(isOwner || canDelete) ? (
@@ -927,6 +1113,203 @@ export function QuestionDetailPage() {
     loadAll()
   }, [loadAll])
 
+  // ── Realtime ─────────────────────────────────────────────────
+  // Subscribe to /api/v1/questions/{id}/stream. Every QnA write the
+  // backend broadcasts (answer create/edit/delete, accept toggle,
+  // reaction add/change/remove, feedback add/edit/delete, question
+  // edit/delete/lock) flows in here and is patched into local state
+  // without a refetch. Helper closures use functional state updates
+  // so handlers can stay closure-free over `answers`/`question`.
+  function applyAnswerPatch(answerOrPatch) {
+    if (!answerOrPatch?.id) return
+    if (answerOrPatch.parentAnswerId) {
+      setRepliesByAnswer((current) => {
+        const bucket = current[answerOrPatch.parentAnswerId]
+        if (!bucket) return current
+        return {
+          ...current,
+          [answerOrPatch.parentAnswerId]: {
+            ...bucket,
+            items: bucket.items.map((item) =>
+              item.id === answerOrPatch.id ? { ...item, ...answerOrPatch } : item,
+            ),
+          },
+        }
+      })
+      return
+    }
+    setAnswers((current) =>
+      current.map((item) =>
+        item.id === answerOrPatch.id ? { ...item, ...answerOrPatch } : item,
+      ),
+    )
+  }
+
+  function patchAnswerReactionFromEvent(payload) {
+    if (!payload) return
+    const id = payload.answerId ?? payload.id
+    if (!id) return
+    const patch = {
+      id,
+      reactionCount: payload.reactionCount,
+      topReactionTypes: payload.topReactionTypes,
+    }
+    if (payload.parentAnswerId) patch.parentAnswerId = payload.parentAnswerId
+    applyAnswerPatch(patch)
+  }
+
+  useQuestionStream(questionId, {
+    QUESTION_UPDATED: (payload) => {
+      if (!payload?.id) return
+      setQuestion((current) => (current ? { ...current, ...payload } : current))
+    },
+    QUESTION_LOCKED: () => {
+      setQuestion((current) =>
+        current ? { ...current, answersLocked: true } : current,
+      )
+    },
+    QUESTION_UNLOCKED: () => {
+      setQuestion((current) =>
+        current ? { ...current, answersLocked: false } : current,
+      )
+    },
+    QUESTION_DELETED: () => {
+      toast.info('This question was removed by its author.')
+      navigate('/questions', { replace: true })
+    },
+    ANSWER_CREATED: (payload) => {
+      if (!payload?.id) return
+      setAnswers((current) =>
+        current.some((item) => item.id === payload.id)
+          ? current.map((item) =>
+              item.id === payload.id ? { ...item, ...payload } : item,
+            )
+          : [...current, payload],
+      )
+      setQuestion((current) =>
+        current
+          ? {
+              ...current,
+              answerCount: (current.answerCount ?? 0) + 1,
+              status: current.status === 'OPEN' ? 'ANSWERED' : current.status,
+            }
+          : current,
+      )
+    },
+    REANSWER_CREATED: (payload) => {
+      if (!payload?.id || !payload.parentAnswerId) return
+      // Track whether the reply is brand-new from our perspective. The
+      // local optimistic `handleReanswerCreated` may have already added
+      // it (in which case the SSE echo is a no-op) — we don't want to
+      // bump `replyCount` twice.
+      let countsAsNew = false
+      setRepliesByAnswer((current) => {
+        const bucket = current[payload.parentAnswerId]
+        if (!bucket) {
+          // Bucket not seeded yet — the reply is new to us conceptually,
+          // but we let the lazy-load fetch the fresh list when the user
+          // expands. Still need to bump replyCount on the parent so the
+          // "Show N reanswers" CTA appears.
+          countsAsNew = true
+          return current
+        }
+        if (bucket.items.some((item) => item.id === payload.id)) {
+          return current
+        }
+        countsAsNew = true
+        if (!bucket.loaded) return current
+        return {
+          ...current,
+          [payload.parentAnswerId]: {
+            ...bucket,
+            items: [...bucket.items, payload],
+          },
+        }
+      })
+      if (!countsAsNew) return
+      setAnswers((current) =>
+        current.map((item) =>
+          item.id === payload.parentAnswerId
+            ? { ...item, replyCount: (item.replyCount ?? 0) + 1 }
+            : item,
+        ),
+      )
+    },
+    ANSWER_EDITED: (payload) => applyAnswerPatch(payload),
+    ANSWER_DELETED: (payload) => {
+      const id = payload?.id ?? payload?.answerId
+      if (!id) return
+      const parentId = payload?.parentAnswerId
+      if (parentId) {
+        setRepliesByAnswer((current) => {
+          const bucket = current[parentId]
+          if (!bucket) return current
+          return {
+            ...current,
+            [parentId]: {
+              ...bucket,
+              items: bucket.items.filter((item) => item.id !== id),
+            },
+          }
+        })
+        setAnswers((current) =>
+          current.map((item) =>
+            item.id === parentId
+              ? { ...item, replyCount: Math.max(0, (item.replyCount ?? 0) - 1) }
+              : item,
+          ),
+        )
+        return
+      }
+      setAnswers((current) => current.filter((item) => item.id !== id))
+      setQuestion((current) =>
+        current
+          ? {
+              ...current,
+              answerCount: Math.max(0, (current.answerCount ?? 0) - 1),
+            }
+          : current,
+      )
+    },
+    ANSWER_ACCEPTED: (payload) => {
+      if (!payload?.id) return
+      applyAnswerPatch({ ...payload, accepted: true })
+      setQuestion((current) =>
+        current ? { ...current, status: 'ANSWERED' } : current,
+      )
+    },
+    ANSWER_UNACCEPTED: (payload) => {
+      if (!payload?.id) return
+      applyAnswerPatch({ ...payload, accepted: false })
+    },
+    ANSWER_REACTION_ADDED: patchAnswerReactionFromEvent,
+    ANSWER_REACTION_CHANGED: patchAnswerReactionFromEvent,
+    ANSWER_REACTION_REMOVED: patchAnswerReactionFromEvent,
+    ANSWER_FEEDBACK_ADDED: (payload) => {
+      const id = payload?.answerId ?? payload?.id
+      if (!id) return
+      applyAnswerPatch({
+        id,
+        feedbackCount: payload?.feedbackCount,
+      })
+    },
+    ANSWER_FEEDBACK_EDITED: (payload) => {
+      // Count is unchanged on edit — surface for any panel that's open
+      // via a no-op patch so the UI can re-render the feedback list lazily.
+      const id = payload?.answerId ?? payload?.id
+      if (!id) return
+      applyAnswerPatch({ id })
+    },
+    ANSWER_FEEDBACK_DELETED: (payload) => {
+      const id = payload?.answerId ?? payload?.id
+      if (!id) return
+      applyAnswerPatch({
+        id,
+        feedbackCount: payload?.feedbackCount,
+      })
+    },
+  })
+
   // Question-level rights — mirrors QuestionServiceImpl#canManageQuestion:
   // question author OR admin/super-admin. Admins inherit every owner
   // affordance (lock, limit, accept, give feedback, edit, delete).
@@ -1013,11 +1396,11 @@ export function QuestionDetailPage() {
   function handleReanswerCreated(parentId, reply) {
     setRepliesByAnswer((current) => {
       const bucket = current[parentId]
-      const items = bucket?.loaded
-        ? [...bucket.items, reply]
-        : bucket?.items
-          ? [...bucket.items, reply]
-          : [reply]
+      const previousItems = Array.isArray(bucket?.items) ? bucket.items : []
+      // Avoid duplicating if the SSE event already raced us to it.
+      const items = previousItems.some((item) => item.id === reply.id)
+        ? previousItems
+        : [...previousItems, reply]
       return {
         ...current,
         [parentId]: { items, loaded: true, loading: false },
@@ -1382,6 +1765,8 @@ export function QuestionDetailPage() {
                     onLoadReplies={handleLoadReplies}
                     onReanswerCreated={handleReanswerCreated}
                     onReanswerDelete={handleReanswerDelete}
+                    onAnswerPatch={applyAnswerPatch}
+                    isAuthenticated={isAuthenticated}
                   />
                 )
               })}

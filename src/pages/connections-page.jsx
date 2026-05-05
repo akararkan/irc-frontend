@@ -131,7 +131,7 @@ export function ConnectionsPage({ initialTab = 'followers' }) {
           ? current.map((item) => (item.id === person.id ? { ...item, _isFollowing: true } : item))
           : current,
       )
-      toast.success(`Following @${person.username}`)
+      toast.success(`Following ${person.username}`)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not follow.'))
     }
@@ -167,7 +167,7 @@ export function ConnectionsPage({ initialTab = 'followers' }) {
     <div className="space-y-6">
       <PageHeader
         title={`Connections of ${getFullName(profile)}`}
-        description={`@${profile.username}`}
+        description={profile.username}
         action={
           <Button asChild size="sm" variant="outline" className="rounded-full">
             <Link to={`/profile/${profile.username}`}>View profile</Link>

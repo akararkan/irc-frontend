@@ -14,6 +14,7 @@ import { MyResearchPage } from '@/pages/my-research-page'
 import { NotFoundPage } from '@/pages/not-found-page'
 import { NotificationsPage } from '@/pages/notifications-page'
 import { PeoplePage } from '@/pages/people-page'
+import { PostDetailPage } from '@/pages/post-detail-page'
 import { ProfilePage } from '@/pages/profile-page'
 import { QuestionDetailPage } from '@/pages/question-detail-page'
 import { QuestionsPage } from '@/pages/questions-page'
@@ -21,9 +22,11 @@ import { ReelsPage } from '@/pages/reels-page'
 import { ResearchDetailPage } from '@/pages/research-detail-page'
 import { ResearchPage } from '@/pages/research-page'
 import { SavedPage } from '@/pages/saved-page'
+import { SearchPage } from '@/pages/search-page'
 import { SettingsPage } from '@/pages/settings-page'
 import { GuestOnly, RequireAuth } from '@/routes/route-guards'
 import { ToastProvider } from '@/components/ui/toaster'
+import { NotificationBridge } from '@/components/app/notification-bridge'
 
 export function AppRouter() {
   return (
@@ -31,6 +34,7 @@ export function AppRouter() {
       <AuthProvider>
         <NotificationsProvider>
           <ToastProvider>
+            <NotificationBridge />
             <Routes>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<HomePage />} />
@@ -42,6 +46,8 @@ export function AppRouter() {
                 <Route path="/questions" element={<QuestionsPage />} />
                 <Route path="/questions/:questionId" element={<QuestionDetailPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/posts/:postId" element={<PostDetailPage />} />
                 <Route path="/profile/:username" element={<ProfilePage />} />
                 <Route
                   path="/profile/:username/followers"

@@ -500,7 +500,7 @@ export function ProfilePage() {
         ...(response?.updatedStatus ?? {}),
         isFollowing: true,
       }))
-      toast.success(`Following @${profile.username}`)
+      toast.success(`Following ${profile.username}`)
     })
   }
 
@@ -524,7 +524,7 @@ export function ProfilePage() {
         isBlocking: true,
         isFollowing: false,
       }))
-      toast.success(`Blocked @${profile.username}`)
+      toast.success(`Blocked ${profile.username}`)
     })
   }
 
@@ -572,7 +572,7 @@ export function ProfilePage() {
     return (
       <EmptyState
         title="Profile not found"
-        description={`We couldn't find @${username}.`}
+        description={`We couldn't find ${username}.`}
         action={
           <Button asChild size="sm" variant="outline" className="rounded-full">
             <Link to="/people">Search people</Link>
@@ -678,7 +678,7 @@ export function ProfilePage() {
               <h1 className="text-2xl font-semibold tracking-tight">{getFullName(profile)}</h1>
               {profile.role ? <RoleBadge role={profile.role} size="sm" /> : null}
             </div>
-            <p className="text-sm text-muted-foreground">@{profile.username}</p>
+            <p className="text-sm text-muted-foreground">{profile.username}</p>
             {profile.profileBio ? (
               <p className="whitespace-pre-wrap text-sm leading-6">{profile.profileBio}</p>
             ) : null}

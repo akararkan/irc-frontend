@@ -27,7 +27,7 @@ export function UserRow({ user, trailing, className }) {
           </Link>
           {user.role ? <RoleBadge role={user.role} size="xs" /> : null}
         </div>
-        <p className="truncate text-xs text-muted-foreground">@{user.username}</p>
+        <p className="truncate text-xs text-muted-foreground">{user.username}</p>
         {user.profileBio ? (
           <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{user.profileBio}</p>
         ) : null}

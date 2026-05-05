@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { MentionTextarea } from '@/components/app/mention-textarea'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { useAuth } from '@/features/auth/auth-context'
 import {
@@ -205,11 +206,9 @@ export function AnswerComposer({ questionId, disabled, onCreated }) {
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <div className="relative">
-            <Textarea
+            <MentionTextarea
               value={body}
-              onChange={(event) =>
-                setBody(event.target.value.slice(0, ANSWER_MAX))
-              }
+              onChange={(next) => setBody(next.slice(0, ANSWER_MAX))}
               placeholder="Share what you know, grounded in evidence and respect…"
               rows={4}
               className="min-h-[112px] resize-none rounded-xl border-0 bg-muted/50 px-4 py-3 leading-relaxed shadow-none focus-visible:ring-1"

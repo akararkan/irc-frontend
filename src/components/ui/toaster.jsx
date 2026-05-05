@@ -64,6 +64,7 @@ export function ToastProvider({ children, duration = 4200 }) {
       >
         {toasts.map((toast) => {
           const Icon = TONE_ICON[toast.tone] ?? Info
+          const action = toast.action
           return (
             <div
               key={toast.id}
@@ -77,9 +78,31 @@ export function ToastProvider({ children, duration = 4200 }) {
                 {toast.title ? (
                   <p className="font-medium text-foreground">{toast.title}</p>
                 ) : null}
-                <p className={toast.title ? 'mt-0.5 text-muted-foreground' : ''}>
-                  {toast.message}
-                </p>
+                {toast.message ? (
+                  <p
+                    className={cn(
+                      'line-clamp-3',
+                      toast.title ? 'mt-0.5 text-muted-foreground' : '',
+                    )}
+                  >
+                    {toast.message}
+                  </p>
+                ) : null}
+                {action?.label ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        action.onClick?.()
+                      } finally {
+                        dismiss(toast.id)
+                      }
+                    }}
+                    className="mt-1.5 inline-flex items-center text-[12px] font-semibold text-foreground underline-offset-4 transition-colors hover:underline"
+                  >
+                    {action.label}
+                  </button>
+                ) : null}
               </div>
               <button
                 type="button"

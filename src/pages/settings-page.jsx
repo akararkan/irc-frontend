@@ -1,5 +1,18 @@
-import { useEffect, useState } from 'react'
-import { Link2, Loader2, Mail, Phone, Plus, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  AtSign,
+  BellRing,
+  Link2,
+  Loader2,
+  Mail,
+  MailCheck,
+  Phone,
+  Plus,
+  Send,
+  Settings as SettingsIcon,
+  Trash2,
+  Users,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -35,8 +48,15 @@ import {
   updateProfile,
   uploadProfileImage,
 } from '@/features/users/users.api'
+import {
+  getEmailPreferences,
+  sendTestEmail,
+  unsubscribeAllEmail,
+  updateEmailPreferences,
+} from '@/features/users/email-preferences.api'
 import { useToast } from '@/components/ui/toaster'
-import { extractApiMessage } from '@/lib/api-error'
+import { cn } from '@/lib/utils'
+import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
 
 const LINK_PLATFORMS = [
   'PERSONAL_WEBSITE',
@@ -542,6 +562,292 @@ function ContactsList() {
   )
 }
 
+// ─── Email preferences panel ────────────────────────────────────
+//
+// Mirrors the four boolean columns the backend keeps per user:
+//
+//   - emailNotificationsEnabled (master kill switch)
+//   - emailSocialEnabled        (POSTS / QNA / RESEARCH)
+//   - emailMentionsEnabled      (USER_MENTIONED)
+//   - emailSystemEnabled        (system / admin alerts)
+//
+// Optimistic toggles + last-write-wins server sync. Switching the
+// master OFF visually disables the per-category rows because the
+// backend won't email regardless of those booleans when the master
+// is off.
+const PREFERENCE_ROWS = [
+  {
+    key: 'emailSocialEnabled',
+    title: 'Activity from people you follow',
+    description:
+      'Posts you engage with, comments and reactions on your content, and replies to your answers.',
+    icon: Users,
+  },
+  {
+    key: 'emailMentionsEnabled',
+    title: '@mentions',
+    description:
+      'When someone tags you in a post, comment, question, answer, or research entry.',
+    icon: AtSign,
+  },
+  {
+    key: 'emailSystemEnabled',
+    title: 'System & account messages',
+    description:
+      'Account changes, security alerts, and platform-wide announcements.',
+    icon: SettingsIcon,
+  },
+]
+
+function ToggleSwitch({ checked, onChange, disabled, ariaLabel }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={() => onChange(!checked)}
+      disabled={disabled}
+      className={cn(
+        'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+        checked
+          ? 'bg-emerald-500/80 hover:bg-emerald-500'
+          : 'bg-muted hover:bg-muted-foreground/20',
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          'inline-block size-5 rounded-full bg-background shadow-sm transition-transform',
+          checked ? 'translate-x-[22px]' : 'translate-x-[2px]',
+        )}
+      />
+    </button>
+  )
+}
+
+function EmailPreferencesPanel() {
+  const { user } = useAuth()
+  const toast = useToast()
+  const [prefs, setPrefs] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [working, setWorking] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [unsubscribing, setUnsubscribing] = useState(false)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await getEmailPreferences()
+      setPrefs(data)
+    } catch (error) {
+      toast.error(extractApiMessage(error, 'Could not load email preferences.'))
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  async function setPref(key, value) {
+    if (!prefs || working) return
+    const previous = prefs
+    setPrefs((current) => ({ ...current, [key]: value }))
+    setWorking(true)
+    try {
+      const updated = await updateEmailPreferences({ [key]: value })
+      setPrefs((current) => ({ ...current, ...updated }))
+    } catch (error) {
+      setPrefs(previous)
+      toast.error(extractApiMessage(error, 'Could not update preference.'))
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function handleSendTest() {
+    if (testing) return
+    setTesting(true)
+    try {
+      await sendTestEmail()
+      toast.success(
+        user?.email
+          ? `Test email queued — check ${user.email} (and the spam folder).`
+          : 'Test email queued — check your inbox (and the spam folder).',
+      )
+    } catch (error) {
+      toast.error(friendlyApiMessage(error, 'Could not send test email.'))
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  async function handleUnsubscribeAll() {
+    if (unsubscribing) return
+    if (!confirm('Turn off all email notifications? You can re-enable them anytime.'))
+      return
+    setUnsubscribing(true)
+    try {
+      await unsubscribeAllEmail()
+      await refresh()
+      toast.success('All email notifications turned off.')
+    } catch (error) {
+      toast.error(extractApiMessage(error, 'Could not unsubscribe.'))
+    } finally {
+      setUnsubscribing(false)
+    }
+  }
+
+  if (loading || !prefs) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center p-8 text-muted-foreground">
+          <Loader2 className="size-5 animate-spin" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const masterOn = prefs.emailNotificationsEnabled !== false
+  const sendingTo = user?.email
+
+  return (
+    <div className="space-y-4">
+      {/* Master switch */}
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
+          <div className="flex items-start gap-3">
+            <span
+              className={cn(
+                'grid size-10 shrink-0 place-items-center rounded-full',
+                masterOn
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-muted text-muted-foreground',
+              )}
+            >
+              <BellRing className="size-5" strokeWidth={1.9} />
+            </span>
+            <div className="leading-tight">
+              <p className="text-[14px] font-semibold">All email notifications</p>
+              <p className="mt-1 max-w-md text-[12.5px] text-muted-foreground">
+                {sendingTo ? (
+                  <>
+                    We send to <span className="font-medium text-foreground">{sendingTo}</span>.
+                    Turn the master switch off and nothing will land in your inbox.
+                  </>
+                ) : (
+                  'Turn the master switch off and nothing will land in your inbox.'
+                )}
+              </p>
+            </div>
+          </div>
+          <ToggleSwitch
+            checked={masterOn}
+            onChange={(value) => setPref('emailNotificationsEnabled', value)}
+            disabled={working}
+            ariaLabel="Master email switch"
+          />
+        </CardContent>
+      </Card>
+
+      {/* Per-category toggles */}
+      <Card>
+        <CardContent className="space-y-4 p-5">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold">Categories</p>
+            <p className="text-xs text-muted-foreground">
+              Fine-tune which kinds of activity reach your inbox. The master switch above takes precedence.
+            </p>
+          </div>
+          <div className="divide-y divide-border">
+            {PREFERENCE_ROWS.map((row) => {
+              const Icon = row.icon
+              const value = prefs[row.key] !== false
+              return (
+                <div
+                  key={row.key}
+                  className={cn(
+                    'flex items-start justify-between gap-4 py-3.5 first:pt-0 last:pb-0',
+                    !masterOn && 'opacity-50',
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-foreground">
+                      <Icon className="size-4" strokeWidth={1.8} />
+                    </span>
+                    <div className="leading-tight">
+                      <p className="text-[13.5px] font-medium">{row.title}</p>
+                      <p className="mt-0.5 max-w-md text-[12px] text-muted-foreground">
+                        {row.description}
+                      </p>
+                    </div>
+                  </div>
+                  <ToggleSwitch
+                    checked={value && masterOn}
+                    onChange={(next) => setPref(row.key, next)}
+                    disabled={working || !masterOn}
+                    ariaLabel={row.title}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Diagnostics + danger row */}
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-brand/10 text-brand">
+              <MailCheck className="size-4" strokeWidth={1.9} />
+            </span>
+            <div className="leading-tight">
+              <p className="text-[13.5px] font-semibold">Send a test email</p>
+              <p className="mt-1 max-w-md text-[12px] text-muted-foreground">
+                Bypasses the notification pipeline so you can verify SMTP delivery is healthy.
+                If it lands in spam, mark it "Not spam" — future activity emails will then land in Inbox.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full"
+            onClick={handleSendTest}
+            disabled={testing}
+          >
+            {testing ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Send className="size-4" />
+            )}
+            {testing ? 'Sending…' : 'Send test'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={handleUnsubscribeAll}
+          disabled={unsubscribing || !masterOn}
+        >
+          {unsubscribing ? <Loader2 className="size-3.5 animate-spin" /> : null}
+          Unsubscribe from everything
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function SettingsPage() {
   return (
     <div className="space-y-6">
@@ -551,6 +857,7 @@ export function SettingsPage() {
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="links">Links</TabsTrigger>
           <TabsTrigger value="contacts">Contacts</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
         <TabsContent value="profile">
@@ -561,6 +868,9 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="contacts">
           <ContactsList />
+        </TabsContent>
+        <TabsContent value="email">
+          <EmailPreferencesPanel />
         </TabsContent>
         <TabsContent value="activity">
           <Card>

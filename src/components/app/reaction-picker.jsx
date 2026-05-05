@@ -13,6 +13,13 @@ import {
 //   - Single click on the trigger toggles the default reaction (Like).
 //   - Hover (or focus) opens a floating palette of all reactions.
 //   - Clicking a palette item picks that reaction (or switches if already reacted).
+//   - Long-press also opens the palette (touch-friendly).
+//
+// `align` controls which edge of the trigger the palette anchors to:
+//   - 'left'  (default): palette opens to the right of the trigger's left edge
+//   - 'right': palette opens to the left of the trigger's right edge — use
+//              when the trigger sits near the right edge of an `overflow-hidden`
+//              container (e.g. the reels rail).
 export function ReactionPicker({
   current,
   onSelect,
@@ -21,6 +28,7 @@ export function ReactionPicker({
   reactionSet = 'post',
   trigger,
   className,
+  align = 'left',
 }) {
   const reactionList =
     reactionSet === 'research' ? getResearchReactionList() : getPostReactionList()
@@ -31,6 +39,7 @@ export function ReactionPicker({
   const containerRef = useRef(null)
   const closeTimerRef = useRef(null)
   const openTimerRef = useRef(null)
+  const longPressTimerRef = useRef(null)
 
   useEffect(() => {
     function handleOutside(event) {
@@ -46,6 +55,7 @@ export function ReactionPicker({
     () => () => {
       clearTimeout(closeTimerRef.current)
       clearTimeout(openTimerRef.current)
+      clearTimeout(longPressTimerRef.current)
     },
     [],
   )
@@ -86,6 +96,17 @@ export function ReactionPicker({
     closeNow()
   }
 
+  function startLongPress() {
+    if (disabled) return
+    clearTimeout(longPressTimerRef.current)
+    longPressTimerRef.current = setTimeout(() => setOpen(true), 380)
+  }
+  function cancelLongPress() {
+    clearTimeout(longPressTimerRef.current)
+  }
+
+  const isRight = align === 'right'
+
   return (
     <div
       ref={containerRef}
@@ -97,6 +118,10 @@ export function ReactionPicker({
       }}
       onFocus={keepOpen}
       onBlur={scheduleClose}
+      onTouchStart={startLongPress}
+      onTouchEnd={cancelLongPress}
+      onTouchMove={cancelLongPress}
+      onTouchCancel={cancelLongPress}
     >
       <AnimatePresence>
         {open ? (
@@ -107,7 +132,10 @@ export function ReactionPicker({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.86 }}
             transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-            className="absolute -top-[60px] left-0 z-30 origin-bottom-left"
+            className={cn(
+              'absolute -top-[60px] z-30',
+              isRight ? 'right-0 origin-bottom-right' : 'left-0 origin-bottom-left',
+            )}
             onMouseEnter={keepOpen}
             onMouseLeave={() => {
               setHovered(null)

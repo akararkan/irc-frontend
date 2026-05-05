@@ -1,26 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
-  BadgeCheck,
   BookOpen,
-  Bookmark,
-  ChevronDown,
   Clapperboard,
-  Heart,
+  Loader2,
   Maximize2,
   MessageCircle,
   MoreHorizontal,
   Pause,
   Play,
+  Repeat2,
+  Share2,
+  SkipBack,
   SkipForward,
-  SlidersHorizontal,
-  Sparkles,
   Volume2,
   VolumeX,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 
-import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,20 +28,29 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/app/empty-state'
 import { PageHeader } from '@/components/app/page-header'
 import { PostComments } from '@/components/app/post-comments'
+import { ReactionPicker } from '@/components/app/reaction-picker'
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
 import {
   getReels,
+  getFollowingReels,
   reactToPost,
   removePostReaction,
-  sharePost,
+  repostPost,
 } from '@/features/posts/posts.api'
 import { recordReelView } from '@/features/activity/activity.api'
+import { usePostStream } from '@/hooks/use-post-stream'
+import {
+  followUser,
+  getSocialStatus,
+  unfollowUser,
+} from '@/features/social/social.api'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
-import { extractApiMessage } from '@/lib/api-error'
+import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
 import { formatNumber, getFullName, resolveMediaUrl } from '@/lib/format'
+import { getPostReaction } from '@/lib/reactions'
 
 // ─── Helpers ────────────────────────────────────────────────────────
 function normalizeAuthor(post) {
@@ -74,6 +80,7 @@ function fmtTime(seconds) {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
+// Stripe fallback for thumbnails when a video has no poster.
 const STRIPE_TONES = [
   ['var(--brand-soft)', 45],
   ['color-mix(in oklch, var(--accent-rust) 14%, var(--paper))', 30],
@@ -87,7 +94,6 @@ function stripeFor(id) {
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0
   return STRIPE_TONES[Math.abs(h) % STRIPE_TONES.length]
 }
-
 function thumbStyleFor(post) {
   const [tint, angle] = stripeFor(post.id)
   return {
@@ -95,27 +101,18 @@ function thumbStyleFor(post) {
   }
 }
 
-// ─── Filter chips + sort row ────────────────────────────────────────
+// Backend reels endpoints: PUBLIC (`for-you`) and FOLLOWING.
 const FILTERS = [
-  { value: 'foryou',   label: 'For you' },
-  { value: 'following', label: 'Following' },
-  { value: 'live',     label: 'Live now' },
-  { value: 'recitation', label: 'Recitation' },
-  { value: 'manuscripts', label: 'Manuscripts' },
-  { value: 'lectures', label: 'Lectures' },
+  { value: 'foryou', label: 'For you' },
+  { value: 'following', label: 'Following', authOnly: true },
 ]
 
-const SORTS = [
-  { value: 'trending', label: 'Trending' },
-  { value: 'newest',   label: 'Newest' },
-  { value: 'longest',  label: 'Longest' },
-]
-
-function FilterRow({ filter, onFilter, sortKey, onSort }) {
-  const sort = SORTS.find((s) => s.value === sortKey) ?? SORTS[0]
+// ─── Filter row ─────────────────────────────────────────────────────
+function FilterRow({ filter, onFilter, isAuthenticated }) {
+  const visible = FILTERS.filter((f) => !f.authOnly || isAuthenticated)
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {FILTERS.map((f) => {
+      {visible.map((f) => {
         const active = f.value === filter
         return (
           <button
@@ -133,40 +130,6 @@ function FilterRow({ filter, onFilter, sortKey, onSort }) {
           </button>
         )
       })}
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className={cn(
-              'ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border bg-paper px-3 py-1.5 text-[12.5px] font-semibold text-ink-2',
-              'transition-colors hover:border-brand/40 hover:text-brand',
-            )}
-          >
-            <SlidersHorizontal className="size-[13px]" />
-            {sort.label}
-            <ChevronDown className="size-3 text-ink-3" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          sideOffset={6}
-          className="w-40 rounded-xl border-border bg-paper p-1 shadow-soft-lg"
-        >
-          {SORTS.map((opt) => (
-            <DropdownMenuItem
-              key={opt.value}
-              onSelect={() => onSort(opt.value)}
-              className={cn(
-                'rounded-lg px-2.5 py-1.5 text-[13px]',
-                sortKey === opt.value && 'bg-brand-soft/60 text-brand',
-              )}
-            >
-              {opt.label}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
     </div>
   )
 }
@@ -189,8 +152,7 @@ function UpNextRail({ reels, activeId, onSelect }) {
         {reels.map((post) => {
           const author = normalizeAuthor(post)
           const active = post.id === activeId
-          const duration = post.durationSeconds ?? post.mediaList?.[0]?.durationSeconds
-          const isLive = post.live
+          const durationSeconds = post.mediaList?.[0]?.durationSeconds
           return (
             <button
               key={post.id}
@@ -215,28 +177,21 @@ function UpNextRail({ reels, activeId, onSelect }) {
                   aria-hidden
                   className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/15"
                 />
-                {isLive ? (
-                  <span className="absolute left-1 top-1 rounded bg-accent-rust px-1 py-[2px] font-mono text-[9px] font-extrabold tracking-[0.1em] text-white">
-                    LIVE
-                  </span>
-                ) : null}
-                {duration ? (
+                {durationSeconds ? (
                   <span className="absolute bottom-1 right-1 rounded bg-black/65 px-1 py-[1px] font-mono text-[9.5px] tabular-nums text-white">
-                    {fmtTime(duration)}
+                    {fmtTime(durationSeconds)}
                   </span>
                 ) : null}
               </div>
               <div className="min-w-0 pt-0.5">
-                <p
-                  className={cn(
-                    'line-clamp-3 font-display text-[12px] font-semibold leading-[1.3] tracking-[-0.005em]',
-                    active ? 'text-ink' : 'text-ink',
-                  )}
-                >
-                  {post.title || post.textContent || 'Untitled reel'}
+                <p className="line-clamp-3 font-display text-[12px] font-semibold leading-[1.3] tracking-[-0.005em] text-ink">
+                  {post.textContent || 'Untitled reel'}
                 </p>
                 <p className="mt-1 truncate text-[10.5px] text-ink-3 tabular-nums">
-                  {(getFullName(author) || author?.username || '—') + ' · ' + formatNumber(post.viewCount ?? 0)}
+                  {(getFullName(author) || author?.username || '—') +
+                    ' · ' +
+                    formatNumber(post.viewCount ?? 0) +
+                    ' views'}
                 </p>
               </div>
             </button>
@@ -244,6 +199,71 @@ function UpNextRail({ reels, activeId, onSelect }) {
         })}
       </div>
     </aside>
+  )
+}
+
+// ─── Follow button — wired to real backend social API ──────────────
+function FollowButton({ author }) {
+  const { user, isAuthenticated } = useAuth()
+  const toast = useToast()
+  const [following, setFollowing] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  const isMe = isAuthenticated && user?.id && author?.id && user.id === author.id
+
+  useEffect(() => {
+    if (!author?.id || !isAuthenticated || isMe) {
+      setFollowing(null)
+      return
+    }
+    let cancelled = false
+    getSocialStatus(author.id)
+      .then((status) => {
+        if (!cancelled) setFollowing(Boolean(status?.following))
+      })
+      .catch(() => {
+        if (!cancelled) setFollowing(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [author?.id, isAuthenticated, isMe])
+
+  if (!author?.id || !isAuthenticated || isMe) return null
+
+  async function toggle() {
+    if (busy) return
+    setBusy(true)
+    const previous = following
+    setFollowing(!previous)
+    try {
+      if (previous) await unfollowUser(author.id)
+      else await followUser(author.id)
+    } catch (error) {
+      setFollowing(previous)
+      toast.error(extractApiMessage(error, 'Could not update follow.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const label = following ? 'Following' : '+ Follow'
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={busy || following == null}
+      className={cn(
+        'rounded-full px-2.5 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.04em] transition-all',
+        'disabled:opacity-50',
+        following
+          ? 'bg-muted text-ink-2 hover:bg-muted/80'
+          : 'bg-gradient-to-br from-brand to-brand/85 text-brand-foreground shadow-soft hover:-translate-y-px',
+      )}
+    >
+      {busy ? <Loader2 className="size-3 animate-spin" /> : label}
+    </button>
   )
 }
 
@@ -255,6 +275,7 @@ function ReelStage({
   onToggleMuted,
   onChange,
   onNext,
+  onPrev,
 }) {
   const { isAuthenticated } = useAuth()
   const toast = useToast()
@@ -264,7 +285,6 @@ function ReelStage({
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [working, setWorking] = useState(false)
-  const [following, setFollowing] = useState(false)
 
   const watchedSecondsRef = useRef(0)
   const lastTickRef = useRef(null)
@@ -273,7 +293,6 @@ function ReelStage({
   const author = normalizeAuthor(reel)
   const media = reel?.mediaList?.[0]
   const url = resolveMediaUrl(media?.url ?? media?.mediaUrl)
-  const tags = Array.isArray(reel?.tags) ? reel.tags : []
 
   const flushWatch = useCallback(() => {
     if (!isAuthenticated || !reel?.id) return
@@ -286,7 +305,7 @@ function ReelStage({
     })
   }, [isAuthenticated, reel?.id])
 
-  // When the active reel changes, reset watch counters and play
+  // Reset on reel change
   useEffect(() => {
     flushWatch()
     watchedSecondsRef.current = 0
@@ -310,6 +329,53 @@ function ReelStage({
     else el.play().catch(() => setPlaying(false))
   }
 
+  // Keyboard shortcuts — we advertise them in the hint strip, so wire them.
+  // Skip when the user is typing in an input / textarea / contentEditable.
+  useEffect(() => {
+    function isTypingTarget(target) {
+      if (!target) return false
+      const tag = target.tagName
+      return (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        target.isContentEditable
+      )
+    }
+    function onKeyDown(event) {
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      if (isTypingTarget(event.target)) return
+      switch (event.key) {
+        case ' ':
+        case 'Spacebar':
+          event.preventDefault()
+          togglePlay()
+          break
+        case 'ArrowDown':
+        case 'j':
+        case 'J':
+          event.preventDefault()
+          onNext?.()
+          break
+        case 'ArrowUp':
+        case 'k':
+        case 'K':
+          event.preventDefault()
+          onPrev?.()
+          break
+        case 'm':
+        case 'M':
+          event.preventDefault()
+          onToggleMuted?.()
+          break
+        default:
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, onNext, onPrev, onToggleMuted])
+
   function seek(event) {
     const el = videoRef.current
     if (!el || !duration) return
@@ -320,7 +386,8 @@ function ReelStage({
     setProgress(ratio)
   }
 
-  async function toggleReact() {
+  // ── Reactions — full 8-type backend palette via ReactionPicker ────
+  async function handlePickReaction(type) {
     if (!isAuthenticated) {
       toast.info('Sign in to react.')
       return
@@ -328,21 +395,39 @@ function ReelStage({
     if (working) return
     const previous = reel
     const wasReacting = Boolean(reel.myReaction)
-    const next = wasReacting
-      ? { ...reel, myReaction: null, reactionCount: Math.max(0, (reel.reactionCount ?? 0) - 1) }
-      : { ...reel, myReaction: 'LIKE', reactionCount: (reel.reactionCount ?? 0) + 1 }
-    onChange?.(next)
+    onChange?.({
+      ...reel,
+      myReaction: type,
+      reactionCount: wasReacting
+        ? reel.reactionCount
+        : (reel.reactionCount ?? 0) + 1,
+    })
     setWorking(true)
     try {
-      if (wasReacting) {
-        await removePostReaction(reel.id)
-      } else {
-        const updated = await reactToPost(reel.id, 'LIKE')
-        if (updated) onChange?.({ ...updated, myReaction: 'LIKE' })
-      }
+      const updated = await reactToPost(reel.id, type)
+      if (updated) onChange?.({ ...updated, myReaction: type })
     } catch (error) {
       onChange?.(previous)
       toast.error(extractApiMessage(error, 'Could not react.'))
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function handleClearReaction() {
+    if (!isAuthenticated || working || !reel?.myReaction) return
+    const previous = reel
+    onChange?.({
+      ...reel,
+      myReaction: null,
+      reactionCount: Math.max(0, (reel.reactionCount ?? 0) - 1),
+    })
+    setWorking(true)
+    try {
+      await removePostReaction(reel.id)
+    } catch (error) {
+      onChange?.(previous)
+      toast.error(extractApiMessage(error, 'Could not remove reaction.'))
     } finally {
       setWorking(false)
     }
@@ -353,27 +438,31 @@ function ReelStage({
       const link = reel.shareLink || `${window.location.origin}/reels?id=${reel.id}`
       await navigator.clipboard.writeText(link)
       toast.success('Link copied.')
-      sharePost(reel.id).catch(() => {})
-      onChange?.({ ...reel, shareCount: (reel.shareCount ?? 0) + 1 })
     } catch {
       toast.error('Could not copy link.')
     }
   }
 
-  function toggleBookmark() {
-    onChange?.({ ...reel, bookmarkedByMe: !reel.bookmarkedByMe })
+  async function handleRepost() {
+    if (!isAuthenticated) {
+      toast.info('Sign in to repost.')
+      return
+    }
+    try {
+      await repostPost(reel.id)
+      onChange?.({ ...reel, shareCount: (reel.shareCount ?? 0) + 1 })
+      toast.success('Reposted to your feed.')
+    } catch (error) {
+      toast.error(friendlyApiMessage(error, 'Could not repost.'))
+    }
   }
 
-  const liked = Boolean(reel?.myReaction)
-  const bookmarked = Boolean(reel?.bookmarkedByMe)
-  const isLive = Boolean(reel?.live)
-  const stripe = thumbStyleFor(reel ?? {})
-  const eyebrow = (tags[0] ?? reel?.category ?? 'reel').toString()
+  const currentReactionInfo = reel?.myReaction ? getPostReaction(reel.myReaction) : null
   const activeIndex = reels.findIndex((r) => r.id === reel?.id)
+  const stripe = thumbStyleFor(reel ?? {})
 
   return (
     <div className="relative grid place-items-center overflow-hidden rounded-3xl border border-border bg-gradient-to-b from-muted/60 to-background p-5 sm:p-6">
-      {/* Brand-tinted radial flare from the top */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -383,9 +472,7 @@ function ReelStage({
         }}
       />
 
-      {/* Vertical screen */}
       <div className="relative isolate aspect-[9/16] w-full max-w-[420px] overflow-hidden rounded-[22px] bg-paper shadow-soft-lg ring-1 ring-border">
-        {/* Background — video, or stripe fallback */}
         {url ? (
           <video
             ref={videoRef}
@@ -422,43 +509,27 @@ function ReelStage({
           <div aria-hidden className="absolute inset-0" style={stripe} />
         )}
 
-        {/* Live badge */}
-        {isLive ? (
-          <span className="absolute left-1/2 top-3.5 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-accent-rust px-2.5 py-1 font-mono text-[10px] font-extrabold tracking-[0.12em] text-white">
-            <span className="size-1.5 animate-pulse rounded-full bg-white" />
-            LIVE
-          </span>
-        ) : null}
-
-        {/* Top bar — author tag */}
+        {/* Top bar — author tag with real role badge */}
         <div className="absolute inset-x-3 top-3 z-10 flex items-center gap-2">
           <Link
             to={author?.username ? `/profile/${author.username}` : '#'}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-full border border-ink/[0.08] bg-paper/85 py-[5px] pl-[5px] pr-2.5 backdrop-blur transition-colors hover:bg-paper',
-            )}
+            className="inline-flex items-center gap-2 rounded-full border border-ink/[0.08] bg-paper/85 py-[5px] pl-[5px] pr-2.5 backdrop-blur transition-colors hover:bg-paper"
           >
             <UserAvatar user={author} className="size-7 ring-1 ring-paper" />
             <div className="leading-tight">
-              <p className="inline-flex items-center gap-1 text-[12.5px] font-semibold tracking-[-0.005em] text-ink">
-                {getFullName(author) || `@${author?.username}`}
-                {author?.verified ? <BadgeCheck className="size-3 text-gold-2" /> : null}
+              <p className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold tracking-[-0.005em] text-ink">
+                {getFullName(author) || author?.username}
+                {author?.role ? (
+                  <RoleBadge role={author.role} size="xs" showIcon={false} />
+                ) : null}
               </p>
-              <p className="text-[10.5px] text-ink-3">@{author?.username}</p>
+              {author?.username ? (
+                <p className="text-[10.5px] text-ink-3">{author.username}</p>
+              ) : null}
             </div>
           </Link>
-          <button
-            type="button"
-            onClick={() => setFollowing((v) => !v)}
-            className={cn(
-              'rounded-full px-2.5 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.04em]',
-              following
-                ? 'bg-muted text-ink-2'
-                : 'bg-gradient-to-br from-brand to-brand/85 text-brand-foreground shadow-soft',
-            )}
-          >
-            {following ? 'Following' : '+ Follow'}
-          </button>
+
+          <FollowButton author={author} />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -472,14 +543,18 @@ function ReelStage({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={6} className="w-44 rounded-xl">
               <DropdownMenuItem onSelect={handleShare}>
-                <Sparkles className="mr-2 size-4" />
+                <Share2 className="mr-2 size-4" />
                 Copy link
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleRepost}>
+                <Repeat2 className="mr-2 size-4" />
+                Repost to my feed
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
-        {/* Editorial title overlay (only visible when paused / before play) */}
+        {/* Editorial title overlay (only when paused) */}
         <AnimatePresence>
           {!playing ? (
             <motion.div
@@ -499,81 +574,72 @@ function ReelStage({
                       '0 0 0 3px color-mix(in oklch, var(--gold) 25%, transparent)',
                   }}
                 />
-                #{eyebrow}
+                reel
               </span>
               <p
                 className="mt-3 font-display text-[26px] font-semibold leading-[1.15] tracking-[-0.022em] text-ink text-balance"
                 style={{ textShadow: '0 1px 24px oklch(1 0 0 / 0.5)' }}
               >
-                {reel?.title || reel?.textContent || 'Untitled reel'}
+                {reel?.textContent || 'Untitled reel'}
               </p>
               {author ? (
                 <p className="mt-2 font-display text-[13px] italic text-ink-2">
-                  — {getFullName(author) || `@${author.username}`}
+                  — {getFullName(author) || author.username}
                 </p>
               ) : null}
             </motion.div>
           ) : null}
         </AnimatePresence>
 
-        {/* Side rail — actions (Insta-style) */}
+        {/* Side rail — reactions / comments / share */}
         <div className="absolute bottom-32 right-2.5 z-[5] flex flex-col items-center gap-3.5">
-          <RailIcon
-            label={formatNumber(reel?.reactionCount ?? 0)}
-            active={liked}
-            activeBg="bg-accent-rust border-accent-rust"
-            onClick={toggleReact}
-          >
-            <Heart className={cn('size-5', liked && 'fill-current')} strokeWidth={1.8} />
-          </RailIcon>
+          <ReactionPicker
+            current={reel?.myReaction ?? null}
+            onSelect={handlePickReaction}
+            onClear={handleClearReaction}
+            disabled={working}
+            align="right"
+            trigger={({ toggleDefault, current }) => (
+              <RailIcon
+                label={formatNumber(reel?.reactionCount ?? 0)}
+                active={Boolean(current)}
+                activeBg="bg-accent-rust border-accent-rust"
+                onClick={toggleDefault}
+              >
+                <span className="text-[22px] leading-none">
+                  {current?.emoji ?? currentReactionInfo?.emoji ?? '👍'}
+                </span>
+              </RailIcon>
+            )}
+          />
+
           <RailIcon label={formatNumber(reel?.commentCount ?? 0)}>
             <MessageCircle className="size-5" strokeWidth={1.8} />
           </RailIcon>
+
           <RailIcon
-            label={formatNumber((reel?.saveCount ?? 0) + (bookmarked ? 1 : 0))}
-            active={bookmarked}
-            activeBg="bg-gold border-gold text-ink"
-            onClick={toggleBookmark}
+            label={formatNumber(reel?.shareCount ?? 0)}
+            onClick={handleRepost}
           >
-            <Bookmark
-              className={cn('size-5', bookmarked && 'fill-current')}
-              strokeWidth={1.8}
-            />
+            <Repeat2 className="size-5" strokeWidth={1.8} />
           </RailIcon>
+
           <RailIcon label="Share" onClick={handleShare}>
-            <Sparkles className="size-5" strokeWidth={1.8} />
+            <Share2 className="size-5" strokeWidth={1.8} />
           </RailIcon>
         </div>
 
-        {/* Bottom info — title, desc, tags */}
-        <div className="absolute inset-x-4 bottom-[60px] z-[3] mr-16 text-white">
-          <p
-            className="font-display text-[15px] font-semibold leading-[1.2] tracking-[-0.012em] text-balance"
-            style={{ textShadow: '0 1px 6px oklch(0 0 0 / 0.45)' }}
-          >
-            {reel?.title || reel?.textContent || ''}
-          </p>
-          {reel?.description ? (
+        {/* Bottom info — only real fields */}
+        {reel?.textContent ? (
+          <div className="absolute inset-x-4 bottom-[60px] z-[3] mr-16 text-white">
             <p
-              className="mt-1 line-clamp-2 text-[12.5px] leading-[1.45] opacity-90"
+              className="font-display line-clamp-3 text-[14px] leading-[1.35] tracking-[-0.005em]"
               style={{ textShadow: '0 1px 6px oklch(0 0 0 / 0.45)' }}
             >
-              {reel.description}
+              {reel.textContent}
             </p>
-          ) : null}
-          {tags.length ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {tags.slice(0, 3).map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-md border border-white/15 bg-black/45 px-1.5 py-[2px] font-mono text-[10.5px] text-white backdrop-blur"
-                >
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         {/* Mute */}
         <button
@@ -586,7 +652,7 @@ function ReelStage({
           {isMuted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
         </button>
 
-        {/* Big play overlay (when paused) */}
+        {/* Big play overlay */}
         <AnimatePresence>
           {!playing ? (
             <motion.button
@@ -641,6 +707,15 @@ function ReelStage({
           </div>
           <button
             type="button"
+            onClick={onPrev}
+            className="grid size-7 place-items-center rounded-md text-white transition-colors hover:bg-white/15"
+            aria-label="Previous reel"
+            title="Previous reel"
+          >
+            <SkipBack className="size-3.5" />
+          </button>
+          <button
+            type="button"
             onClick={onNext}
             className="grid size-7 place-items-center rounded-md text-white transition-colors hover:bg-white/15"
             aria-label="Next reel"
@@ -658,7 +733,7 @@ function ReelStage({
           </button>
         </div>
 
-        {/* Vertical position dots — outside the screen on the right */}
+        {/* Vertical position dots — gilt accent on the active dot */}
         <div className="pointer-events-none absolute -right-4 top-1/2 z-[6] hidden -translate-y-1/2 flex-col gap-1.5 lg:flex">
           {reels.slice(0, 12).map((post, idx) => (
             <span
@@ -666,8 +741,17 @@ function ReelStage({
               aria-hidden
               className={cn(
                 'block w-[5px] rounded-full transition-all',
-                idx === activeIndex ? 'h-6 bg-brand' : 'h-3 bg-ink/25',
+                idx === activeIndex ? 'h-6' : 'h-3 bg-ink/25',
               )}
+              style={
+                idx === activeIndex
+                  ? {
+                      background: 'var(--gold)',
+                      boxShadow:
+                        '0 0 0 3px color-mix(in oklch, var(--gold) 25%, transparent)',
+                    }
+                  : undefined
+              }
             />
           ))}
         </div>
@@ -701,59 +785,28 @@ function RailIcon({ children, label, active, activeBg, onClick }) {
   )
 }
 
-// ─── Right column — discussion / chapters / sources ─────────────────
-function CommentsColumn({ reel, onChange }) {
-  const [tab, setTab] = useState('discussion')
-
+// ─── Right column — discussion (real PostComments only) ───────────
+function DiscussionColumn({ reel, onChange }) {
   return (
     <aside className="flex max-h-[720px] flex-col overflow-hidden rounded-2xl border border-border bg-paper">
-      <div className="flex gap-1 border-b border-border bg-muted/40 p-1.5">
-        {[
-          { value: 'discussion', label: 'Discussion' },
-          { value: 'chapters',   label: 'Chapters' },
-          { value: 'sources',    label: 'Sources' },
-        ].map((t) => {
-          const active = tab === t.value
-          return (
-            <button
-              key={t.value}
-              type="button"
-              onClick={() => setTab(t.value)}
-              className={cn(
-                'flex-1 rounded-lg px-2 py-2 text-[12.5px] font-semibold transition-colors',
-                active
-                  ? 'bg-paper text-ink shadow-soft'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-            >
-              {t.label}
-            </button>
-          )
-        })}
+      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3.5 py-2.5">
+        <MessageCircle className="size-3.5 text-ink-3" />
+        <span className="font-display text-[13px] font-semibold tracking-[-0.005em] text-ink">
+          Discussion
+        </span>
+        {reel ? (
+          <span className="ml-auto rounded-md bg-paper px-1.5 py-0.5 font-mono text-[11px] text-ink-3 ring-1 ring-border">
+            {formatNumber(reel.commentCount ?? 0)}
+          </span>
+        ) : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-        {tab === 'discussion' && reel ? (
+        {reel ? (
           <PostComments
             postId={reel.id}
             initialCount={reel.commentCount ?? 0}
-            onCountChange={(next) =>
-              onChange?.({ ...reel, commentCount: next })
-            }
-          />
-        ) : null}
-
-        {tab === 'chapters' ? (
-          <ColumnEmpty
-            title="No chapters yet"
-            hint="Authors can add timestamped chapters to this reel."
-          />
-        ) : null}
-
-        {tab === 'sources' ? (
-          <ColumnEmpty
-            title="No sources cited"
-            hint="When the author cites a paper or manuscript, it appears here."
+            onCountChange={(next) => onChange?.({ ...reel, commentCount: next })}
           />
         ) : null}
       </div>
@@ -761,19 +814,9 @@ function CommentsColumn({ reel, onChange }) {
   )
 }
 
-function ColumnEmpty({ title, hint }) {
-  return (
-    <div className="grid place-items-center py-10 text-center">
-      <p className="font-display text-[14px] font-semibold tracking-[-0.005em] text-ink">
-        {title}
-      </p>
-      <p className="mt-1 max-w-[24ch] text-[12px] text-ink-3">{hint}</p>
-    </div>
-  )
-}
-
 // ─── Page ───────────────────────────────────────────────────────────
 export function ReelsPage() {
+  const { isAuthenticated } = useAuth()
   const toast = useToast()
   const [reels, setReels] = useState([])
   const [page, setPage] = useState(null)
@@ -781,7 +824,6 @@ export function ReelsPage() {
   const [activeId, setActiveId] = useState(null)
   const [muted, setMuted] = useState(true)
   const [filter, setFilter] = useState('foryou')
-  const [sortKey, setSortKey] = useState('trending')
   const [searchParams] = useSearchParams()
   const focusReelId = searchParams.get('id')
 
@@ -790,10 +832,13 @@ export function ReelsPage() {
     async function load() {
       setLoading(true)
       try {
-        const data = await getReels({ page: 0, size: 20 })
+        const fetcher =
+          filter === 'following' && isAuthenticated ? getFollowingReels : getReels
+        const data = await fetcher({ page: 0, size: 20 })
         if (!cancelled) {
           setReels(data?.content ?? [])
           setPage(data)
+          setActiveId(null)
         }
       } catch (error) {
         if (!cancelled) toast.error(extractApiMessage(error, 'Could not load reels.'))
@@ -802,8 +847,10 @@ export function ReelsPage() {
       }
     }
     load()
-    return () => { cancelled = true }
-  }, [toast])
+    return () => {
+      cancelled = true
+    }
+  }, [toast, filter, isAuthenticated])
 
   // Default active to focused / first reel
   useEffect(() => {
@@ -829,14 +876,127 @@ export function ReelsPage() {
     if (next) setActiveId(next.id)
   }
 
-  // Editorial stats
+  function handlePrev() {
+    const idx = reels.findIndex((r) => r.id === activeId)
+    const prev = reels[idx - 1] ?? reels[reels.length - 1]
+    if (prev) setActiveId(prev.id)
+  }
+
+  // Live updates for the reel currently on the cinema stage. Reactions,
+  // shares, view counts, edits, and deletions broadcast from any other
+  // viewer flow into the same UI without a refresh. All state edits go
+  // through functional `setReels`/`setActiveId` so we never need refs
+  // to read the latest value from inside an SSE handler.
+  usePostStream(activeReel?.id, {
+    POST_UPDATED: (payload) => {
+      if (!payload?.id) return
+      setReels((current) =>
+        current.map((item) =>
+          item.id === payload.id
+            ? { ...item, ...payload, myReaction: item.myReaction }
+            : item,
+        ),
+      )
+    },
+    POST_DELETED: (payload) => {
+      const removedId = payload?.id ?? activeReel?.id
+      if (!removedId) return
+      setReels((current) => {
+        const idx = current.findIndex((item) => item.id === removedId)
+        if (idx === -1) return current
+        const fallback = current[idx + 1] ?? current[idx - 1] ?? null
+        setActiveId(fallback?.id ?? null)
+        return current.filter((item) => item.id !== removedId)
+      })
+      toast.info('This reel was removed by its author.')
+    },
+    POST_REACTED: (payload) => {
+      if (!payload?.id) return
+      setReels((current) =>
+        current.map((item) =>
+          item.id === payload.id
+            ? {
+                ...item,
+                reactionCount: payload.reactionCount ?? item.reactionCount,
+                topReactionTypes:
+                  payload.topReactionTypes ?? item.topReactionTypes,
+              }
+            : item,
+        ),
+      )
+    },
+    POST_REACTION_REMOVED: (payload) => {
+      if (!payload?.id) return
+      setReels((current) =>
+        current.map((item) =>
+          item.id === payload.id
+            ? {
+                ...item,
+                reactionCount: payload.reactionCount ?? item.reactionCount,
+                topReactionTypes:
+                  payload.topReactionTypes ?? item.topReactionTypes,
+              }
+            : item,
+        ),
+      )
+    },
+    POST_SHARED: (payload) => {
+      if (!payload?.id) return
+      setReels((current) =>
+        current.map((item) =>
+          item.id === payload.id
+            ? {
+                ...item,
+                shareCount: payload.shareCount ?? (item.shareCount ?? 0) + 1,
+              }
+            : item,
+        ),
+      )
+    },
+    POST_VIEWED: (payload) => {
+      if (!payload?.id || payload?.viewCount == null) return
+      setReels((current) =>
+        current.map((item) =>
+          item.id === payload.id
+            ? { ...item, viewCount: payload.viewCount }
+            : item,
+        ),
+      )
+    },
+    POST_COMMENTED: (payload) => {
+      const targetId = payload?.postId ?? payload?.id ?? activeReel?.id
+      if (!targetId) return
+      setReels((current) =>
+        current.map((item) =>
+          item.id === targetId
+            ? {
+                ...item,
+                commentCount:
+                  payload?.commentCount ?? (item.commentCount ?? 0) + 1,
+              }
+            : item,
+        ),
+      )
+    },
+    POST_COMMENT_DELETED: (payload) => {
+      const targetId = payload?.postId ?? activeReel?.id
+      if (!targetId) return
+      setReels((current) =>
+        current.map((item) =>
+          item.id === targetId
+            ? {
+                ...item,
+                commentCount:
+                  payload?.commentCount ??
+                  Math.max(0, (item.commentCount ?? 0) - 1),
+              }
+            : item,
+        ),
+      )
+    },
+  })
+
   const totalReels = page?.totalElements ?? reels.length
-  const liveCount = reels.filter((r) => r.live).length
-  const newToday = reels.filter((r) => {
-    if (!r.createdAt) return false
-    const t = new Date(r.createdAt).getTime()
-    return Date.now() - t < 24 * 60 * 60 * 1000
-  }).length
 
   if (loading) {
     return (
@@ -844,9 +1004,9 @@ export function ReelsPage() {
         <PageHeader
           eyebrow="Reels — short-form scholarship"
           title="Lectures, manuscripts, and field notes — in 90 seconds"
-          description="A vertical-video stage curated for serious learners. Swipe, listen, learn — every reel cites its sources."
+          description="A vertical-video stage curated for serious learners."
         />
-        <div className="grid gap-[18px] xl:grid-cols-[220px_minmax(0,1fr)_320px] lg:grid-cols-[200px_minmax(0,1fr)] grid-cols-1">
+        <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_320px]">
           <Skeleton className="hidden h-[720px] rounded-2xl lg:block" />
           <Skeleton className="aspect-[9/16] w-full max-w-[420px] justify-self-center rounded-3xl" />
           <Skeleton className="hidden h-[720px] rounded-2xl xl:block" />
@@ -863,10 +1023,23 @@ export function ReelsPage() {
           title="Lectures, manuscripts, and field notes — in 90 seconds"
           description="A vertical-video stage curated for serious learners."
         />
+        <FilterRow
+          filter={filter}
+          onFilter={setFilter}
+          isAuthenticated={isAuthenticated}
+        />
         <EmptyState
           icon={Clapperboard}
-          title="No reels yet"
-          description="Be the first to post a short video. Reels appear here and at the top of Home."
+          title={
+            filter === 'following'
+              ? 'No reels from people you follow'
+              : 'No reels yet'
+          }
+          description={
+            filter === 'following'
+              ? 'Follow scholars and creators to see their reels here, or switch to For you.'
+              : 'Be the first to post a short video. Reels appear here and at the top of Home.'
+          }
         />
       </div>
     )
@@ -877,28 +1050,21 @@ export function ReelsPage() {
       <PageHeader
         eyebrow="Reels — short-form scholarship"
         title="Lectures, manuscripts, and field notes — in 90 seconds"
-        description="A vertical-video stage curated for serious learners. Swipe, listen, learn — every reel cites its sources."
-        stats={[
-          { value: formatNumber(totalReels), label: 'Reels' },
-          { value: formatNumber(liveCount),  label: 'Live now' },
-          { value: formatNumber(newToday),   label: 'New today', tone: 'gold' },
-        ]}
+        description="A vertical-video stage curated for serious learners. Swipe, listen, learn."
+        stats={[{ value: formatNumber(totalReels), label: 'Reels' }]}
       />
 
       <FilterRow
         filter={filter}
         onFilter={setFilter}
-        sortKey={sortKey}
-        onSort={setSortKey}
+        isAuthenticated={isAuthenticated}
       />
 
-      <div className="grid gap-[18px] grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_320px]">
-        {/* Left rail */}
+      <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_320px]">
         <div className="hidden lg:block">
           <UpNextRail reels={reels} activeId={activeId} onSelect={setActiveId} />
         </div>
 
-        {/* Center stage */}
         <div className="min-h-0">
           <ReelStage
             reel={activeReel}
@@ -907,9 +1073,9 @@ export function ReelsPage() {
             onToggleMuted={() => setMuted((v) => !v)}
             onChange={handleChange}
             onNext={handleNext}
+            onPrev={handlePrev}
           />
 
-          {/* Hint strip */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 rounded-xl border border-border bg-paper px-3.5 py-2.5 text-[11.5px] text-ink-3">
             <span>
               <kbd className="mx-0.5 rounded border border-border bg-muted px-1.5 py-[1.5px] font-mono text-[10px] text-ink-2">Space</kbd>
@@ -919,6 +1085,9 @@ export function ReelsPage() {
             <span>
               <kbd className="mx-0.5 rounded border border-border bg-muted px-1.5 py-[1.5px] font-mono text-[10px] text-ink-2">↓</kbd>
               <kbd className="mx-0.5 rounded border border-border bg-muted px-1.5 py-[1.5px] font-mono text-[10px] text-ink-2">↑</kbd>
+              <span className="ml-1 text-ink-4">/</span>
+              <kbd className="mx-0.5 rounded border border-border bg-muted px-1.5 py-[1.5px] font-mono text-[10px] text-ink-2">J</kbd>
+              <kbd className="mx-0.5 rounded border border-border bg-muted px-1.5 py-[1.5px] font-mono text-[10px] text-ink-2">K</kbd>
               next / prev
             </span>
             <span className="text-ink-4">·</span>
@@ -926,18 +1095,25 @@ export function ReelsPage() {
               <kbd className="mx-0.5 rounded border border-border bg-muted px-1.5 py-[1.5px] font-mono text-[10px] text-ink-2">M</kbd>
               mute
             </span>
+            <span className="text-ink-4">·</span>
+            <span className="inline-flex items-center gap-1 font-mono text-[10.5px] text-ink-3">
+              <span
+                aria-hidden
+                className="size-[5px] rounded-full"
+                style={{ background: 'var(--gold)' }}
+              />
+              every reel ≤ 1:30
+            </span>
           </div>
         </div>
 
-        {/* Right column */}
         <div className="hidden xl:block">
-          <CommentsColumn reel={activeReel} onChange={handleChange} />
+          <DiscussionColumn reel={activeReel} onChange={handleChange} />
         </div>
       </div>
 
-      {/* Mobile / tablet comments — below the stage */}
       <div className="xl:hidden">
-        <CommentsColumn reel={activeReel} onChange={handleChange} />
+        <DiscussionColumn reel={activeReel} onChange={handleChange} />
       </div>
     </div>
   )

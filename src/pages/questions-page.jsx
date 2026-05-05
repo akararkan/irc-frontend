@@ -36,6 +36,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { EmptyState } from '@/components/app/empty-state'
+import { MentionTextarea } from '@/components/app/mention-textarea'
 import { PageHeader } from '@/components/app/page-header'
 import { QuestionFeedCard } from '@/components/app/question-feed-card'
 import {
@@ -199,14 +200,15 @@ function AskQuestionDialog({ onCreated, trigger }) {
               <Label htmlFor="ask-body" className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-3">
                 Details
               </Label>
-              <Textarea
+              <MentionTextarea
                 id="ask-body"
                 value={body}
-                onChange={(event) => setBody(event.target.value.slice(0, BODY_MAX))}
+                onChange={(next) => setBody(next.slice(0, BODY_MAX))}
                 placeholder="Share the context, what you tried, and what you expect."
                 rows={6}
                 maxLength={BODY_MAX}
                 required
+                allowFollowersToken
                 className="resize-y rounded-lg border-border bg-paper text-[14px] leading-[1.55] text-ink placeholder:text-ink-4 focus-visible:border-brand/50 focus-visible:ring-[3px] focus-visible:ring-brand/15"
               />
               <p className="text-right font-mono text-[11px] tabular-nums text-ink-4">

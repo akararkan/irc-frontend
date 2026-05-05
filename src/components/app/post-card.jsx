@@ -6,6 +6,7 @@ import {
   Globe,
   Loader2,
   Lock,
+  Maximize2,
   MapPin,
   MessageCircle,
   Mic,
@@ -23,6 +24,8 @@ import {
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
+import { MentionText } from '@/components/app/mention-text'
+import { RelativeTime } from '@/components/app/relative-time'
 import {
   Dialog,
   DialogContent,
@@ -46,18 +49,19 @@ import { ReactionSummary } from '@/components/app/reaction-summary'
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
 import {
+  copyPostShareLink,
   deletePost,
   reactToPost,
   removePostReaction,
   repostPost,
   undoRepost,
 } from '@/features/posts/posts.api'
+import { usePostStream } from '@/hooks/use-post-stream'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
-import { extractApiMessage } from '@/lib/api-error'
+import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
 import {
-  displayTime,
   formatNumber,
   getFullName,
   getUsername,
@@ -180,15 +184,22 @@ function MediaGrid({ media }) {
   if (media.length === 1) {
     const sole = media[0]
     const isVideo = (sole.mediaType ?? '').toUpperCase() === 'VIDEO'
+    if (isVideo) {
+      // Cap a single in-feed video so it never dominates the card. Most
+      // casual videos look right at ~480px tall on desktop and are still
+      // tappable on mobile.
+      return (
+        <div className="mx-auto max-w-[480px] overflow-hidden rounded-2xl border border-border bg-black">
+          <MediaItem
+            item={sole}
+            className="max-h-[420px] w-full object-contain sm:max-h-[480px]"
+          />
+        </div>
+      )
+    }
     return (
       <div className="overflow-hidden rounded-2xl border border-border">
-        <MediaItem
-          item={sole}
-          className={cn(
-            'w-full',
-            isVideo ? 'max-h-[640px] object-contain' : 'max-h-[640px] object-cover',
-          )}
-        />
+        <MediaItem item={sole} className="max-h-[560px] w-full object-cover" />
       </div>
     )
   }
@@ -215,7 +226,11 @@ function MediaGrid({ media }) {
 }
 
 // ─── Reel ───────────────────────────────────────────────────────────
-function ReelPlayer({ media, audioTrackName }) {
+//
+// In-feed reel preview — a phone-shaped tile, not a full cinema. Capped to
+// ~320px wide on tablet/desktop and centered; on mobile it spans the card
+// up to the same cap. Tap the corner to jump to the dedicated reel viewer.
+function ReelPlayer({ media, audioTrackName, postId }) {
   const item = media?.[0]
   const url = resolveMediaUrl(item?.url)
   const videoRef = useRef(null)
@@ -233,73 +248,88 @@ function ReelPlayer({ media, audioTrackName }) {
   }
 
   return (
-    <div className="relative isolate overflow-hidden rounded-3xl bg-black">
-      <video
-        ref={videoRef}
-        src={url}
-        loop
-        playsInline
-        muted={muted}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onTimeUpdate={(event) => {
-          const el = event.currentTarget
-          if (!el.duration) return
-          setProgress(el.currentTime / el.duration)
-        }}
-        onClick={togglePlay}
-        className="aspect-[9/14] w-full cursor-pointer bg-black object-contain"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/55 to-transparent"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/65 to-transparent"
-      />
-      <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black">
-        <Clapperboard className="size-2.5" />
-        Reel
-      </span>
-      <button
-        type="button"
-        onClick={() => setMuted((m) => !m)}
-        className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/75"
-        title={muted ? 'Unmute' : 'Mute'}
-      >
-        {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-      </button>
-      {audioTrackName ? (
-        <span className="pointer-events-none absolute bottom-4 left-3 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur">
-          <span className="size-1.5 animate-pulse rounded-full bg-white" />
-          ♪ {audioTrackName}
-        </span>
-      ) : null}
-      <div className="pointer-events-none absolute inset-x-3 bottom-2 h-[3px] overflow-hidden rounded-full bg-white/25">
-        <div
-          className="h-full bg-white transition-[width] duration-150"
-          style={{ width: `${progress * 100}%` }}
+    <div className="mx-auto w-full max-w-[320px] sm:max-w-[340px]">
+      <div className="relative isolate aspect-[9/16] overflow-hidden rounded-3xl bg-black ring-1 ring-border">
+        <video
+          ref={videoRef}
+          src={url}
+          loop
+          playsInline
+          muted={muted}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onTimeUpdate={(event) => {
+            const el = event.currentTarget
+            if (!el.duration) return
+            setProgress(el.currentTime / el.duration)
+          }}
+          onClick={togglePlay}
+          className="absolute inset-0 h-full w-full cursor-pointer bg-black object-cover"
         />
-      </div>
-      <AnimatePresence>
-        {!playing ? (
-          <motion.button
-            key="play"
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/55 to-transparent"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/65 to-transparent"
+        />
+        <span className="pointer-events-none absolute left-2.5 top-2.5 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider text-black">
+          <Clapperboard className="size-2.5" />
+          Reel
+        </span>
+        <div className="absolute right-2.5 top-2.5 flex items-center gap-1.5">
+          {postId ? (
+            <Link
+              to={`/reels?id=${postId}`}
+              title="Open in Reels"
+              aria-label="Open in Reels"
+              className="grid size-8 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/75"
+            >
+              <Maximize2 className="size-3.5" />
+            </Link>
+          ) : null}
+          <button
             type="button"
-            onClick={togglePlay}
-            initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.6 }}
-            className="absolute inset-0 grid place-items-center"
-            aria-label="Play"
+            onClick={() => setMuted((m) => !m)}
+            className="grid size-8 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/75"
+            title={muted ? 'Unmute' : 'Mute'}
+            aria-label={muted ? 'Unmute' : 'Mute'}
           >
-            <span className="grid size-16 place-items-center rounded-full bg-white/95 text-black shadow-2xl backdrop-blur">
-              <Play className="size-7 translate-x-[2px] fill-black" />
-            </span>
-          </motion.button>
+            {muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
+          </button>
+        </div>
+        {audioTrackName ? (
+          <span className="pointer-events-none absolute bottom-3 left-2.5 inline-flex max-w-[calc(100%-1.25rem)] items-center gap-1.5 truncate rounded-full bg-black/55 px-2 py-0.5 text-[10.5px] font-medium text-white backdrop-blur">
+            <span className="size-1.5 animate-pulse rounded-full bg-white" />
+            ♪ {audioTrackName}
+          </span>
         ) : null}
-      </AnimatePresence>
+        <div className="pointer-events-none absolute inset-x-2.5 bottom-1.5 h-[3px] overflow-hidden rounded-full bg-white/25">
+          <div
+            className="h-full bg-white transition-[width] duration-150"
+            style={{ width: `${progress * 100}%` }}
+          />
+        </div>
+        <AnimatePresence>
+          {!playing ? (
+            <motion.button
+              key="play"
+              type="button"
+              onClick={togglePlay}
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              className="absolute inset-0 grid place-items-center"
+              aria-label="Play"
+            >
+              <span className="grid size-14 place-items-center rounded-full bg-white/95 text-black shadow-2xl backdrop-blur">
+                <Play className="size-6 translate-x-[1px] fill-black" />
+              </span>
+            </motion.button>
+          ) : null}
+        </AnimatePresence>
+      </div>
     </div>
   )
 }
@@ -318,7 +348,7 @@ function PostText({ text, postType }) {
   if (isVeryShort) {
     return (
       <p className="font-display text-pretty text-[19px] font-normal leading-[1.45] tracking-[-0.005em] text-ink sm:text-[21px]">
-        {text}
+        <MentionText text={text} />
       </p>
     )
   }
@@ -333,7 +363,7 @@ function PostText({ text, postType }) {
             : 'text-[14.5px] leading-[1.55]',
         )}
       >
-        {display}
+        <MentionText text={display} />
       </p>
       {showToggle ? (
         <button
@@ -365,21 +395,49 @@ function ShareMenu({ post, onShared, onRepostCreated }) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [note, setNote] = useState('')
 
-  function buildLink() {
+  // Fallback used only if the new /copy-link endpoint fails — never
+  // bumps a counter, just gives the user *something* to paste.
+  function fallbackLink() {
     if (typeof window === 'undefined') return ''
-    const author = normalizeAuthor(post)
-    const username = getUsername(author)
-    return username
-      ? `${window.location.origin}/profile/${username}`
-      : `${window.location.origin}/`
+    return `${window.location.origin}/posts/${post.id}`
   }
 
   async function handleCopy() {
+    if (busy) return
+    setBusy(true)
+    // Optimistic: write a placeholder to the clipboard NOW (some
+    // browsers reject async clipboard writes that aren't on the
+    // initial user gesture). We'll overwrite with the canonical short
+    // URL the server returns once the counter bump round-trips.
+    let optimistic = fallbackLink()
     try {
-      await navigator.clipboard.writeText(buildLink())
-      toast.success('Link copied to clipboard.')
+      await navigator.clipboard.writeText(optimistic)
     } catch {
-      toast.error('Could not copy link.')
+      // ignore — we'll try again with the real URL below.
+    }
+    try {
+      const data = await copyPostShareLink(post.id)
+      const url = data?.shortUrl ?? data?.canonicalUrl ?? optimistic
+      try {
+        await navigator.clipboard.writeText(url)
+      } catch {
+        // Clipboard rejected the second write — the optimistic one
+        // is already there and is a valid permalink; non-fatal.
+      }
+      // Realtime: the SHARE_COUNT_UPDATED event will land via SSE for
+      // anyone with the post stream open, but we also patch the local
+      // state so the share-count chip ticks in this tab immediately
+      // — the SSE echo will reconcile if it differs.
+      const fresh = data?.shareCount
+      onShared?.({
+        ...post,
+        shareCount: fresh ?? (post.shareCount ?? 0) + 1,
+      })
+      toast.success('Link copied to clipboard.')
+    } catch (error) {
+      toast.error(friendlyApiMessage(error, 'Could not copy link.'))
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -403,7 +461,7 @@ function ShareMenu({ post, onShared, onRepostCreated }) {
       setDialogOpen(false)
       setNote('')
     } catch (error) {
-      toast.error(extractApiMessage(error, 'Could not share post.'))
+      toast.error(friendlyApiMessage(error, 'Could not share post.'))
     } finally {
       setBusy(false)
     }
@@ -536,8 +594,8 @@ function QuotedPost({ post }) {
             {getFullName(author) || username}
           </p>
           <p className="truncate text-[11px] text-muted-foreground">
-            {username ? `@${username} · ` : ''}
-            {displayTime(post)}
+            {username ? `${username} · ` : ''}
+            <RelativeTime entity={post} />
           </p>
         </div>
       </div>
@@ -563,10 +621,80 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
   const [showComments, setShowComments] = useState(defaultCommentsOpen)
   const [commentCount, setCommentCount] = useState(post.commentCount ?? 0)
   const [editOpen, setEditOpen] = useState(false)
+  const commentsRef = useRef(null)
 
   useEffect(() => {
     setCommentCount(post.commentCount ?? 0)
   }, [post.commentCount])
+
+  // Per-post realtime: subscribe whenever the comments thread is open.
+  // Limiting to "open" keeps the EventSource fan-out reasonable on a
+  // long feed (browsers cap concurrent SSE streams per origin) while
+  // still giving an active reader a fully live thread. Handlers close
+  // over `post` from props on every render — `usePostStream` snapshots
+  // them via a ref each render, so the closure stays current without
+  // re-creating the EventSource.
+  usePostStream(
+    post.id,
+    {
+      POST_UPDATED: (payload) => {
+        if (!payload?.id) return
+        // Preserve viewer-specific fields the broadcast payload omits.
+        onChange?.({ ...post, ...payload, myReaction: post.myReaction })
+      },
+      POST_DELETED: () => {
+        onDelete?.(post.id)
+      },
+      POST_REACTED: (payload) => {
+        if (!payload) return
+        onChange?.({
+          ...post,
+          reactionCount: payload.reactionCount ?? post.reactionCount,
+          topReactionTypes: payload.topReactionTypes ?? post.topReactionTypes,
+        })
+      },
+      POST_REACTION_REMOVED: (payload) => {
+        if (!payload) return
+        onChange?.({
+          ...post,
+          reactionCount: payload.reactionCount ?? post.reactionCount,
+          topReactionTypes: payload.topReactionTypes ?? post.topReactionTypes,
+        })
+      },
+      POST_SHARED: (payload) => {
+        const next = payload?.shareCount ?? (post.shareCount ?? 0) + 1
+        onChange?.({ ...post, shareCount: next })
+      },
+      POST_VIEWED: (payload) => {
+        if (payload?.viewCount == null) return
+        onChange?.({ ...post, viewCount: payload.viewCount })
+      },
+      POST_COMMENTED: (payload) => {
+        const next = payload?.commentCount ?? (post.commentCount ?? 0) + 1
+        onChange?.({ ...post, commentCount: next })
+        commentsRef.current?.applyRealtimeEvent('POST_COMMENTED', payload)
+      },
+      POST_COMMENT_UPDATED: (payload) => {
+        commentsRef.current?.applyRealtimeEvent('POST_COMMENT_UPDATED', payload)
+      },
+      POST_COMMENT_DELETED: (payload) => {
+        commentsRef.current?.applyRealtimeEvent('POST_COMMENT_DELETED', payload)
+        const next =
+          payload?.commentCount ?? Math.max(0, (post.commentCount ?? 0) - 1)
+        onChange?.({ ...post, commentCount: next })
+      },
+      POST_COMMENT_REACTED: (payload) => {
+        commentsRef.current?.applyRealtimeEvent('POST_COMMENT_REACTED', payload)
+      },
+      POST_COMMENT_REACTION_REMOVED: (payload) => {
+        commentsRef.current?.applyRealtimeEvent(
+          'POST_COMMENT_REACTION_REMOVED',
+          payload,
+        )
+      },
+    },
+    { enabled: showComments || defaultCommentsOpen },
+  )
 
   const author = normalizeAuthor(post)
   const authorUsername = getUsername(author)
@@ -617,7 +745,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       }
     } catch (error) {
       onChange?.(previous)
-      toast.error(extractApiMessage(error, 'Could not react.'))
+      toast.error(friendlyApiMessage(error, 'Could not react.'))
     } finally {
       setWorking(false)
     }
@@ -636,7 +764,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       await removePostReaction(post.id)
     } catch (error) {
       onChange?.(previous)
-      toast.error(extractApiMessage(error, 'Could not remove reaction.'))
+      toast.error(friendlyApiMessage(error, 'Could not remove reaction.'))
     } finally {
       setWorking(false)
     }
@@ -718,9 +846,15 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
             ) : null}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-ink-3">
-            {authorUsername ? <span>@{authorUsername}</span> : null}
+            {authorUsername ? <span>{authorUsername}</span> : null}
             <span aria-hidden className="text-ink-4">·</span>
-            <span title={post.formattedDate || ''}>{displayTime(post)}</span>
+            <Link
+              to={`/posts/${post.id}`}
+              className="transition-colors hover:text-ink hover:underline"
+              title={post.formattedDate || 'Open post'}
+            >
+              <RelativeTime entity={post} />
+            </Link>
             <span aria-hidden className="text-ink-4">·</span>
             <span className="inline-flex items-center gap-1" title={visLabel}>
               <VisIcon className="size-3" />
@@ -782,6 +916,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
           <ReelPlayer
             media={post.mediaList}
             audioTrackName={post.audioTrackName}
+            postId={post.id}
           />
         ) : (
           <MediaGrid media={post.mediaList} />
@@ -891,6 +1026,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
           >
             <div className="border-t border-border px-4 pb-4 pt-3 sm:px-5">
               <PostComments
+                ref={commentsRef}
                 postId={post.id}
                 initialCount={commentCount}
                 onCountChange={(next) => {

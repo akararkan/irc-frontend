@@ -1,4 +1,5 @@
 import { api } from '@/api/client'
+import { API_URL } from '@/config/env'
 
 // ══════════════════════════════════════════════════════════════
 //  QUESTIONS  —  /api/v1/questions
@@ -15,6 +16,20 @@ export async function getQuestionsFollowing({ page = 0, size = 20 } = {}) {
   const response = await api.get('/api/v1/questions/feed/following', {
     params: { page, size },
   })
+  return response.data
+}
+
+/**
+ * Cursor-paginated public Q&A feed. Same shape as the posts cursor feed —
+ * preferred for infinite scroll because performance stays flat as the
+ * reader paginates. Server caps `limit` at 50.
+ *
+ * Response: { items: QuestionResponse[], nextCursor: string|null, hasMore: boolean }
+ */
+export async function getQuestionsCursor({ cursor, limit = 20 } = {}) {
+  const params = { limit }
+  if (cursor) params.cursor = cursor
+  const response = await api.get('/api/v1/questions/feed/cursor', { params })
   return response.data
 }
 
@@ -114,15 +129,81 @@ export async function createAnswer(questionId, payload) {
 }
 
 /**
+ * POST /api/v1/questions/{questionId}/answers/upload — multipart.
+ * Parts: `data` (CreateAnswerRequest JSON) + optional `media` (single
+ *        image/video) + optional `voice` (audio clip).
+ *
+ * Mirrors `createPostCommentWithMedia` so the same composer affordance
+ * (one inline file picker) works for both surfaces. Sources, link list,
+ * and bulk file attachments remain on the JSON `data` and the existing
+ * `uploadAnswerAttachment` round-trips.
+ */
+export async function createAnswerWithMedia(questionId, { data, media, voice }) {
+  const form = new FormData()
+  form.append(
+    'data',
+    new Blob([JSON.stringify(data)], { type: 'application/json' }),
+  )
+  if (media) form.append('media', media)
+  if (voice) form.append('voice', voice)
+  const response = await api.post(
+    `/api/v1/questions/${questionId}/answers/upload`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  )
+  return response.data
+}
+
+/**
+ * POST /api/v1/questions/{questionId}/answers/{answerId}/reanswers/upload
+ *   (alias: /replies/upload)
+ *
+ * Reanswer (reply) variant — same multipart shape as the top-level
+ * upload above. Server handles `parentAnswerId` from the path so the
+ * JSON body doesn't need to repeat it.
+ */
+export async function createReanswerWithMedia(
+  questionId,
+  parentAnswerId,
+  { data, media, voice },
+) {
+  const form = new FormData()
+  form.append(
+    'data',
+    new Blob([JSON.stringify(data)], { type: 'application/json' }),
+  )
+  if (media) form.append('media', media)
+  if (voice) form.append('voice', voice)
+  const response = await api.post(
+    `/api/v1/questions/${questionId}/answers/${parentAnswerId}/reanswers/upload`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  )
+  return response.data
+}
+
+/**
  * GET /api/v1/questions/{questionId}/answers/{answerId}/replies
  * Returns the reanswers (replies) hanging under a top-level answer,
  * ordered oldest-first. Public — no auth required to read.
+ *
+ * The backend's `getReanswers(viewerId, Pageable)` overload may serialize
+ * either as a bare List (legacy) or a Spring Page envelope. Callers want
+ * an array, so we unwrap defensively here.
  */
-export async function getAnswerReplies(questionId, answerId) {
+export async function getAnswerReplies(
+  questionId,
+  answerId,
+  { page = 0, size = 50 } = {},
+) {
   const response = await api.get(
     `/api/v1/questions/${questionId}/answers/${answerId}/replies`,
+    { params: { page, size } },
   )
-  return response.data
+  const data = response.data
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.content)) return data.content
+  return []
 }
 
 /**
@@ -159,6 +240,27 @@ export async function unacceptAnswer(questionId, answerId) {
   return response.data
 }
 
+// ── Reactions on answers / reanswers ─────────────────────────
+//
+// Same 8-type palette as post reactions. The backend rejects the
+// call across any block edge (SocialGuard) and skips the notification
+// when the recipient has restricted the reactor.
+
+/** POST .../react — body { reactionType } */
+export async function reactToAnswer(questionId, answerId, reactionType) {
+  const response = await api.post(
+    `/api/v1/questions/${questionId}/answers/${answerId}/react`,
+    { reactionType },
+  )
+  return response.data
+}
+
+export async function removeAnswerReaction(questionId, answerId) {
+  await api.delete(
+    `/api/v1/questions/${questionId}/answers/${answerId}/react`,
+  )
+}
+
 // ══════════════════════════════════════════════════════════════
 //  FEEDBACK on answers
 //  Only the question author (or admin) may add / edit / delete.
@@ -168,7 +270,10 @@ export async function getAnswerFeedback(questionId, answerId) {
   const response = await api.get(
     `/api/v1/questions/${questionId}/answers/${answerId}/feedback`,
   )
-  return response.data
+  const data = response.data
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.content)) return data.content
+  return []
 }
 
 /**
@@ -277,4 +382,20 @@ export async function deleteAnswerSource(questionId, answerId, sourceId) {
   await api.delete(
     `/api/v1/questions/${questionId}/answers/${answerId}/sources/${sourceId}`,
   )
+}
+
+// ══════════════════════════════════════════════════════════════
+//  REALTIME  —  /api/v1/questions/{questionId}/stream  (SSE)
+// ══════════════════════════════════════════════════════════════
+//
+// Mirrors the per-post stream. Emits QnaRealtimeEventType events:
+// ANSWER_CREATED, REANSWER_CREATED, ANSWER_EDITED, ANSWER_DELETED,
+// ANSWER_REACTION_ADDED/CHANGED/REMOVED, ANSWER_ACCEPTED/UNACCEPTED,
+// ANSWER_FEEDBACK_ADDED/EDITED/DELETED,
+// QUESTION_UPDATED/DELETED/LOCKED/UNLOCKED, plus the standard
+// `connected` / `heartbeat` envelope events.
+export function questionStreamUrl(questionId, token) {
+  const url = new URL(`/api/v1/questions/${questionId}/stream`, API_URL)
+  if (token) url.searchParams.set('token', token)
+  return url.toString()
 }

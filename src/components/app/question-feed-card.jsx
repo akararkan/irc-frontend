@@ -11,7 +11,8 @@ import { Link } from 'react-router-dom'
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { cn } from '@/lib/utils'
-import { displayTime, formatNumber, getFullName } from '@/lib/format'
+import { formatNumber, getFullName } from '@/lib/format'
+import { RelativeTime } from '@/components/app/relative-time'
 
 const STATUS_META = {
   OPEN: {
@@ -98,9 +99,11 @@ export function QuestionFeedCard({ question }) {
             <UserAvatar user={author} className="size-7" />
             <span className="min-w-0 truncate">
               <span className="font-semibold text-ink-2">
-                {getFullName(author) || `@${author.username}`}
+                {getFullName(author) || author.username}
               </span>{' '}
-              <span className="text-ink-3">asked {displayTime(question)}</span>
+              <span className="text-ink-3">
+                asked <RelativeTime entity={question} />
+              </span>
             </span>
             {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
           </div>

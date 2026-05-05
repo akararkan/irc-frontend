@@ -23,11 +23,8 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
-import {
-  formatNumber,
-  formatRelativeTime,
-  getFullName,
-} from '@/lib/format'
+import { RelativeTime } from '@/components/app/relative-time'
+import { formatNumber, getFullName } from '@/lib/format'
 
 // ─── Reaction taxonomy ──────────────────────────────────────────────
 // Maps the backend feedback enum to a Facebook-style reaction.
@@ -423,7 +420,7 @@ function FeedbackItem({ feedback, isMine, onDelete, onSave }) {
             · {meta.label}
           </span>
           <span className="text-muted-foreground">
-            · {formatRelativeTime(feedback.createdAt)}
+            · <RelativeTime value={feedback.createdAt} />
             {feedback.updatedAt && feedback.updatedAt !== feedback.createdAt
               ? ' · edited'
               : ''}

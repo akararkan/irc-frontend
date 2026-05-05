@@ -12,7 +12,8 @@ import { Link } from 'react-router-dom'
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { cn } from '@/lib/utils'
-import { displayTime, formatNumber, resolveMediaUrl } from '@/lib/format'
+import { formatNumber, resolveMediaUrl } from '@/lib/format'
+import { RelativeTime } from '@/components/app/relative-time'
 
 const STATUS_META = {
   PUBLISHED: {
@@ -172,7 +173,7 @@ export function ResearchCard({ item }) {
               {item.category}
             </span>
           ) : null}
-          <span title={item.formattedDate || ''}>{displayTime(item)}</span>
+          <RelativeTime entity={item} title={item.formattedDate || undefined} />
           {item.doi ? (
             <>
               <span aria-hidden className="text-ink-4">·</span>
@@ -217,7 +218,7 @@ export function ResearchCard({ item }) {
               </span>
               <RoleBadge role="RESEARCHER" size="xs" />
             </div>
-            <p className="truncate text-[11px] text-ink-3">@{author.username}</p>
+            <p className="truncate text-[11px] text-ink-3">{author.username}</p>
           </div>
           <div className="flex items-center gap-3 text-[11.5px] text-ink-3">
             {item.citationCount ? (

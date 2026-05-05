@@ -48,7 +48,7 @@ function UserRow({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUserId
         <Link to={`/profile/${user.username}`} className="block truncate font-medium hover:underline">
           {getFullName(user)}
         </Link>
-        <p className="truncate text-xs text-muted-foreground">@{user.username}</p>
+        <p className="truncate text-xs text-muted-foreground">{user.username}</p>
         {user.profileBio ? (
           <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{user.profileBio}</p>
         ) : null}
@@ -143,7 +143,7 @@ function DirectorySearch() {
     try {
       await followUser(person.id)
       setItems((current) => current.map((item) => (item.id === person.id ? { ...item, _isFollowing: true } : item)))
-      toast.success(`Following @${person.username}`)
+      toast.success(`Following ${person.username}`)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not follow.'))
     }
@@ -162,7 +162,7 @@ function DirectorySearch() {
     try {
       await blockUser(person.id)
       setItems((current) => current.map((item) => (item.id === person.id ? { ...item, _isBlocked: true, _isFollowing: false } : item)))
-      toast.success(`Blocked @${person.username}`)
+      toast.success(`Blocked ${person.username}`)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not block.'))
     }
@@ -258,7 +258,7 @@ function BlockedList() {
     try {
       await unblockUser(person.id)
       setItems((current) => current.filter((item) => item.id !== person.id))
-      toast.success(`Unblocked @${person.username}`)
+      toast.success(`Unblocked ${person.username}`)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not unblock.'))
     }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, Menu, Search, Sliders } from 'lucide-react'
+import { ChevronRight, Loader2, Menu, Search, Sliders } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -13,22 +13,108 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { BrandWordmark } from '@/components/app/brand-mark'
+import { NotificationBell } from '@/components/app/notification-bell'
 import { TweaksMenu } from '@/components/app/tweaks-menu'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { useAuth } from '@/features/auth/auth-context'
-import { useNotifications } from '@/features/notifications/notifications-context'
-import { searchUsers } from '@/features/users/users.api'
+import { unifiedSearch } from '@/features/search/search.api'
 import { cn } from '@/lib/utils'
 import { getFullName } from '@/lib/format'
+import { getSearchTypeMeta, searchHitHref } from '@/lib/search'
 
 function isMacLike() {
   if (typeof navigator === 'undefined') return false
   return /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '')
 }
 
+// The order results render in the typeahead. People first because we
+// want exact-match `@handle` lookups to land at the top; then the most
+// content-rich corpora.
+const TYPEAHEAD_GROUP_ORDER = [
+  'USER',
+  'POST',
+  'REEL',
+  'QUESTION',
+  'ANSWER',
+  'RESEARCH',
+]
+
+function flattenGroups(unified) {
+  if (!unified) return []
+  const groups = unified.groups ?? {}
+  const out = []
+  for (const type of TYPEAHEAD_GROUP_ORDER) {
+    const hits = Array.isArray(groups[type]) ? groups[type] : []
+    if (hits.length === 0) continue
+    out.push({ type, hits })
+  }
+  // Catch-all for any type the FE doesn't know about yet.
+  for (const [type, hits] of Object.entries(groups)) {
+    if (TYPEAHEAD_GROUP_ORDER.includes(type)) continue
+    if (Array.isArray(hits) && hits.length > 0) out.push({ type, hits })
+  }
+  return out
+}
+
+function SearchHitRow({ hit, onActivate }) {
+  const meta = getSearchTypeMeta(hit.type)
+  const Icon = meta.icon
+  const href = searchHitHref(hit) ?? '#'
+  const author = hit.authorUsername
+    ? {
+        username: hit.authorUsername,
+        fullName: hit.authorFullName,
+        profileImage: hit.authorProfileImage ?? hit.thumbnailUrl,
+      }
+    : null
+
+  return (
+    <Link
+      to={href}
+      onClick={() => onActivate?.(hit)}
+      className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted/70 focus-visible:bg-muted/70 focus-visible:outline-none"
+    >
+      {hit.type === 'USER' ? (
+        <UserAvatar
+          user={{
+            username: hit.username ?? hit.title,
+            fullName: hit.title,
+            profileImage: hit.thumbnailUrl,
+          }}
+          className="size-8 shrink-0"
+        />
+      ) : (
+        <span
+          className={cn(
+            'mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border',
+            meta.accent,
+          )}
+          aria-hidden
+        >
+          <Icon className="size-4" />
+        </span>
+      )}
+      <div className="min-w-0 flex-1 leading-tight">
+        <p className="truncate text-[13px] font-medium text-ink">
+          {hit.title ?? hit.snippet ?? '(untitled)'}
+        </p>
+        {hit.snippet && hit.snippet !== hit.title ? (
+          <p className="line-clamp-1 text-[11.5px] text-ink-3">
+            {hit.snippet}
+          </p>
+        ) : author?.username ? (
+          <p className="truncate text-[11.5px] text-ink-3">
+            {author.username}
+          </p>
+        ) : null}
+      </div>
+    </Link>
+  )
+}
+
 function SearchBar() {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
+  const [unified, setUnified] = useState(null)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const containerRef = useRef(null)
@@ -39,28 +125,28 @@ function SearchBar() {
   useEffect(() => {
     const term = query.trim()
     if (term.length < 2) {
-      setResults([])
+      setUnified(null)
       setIsLoading(false)
       return undefined
     }
 
     setIsLoading(true)
-    const controller = new AbortController()
+    let cancelled = false
     const timeout = setTimeout(async () => {
       try {
-        const page = await searchUsers({ q: term, page: 0, size: 6 })
-        if (!controller.signal.aborted) {
-          setResults(page?.content ?? [])
-        }
+        // 5 hits per corpus is enough for the dropdown without
+        // dwarfing the visible page below it.
+        const data = await unifiedSearch({ q: term, limit: 5 })
+        if (!cancelled) setUnified(data ?? null)
       } catch {
-        if (!controller.signal.aborted) setResults([])
+        if (!cancelled) setUnified(null)
       } finally {
-        if (!controller.signal.aborted) setIsLoading(false)
+        if (!cancelled) setIsLoading(false)
       }
     }, 220)
 
     return () => {
-      controller.abort()
+      cancelled = true
       clearTimeout(timeout)
     }
   }, [query])
@@ -90,20 +176,23 @@ function SearchBar() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  function handleSelect(user) {
+  function handleHitActivate() {
     setQuery('')
-    setResults([])
+    setUnified(null)
     setIsOpen(false)
-    navigate(`/profile/${user.username}`)
   }
 
   function handleSubmit(event) {
     event.preventDefault()
     const term = query.trim()
     if (!term) return
-    navigate(`/people?q=${encodeURIComponent(term)}`)
+    navigate(`/search?q=${encodeURIComponent(term)}`)
     setIsOpen(false)
   }
+
+  const groups = useMemo(() => flattenGroups(unified), [unified])
+  const hasResults = groups.length > 0
+  const term = query.trim()
 
   return (
     <form ref={containerRef} onSubmit={handleSubmit} className="relative w-full max-w-md">
@@ -117,7 +206,7 @@ function SearchBar() {
           setIsOpen(true)
         }}
         onFocus={() => setIsOpen(true)}
-        placeholder="Search papers, threads, scholars…"
+        placeholder="Search posts, reels, research, scholars…"
         className={cn(
           'h-10 rounded-lg border border-border bg-paper pl-9 pr-16 text-[13px] text-ink placeholder:text-ink-4',
           'transition focus:border-brand/50 focus-visible:bg-paper focus-visible:ring-[3px] focus-visible:ring-brand/15',
@@ -130,64 +219,55 @@ function SearchBar() {
       >
         {isMac ? '⌘' : 'Ctrl'}K
       </kbd>
-      {isOpen && query.trim().length >= 2 ? (
+      {isOpen && term.length >= 2 ? (
         <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-border bg-popover/95 shadow-soft-lg backdrop-blur">
-          {isLoading ? (
-            <p className="px-4 py-3 text-sm text-ink-3">Searching…</p>
-          ) : results.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-ink-3">No people found.</p>
+          {isLoading && !hasResults ? (
+            <p className="flex items-center gap-2 px-4 py-3 text-sm text-ink-3">
+              <Loader2 className="size-3.5 animate-spin" />
+              Searching…
+            </p>
+          ) : !hasResults ? (
+            <p className="px-4 py-3 text-sm text-ink-3">
+              No results for "{term}".
+            </p>
           ) : (
-            <ul className="max-h-80 overflow-y-auto py-1.5">
-              {results.map((user) => (
-                <li key={user.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleSelect(user)}
-                    className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                  >
-                    <UserAvatar user={user} className="size-8" />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-ink">{getFullName(user)}</p>
-                      <p className="truncate text-xs text-ink-3">
-                        @{user.username}
-                      </p>
+            <div className="max-h-[480px] overflow-y-auto p-1.5">
+              {groups.map(({ type, hits }) => {
+                const meta = getSearchTypeMeta(type)
+                const Icon = meta.icon
+                return (
+                  <section key={type} className="px-1 pb-2 last:pb-0">
+                    <header className="flex items-center gap-1.5 px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+                      <Icon className="size-3" />
+                      {meta.plural}
+                    </header>
+                    <div className="space-y-0.5">
+                      {hits.map((hit) => (
+                        <SearchHitRow
+                          key={`${type}-${hit.id ?? hit.title}-${hit.score ?? ''}`}
+                          hit={hit}
+                          onActivate={handleHitActivate}
+                        />
+                      ))}
                     </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                  </section>
+                )
+              })}
+            </div>
           )}
+          <footer className="border-t border-border bg-muted/40 p-1.5">
+            <Link
+              to={`/search?q=${encodeURIComponent(term)}`}
+              onClick={() => setIsOpen(false)}
+              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[12.5px] font-semibold text-ink transition-colors hover:bg-muted"
+            >
+              See all results for "{term}"
+              <ChevronRight className="size-3.5" />
+            </Link>
+          </footer>
         </div>
       ) : null}
     </form>
-  )
-}
-
-function NotificationBellButton() {
-  const { unreadCount } = useNotifications()
-  return (
-    <Button
-      asChild
-      variant="ghost"
-      size="icon"
-      className="relative rounded-full hover:bg-accent"
-    >
-      <Link to="/notifications" aria-label="Notifications">
-        <Bell className="size-[18px]" strokeWidth={1.75} />
-        {unreadCount > 0 ? (
-          <>
-            <span
-              aria-hidden
-              className="absolute right-1.5 top-1.5 size-2 rounded-full bg-brand"
-            />
-            <span
-              aria-hidden
-              className="absolute right-1.5 top-1.5 size-2 animate-ping rounded-full bg-brand opacity-60"
-            />
-          </>
-        ) : null}
-      </Link>
-    </Button>
   )
 }
 
@@ -224,7 +304,7 @@ function AccountMenu() {
               {getFullName(user)}
             </p>
             <p className="truncate text-xs font-normal text-muted-foreground">
-              @{user.username}
+              {user.username}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -298,7 +378,7 @@ export function AppTopbar({ onMenuClick, title, className }) {
       <div className="ml-auto flex items-center gap-1 md:gap-2">
         {isAuthenticated ? (
           <>
-            <NotificationBellButton />
+            <NotificationBell />
             <TweaksMenu
               trigger={
                 <Button

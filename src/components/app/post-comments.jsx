@@ -1,4 +1,10 @@
-import { useEffect, useState } from 'react'
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   ChevronDown,
@@ -20,6 +26,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Textarea } from '@/components/ui/textarea'
+import { MentionText } from '@/components/app/mention-text'
+import { MentionTextarea } from '@/components/app/mention-textarea'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { ReactionPicker } from '@/components/app/reaction-picker'
 import { useAuth } from '@/features/auth/auth-context'
@@ -35,8 +43,9 @@ import {
 } from '@/features/posts/posts.api'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
-import { extractApiMessage } from '@/lib/api-error'
-import { displayTime, getFullName, resolveMediaUrl } from '@/lib/format'
+import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
+import { getFullName, resolveMediaUrl } from '@/lib/format'
+import { RelativeTime } from '@/components/app/relative-time'
 import { getPostReaction } from '@/lib/reactions'
 
 function normalizeAuthor(comment) {
@@ -56,12 +65,55 @@ function normalizeAuthor(comment) {
   }
 }
 
-function CommentComposer({ postId, parentId = null, onAdded, autoFocus = false, compact = false }) {
+function CommentComposer({
+  postId,
+  parentId = null,
+  /**
+   * When this composer is mounted as a reply (`parentId` set), the parent
+   * comment's author username is prefilled as `@username ` so the existing
+   * MentionService.scanAndPublish pipeline notifies them — same UX as
+   * Instagram / Twitter / Facebook reply boxes. Skipped when replying to
+   * yourself (no point pinging yourself).
+   */
+  replyToUsername = null,
+  onAdded,
+  autoFocus = false,
+  compact = false,
+}) {
   const { user, isAuthenticated } = useAuth()
   const toast = useToast()
-  const [text, setText] = useState('')
+  const textareaRef = useRef(null)
+  const isSelfReply =
+    Boolean(replyToUsername) &&
+    Boolean(user?.username) &&
+    user.username.toLowerCase() === replyToUsername.toLowerCase()
+  const initialText =
+    parentId && replyToUsername && !isSelfReply ? `@${replyToUsername} ` : ''
+  const [text, setText] = useState(initialText)
   const [file, setFile] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // After autoFocus lands the cursor, push it past the prefilled mention so
+  // the user can start typing their reply immediately. Browser default
+  // varies between text-start and text-end on autoFocus; force-end to be
+  // consistent and feel intentional.
+  useEffect(() => {
+    if (!autoFocus || !initialText) return
+    const id = requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (!el) return
+      const end = initialText.length
+      try {
+        el.setSelectionRange(end, end)
+      } catch {
+        // Some inputs disallow setSelectionRange — non-fatal.
+      }
+    })
+    return () => cancelAnimationFrame(id)
+    // initialText is stable (computed from props at mount); intentionally
+    // run-once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (!isAuthenticated) return null
 
@@ -79,7 +131,7 @@ function CommentComposer({ postId, parentId = null, onAdded, autoFocus = false, 
       setText('')
       setFile(null)
     } catch (error) {
-      toast.error(extractApiMessage(error, 'Could not post comment.'))
+      toast.error(friendlyApiMessage(error, 'Could not post comment.'))
     } finally {
       setSubmitting(false)
     }
@@ -94,12 +146,14 @@ function CommentComposer({ postId, parentId = null, onAdded, autoFocus = false, 
             'flex items-end gap-1 rounded-full bg-muted px-1 py-1 ring-1 ring-transparent transition-all focus-within:bg-background focus-within:ring-border focus-within:shadow-sm',
           )}
         >
-          <Textarea
+          <MentionTextarea
+            ref={textareaRef}
             value={text}
-            onChange={(event) => setText(event.target.value)}
+            onChange={setText}
             placeholder={parentId ? 'Write a reply…' : 'Write a comment…'}
             rows={1}
             autoFocus={autoFocus}
+            wrapperClassName="flex-1"
             className="min-h-8 flex-1 resize-none rounded-full border-0 bg-transparent px-3 py-1.5 text-sm shadow-none focus-visible:ring-0"
           />
           <label
@@ -220,7 +274,7 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
       }
     } catch (error) {
       onChange?.(previous)
-      toast.error(extractApiMessage(error, 'Could not react.'))
+      toast.error(friendlyApiMessage(error, 'Could not react.'))
     } finally {
       setWorking(false)
     }
@@ -239,7 +293,7 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
       await removeCommentReaction(postId, comment.id)
     } catch (error) {
       onChange?.(previous)
-      toast.error(extractApiMessage(error, 'Could not remove reaction.'))
+      toast.error(friendlyApiMessage(error, 'Could not remove reaction.'))
     } finally {
       setWorking(false)
     }
@@ -393,9 +447,9 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
 
             {editing ? (
               <div className="mt-1 space-y-1.5">
-                <Textarea
+                <MentionTextarea
                   value={editText}
-                  onChange={(event) => setEditText(event.target.value)}
+                  onChange={setEditText}
                   rows={2}
                   maxLength={2000}
                   className="resize-none rounded-xl border border-border bg-background px-2.5 py-1.5 text-sm"
@@ -429,7 +483,7 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
               <>
                 {comment.textContent ? (
                   <p className="mt-0.5 whitespace-pre-wrap break-words text-[14px] leading-[1.45]">
-                    {comment.textContent}
+                    <MentionText text={comment.textContent} />
                   </p>
                 ) : null}
                 <CommentMedia comment={comment} />
@@ -494,7 +548,7 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
             </button>
           ) : null}
 
-          <span title={comment.formattedDate || ''}>{displayTime(comment)}</span>
+          <RelativeTime entity={comment} title={comment.formattedDate || undefined} />
           {comment.edited ? <span className="italic">(edited)</span> : null}
         </div>
 
@@ -503,6 +557,7 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
             <CommentComposer
               postId={postId}
               parentId={comment.id}
+              replyToUsername={author.username}
               onAdded={handleReplyAdded}
               autoFocus
               compact
@@ -567,7 +622,10 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
   )
 }
 
-export function PostComments({ postId, initialCount = 0, onCountChange }) {
+export const PostComments = forwardRef(function PostComments(
+  { postId, initialCount = 0, onCountChange },
+  ref,
+) {
   const { isAuthenticated } = useAuth()
   const toast = useToast()
   const [comments, setComments] = useState([])
@@ -613,6 +671,80 @@ export function PostComments({ postId, initialCount = 0, onCountChange }) {
     onCountChange?.(next)
   }
 
+  // Imperative API used by PostCard to forward per-post SSE events
+  // (POST_COMMENTED / POST_COMMENT_UPDATED / POST_COMMENT_DELETED /
+  // POST_COMMENT_REACTED). Keeping a single SSE connection at the
+  // post-card level avoids opening one EventSource per child.
+  useImperativeHandle(
+    ref,
+    () => ({
+      applyRealtimeEvent(type, payload) {
+        if (!payload) return
+        const commentId = payload.id ?? payload.commentId
+        switch (type) {
+          case 'POST_COMMENTED': {
+            if (!commentId) return
+            // The reply belongs to a parent thread — let CommentItem
+            // handle it lazily on expand. Top-level comments slot in.
+            if (payload.parentId) return
+            setComments((current) =>
+              current.some((item) => item.id === commentId)
+                ? current.map((item) =>
+                    item.id === commentId ? { ...item, ...payload } : item,
+                  )
+                : [...current, payload],
+            )
+            setCount((value) => {
+              const next = value + 1
+              onCountChange?.(next)
+              return next
+            })
+            break
+          }
+          case 'POST_COMMENT_UPDATED': {
+            if (!commentId) return
+            setComments((current) =>
+              current.map((item) =>
+                item.id === commentId ? { ...item, ...payload } : item,
+              ),
+            )
+            break
+          }
+          case 'POST_COMMENT_DELETED': {
+            if (!commentId) return
+            setComments((current) => current.filter((item) => item.id !== commentId))
+            setCount((value) => {
+              const next = Math.max(0, value - 1)
+              onCountChange?.(next)
+              return next
+            })
+            break
+          }
+          case 'POST_COMMENT_REACTED':
+          case 'POST_COMMENT_REACTION_REMOVED': {
+            if (!commentId) return
+            setComments((current) =>
+              current.map((item) =>
+                item.id === commentId
+                  ? {
+                      ...item,
+                      reactionCount:
+                        payload.reactionCount ?? item.reactionCount,
+                      topReactionTypes:
+                        payload.topReactionTypes ?? item.topReactionTypes,
+                    }
+                  : item,
+              ),
+            )
+            break
+          }
+          default:
+        }
+      },
+    }),
+    [onCountChange],
+  )
+
   return (
     <div className="space-y-4 border-t pt-4">
       {loading ? (
@@ -651,4 +783,4 @@ export function PostComments({ postId, initialCount = 0, onCountChange }) {
       )}
     </div>
   )
-}
+})

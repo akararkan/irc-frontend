@@ -209,7 +209,7 @@ export function AppSidebar({ onNavigate }) {
                 </p>
                 <div className="mt-0.5 flex items-center gap-1.5">
                   <p className="truncate text-[11px] text-ink-3">
-                    @{user.username}
+                    {user.username}
                   </p>
                   {user.role ? (
                     <RoleBadge role={user.role} size="xs" showIcon={false} />

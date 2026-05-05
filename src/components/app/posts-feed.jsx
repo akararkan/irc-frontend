@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/app/empty-state'
 import { PostCard } from '@/components/app/post-card'
 import { useAuth } from '@/features/auth/auth-context'
-import { getFeed, getFollowingFeed } from '@/features/posts/posts.api'
+import { getFeedCursor, getFollowingFeed } from '@/features/posts/posts.api'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
@@ -52,23 +52,36 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
   const { isAuthenticated } = useAuth()
   const toast = useToast()
   const [posts, setPosts] = useState([])
+  // FOLLOWING is page-based (no cursor endpoint exists for it yet);
+  // PUBLIC uses cursor pagination so performance stays flat as the user scrolls.
   const [page, setPage] = useState(0)
+  const [cursor, setCursor] = useState(null)
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
   const [initializing, setInitializing] = useState(true)
   const [filter, setFilter] = useState(isAuthenticated ? 'FOLLOWING' : 'PUBLIC')
 
-  const loadPage = useCallback(
-    async (pageIndex, { append, filterValue } = { append: false }) => {
+  const loadFirst = useCallback(
+    async (filterValue) => {
       const chosenFilter = filterValue ?? filter
-      const fetcher = chosenFilter === 'FOLLOWING' && isAuthenticated ? getFollowingFeed : getFeed
+      const useFollowing = chosenFilter === 'FOLLOWING' && isAuthenticated
       setLoading(true)
       try {
-        const data = await fetcher({ page: pageIndex, size: PAGE_SIZE })
-        const items = data?.content ?? []
-        setPosts((current) => (append ? [...current, ...items] : items))
-        setHasMore(!(data?.last ?? items.length < PAGE_SIZE))
-        setPage(pageIndex)
+        if (useFollowing) {
+          const data = await getFollowingFeed({ page: 0, size: PAGE_SIZE })
+          const items = data?.content ?? []
+          setPosts(items)
+          setHasMore(!(data?.last ?? items.length < PAGE_SIZE))
+          setPage(0)
+          setCursor(null)
+        } else {
+          const data = await getFeedCursor({ limit: PAGE_SIZE })
+          const items = data?.items ?? []
+          setPosts(items)
+          setHasMore(Boolean(data?.hasMore))
+          setCursor(data?.nextCursor ?? null)
+          setPage(0)
+        }
       } catch (error) {
         toast.error(extractApiMessage(error, 'Could not load the feed.'))
       } finally {
@@ -79,9 +92,38 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
     [filter, isAuthenticated, toast],
   )
 
+  const loadMore = useCallback(async () => {
+    const useFollowing = filter === 'FOLLOWING' && isAuthenticated
+    setLoading(true)
+    try {
+      if (useFollowing) {
+        const next = page + 1
+        const data = await getFollowingFeed({ page: next, size: PAGE_SIZE })
+        const items = data?.content ?? []
+        setPosts((current) => [...current, ...items])
+        setHasMore(!(data?.last ?? items.length < PAGE_SIZE))
+        setPage(next)
+      } else {
+        if (!cursor) {
+          setHasMore(false)
+          return
+        }
+        const data = await getFeedCursor({ cursor, limit: PAGE_SIZE })
+        const items = data?.items ?? []
+        setPosts((current) => [...current, ...items])
+        setHasMore(Boolean(data?.hasMore))
+        setCursor(data?.nextCursor ?? null)
+      }
+    } catch (error) {
+      toast.error(extractApiMessage(error, 'Could not load more posts.'))
+    } finally {
+      setLoading(false)
+    }
+  }, [filter, isAuthenticated, page, cursor, toast])
+
   useEffect(() => {
     setInitializing(true)
-    loadPage(0, { append: false, filterValue: filter })
+    loadFirst(filter)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, isAuthenticated])
 
@@ -110,9 +152,9 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
         if (!post) return
         setPosts((current) => [post, ...current.filter((p) => p.id !== post.id)])
       },
-      refresh: () => loadPage(0, { append: false }),
+      refresh: () => loadFirst(filter),
     }),
-    [loadPage],
+    [loadFirst, filter],
   )
 
   return (
@@ -152,7 +194,7 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
           <button
             type="button"
             className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-            onClick={() => loadPage(0, { append: false })}
+            onClick={() => loadFirst(filter)}
             disabled={loading}
             aria-label="Refresh"
             title="Refresh"
@@ -208,7 +250,7 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
                 variant="outline"
                 size="sm"
                 className="rounded-full"
-                onClick={() => loadPage(page + 1, { append: true })}
+                onClick={loadMore}
                 disabled={loading}
               >
                 {loading ? (
