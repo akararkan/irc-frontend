@@ -22,7 +22,7 @@ import { UserAvatar } from '@/components/app/user-avatar'
 import { useAuth } from '@/features/auth/auth-context'
 import { useNotifications } from '@/features/notifications/notifications-context'
 import { cn } from '@/lib/utils'
-import { getFullName } from '@/lib/format'
+import { getFullName, getHandle } from '@/lib/format'
 
 // ─── Navigation groups (Linear/Vercel-style sections) ─────────────
 const PRIMARY_ITEMS = [
@@ -205,12 +205,14 @@ export function AppSidebar({ onNavigate }) {
               />
               <div className="min-w-0 flex-1 leading-tight">
                 <p className="truncate text-[13px] font-semibold text-ink">
-                  {getFullName(user)}
+                  {getFullName(user) || getHandle(user) || 'Account'}
                 </p>
                 <div className="mt-0.5 flex items-center gap-1.5">
-                  <p className="truncate text-[11px] text-ink-3">
-                    {user.username}
-                  </p>
+                  {getHandle(user) ? (
+                    <p className="truncate font-mono text-[10.5px] text-ink-3">
+                      @{getHandle(user)}
+                    </p>
+                  ) : null}
                   {user.role ? (
                     <RoleBadge role={user.role} size="xs" showIcon={false} />
                   ) : null}

@@ -3,7 +3,17 @@ import { AnimatePresence, motion } from 'motion/react'
 
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/format'
-import { getPostReaction, getResearchReaction } from '@/lib/reactions'
+import {
+  getPostReaction,
+  getQnaReaction,
+  getResearchReaction,
+} from '@/lib/reactions'
+
+const REACTION_RESOLVERS = {
+  post:     getPostReaction,
+  research: getResearchReaction,
+  qna:      getQnaReaction,
+}
 
 // Stacked top-3 reaction emojis + total count, ordered most → least.
 // If only one type exists, only that single emoji shows.
@@ -16,7 +26,7 @@ export function ReactionSummary({
 }) {
   if (!totalCount) return null
 
-  const resolver = reactionSet === 'research' ? getResearchReaction : getPostReaction
+  const resolver = REACTION_RESOLVERS[reactionSet] ?? getPostReaction
 
   const types = useMemo(() => {
     const raw = topTypes?.length ? topTypes : ['LIKE']

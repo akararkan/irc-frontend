@@ -2,12 +2,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   Activity as ActivityIcon,
+  Award,
   Clapperboard,
+  HelpCircle,
   Loader2,
   MessageCircle,
+  MessageCircleQuestion,
+  MessageSquareReply,
   Play,
   Repeat2,
   Sparkles,
+  Star,
   ThumbsUp,
   Trash2,
 } from 'lucide-react'
@@ -25,15 +30,17 @@ import { extractApiMessage } from '@/lib/api-error'
 import { RelativeTime } from '@/components/app/relative-time'
 import {
   getFullName,
-  getUsername,
+  getHandle,
+  getRawUsername,
   resolveMediaUrl,
 } from '@/lib/format'
-import { getPostReaction } from '@/lib/reactions'
+import { getPostReaction, getQnaReaction } from '@/lib/reactions'
 import {
   clearAllActivity,
   deleteActivity,
   getMyActivity,
 } from '@/features/activity/activity.api'
+import { useMyActivityStream } from '@/hooks/use-my-activity-stream'
 
 // ─── Filter chips ───────────────────────────────────────────────────
 const FILTERS = [
@@ -43,6 +50,13 @@ const FILTERS = [
   { value: 'POST_COMMENT_REACTION', label: 'Comment reactions', icon: Sparkles },
   { value: 'POST_SHARE', label: 'Shares', icon: Repeat2 },
   { value: 'REEL_WATCH', label: 'Watched reels', icon: Clapperboard },
+  // ── Q&A ──
+  { value: 'QNA_QUESTION_CREATED', label: 'Questions', icon: HelpCircle },
+  { value: 'QNA_ANSWER_CREATED', label: 'Answers', icon: MessageCircleQuestion },
+  { value: 'QNA_REANSWER_CREATED', label: 'Reanswers', icon: MessageSquareReply },
+  { value: 'QNA_ANSWER_REACTION', label: 'Answer reactions', icon: Sparkles },
+  { value: 'QNA_BEST_ANSWER_VOTE', label: 'Best-answer votes', icon: Award },
+  { value: 'QNA_ANSWER_FEEDBACK', label: 'Answer feedback', icon: Star },
 ]
 
 // ─── Per-type metadata for the activity-row icon ────────────────────
@@ -81,6 +95,53 @@ const TYPE_META = {
         ? `Watched ${formatDuration(item.watchedSeconds)}`
         : 'Watched a reel',
   },
+  // ── Q&A ──
+  // Backend sends `actionNote: 'vote' | 'unvote'` for best-answer
+  // votes and a QnaReactionType in `qnaReactionType` (mapped to the
+  // shared 8-emoji palette). The summary lives on either `question`
+  // or `answer` depending on the type.
+  QNA_QUESTION_CREATED: {
+    icon: HelpCircle,
+    tone: 'text-sky-600 bg-sky-500/10 ring-sky-500/30',
+    verb: () => 'Asked a question',
+  },
+  QNA_ANSWER_CREATED: {
+    icon: MessageCircleQuestion,
+    tone: 'text-violet-600 bg-violet-500/10 ring-violet-500/30',
+    verb: () => 'Posted an answer',
+  },
+  QNA_REANSWER_CREATED: {
+    icon: MessageSquareReply,
+    tone: 'text-violet-600 bg-violet-500/10 ring-violet-500/30',
+    verb: () => 'Replied to an answer',
+  },
+  QNA_ANSWER_REACTION: {
+    icon: Sparkles,
+    tone: 'text-amber-600 bg-amber-500/10 ring-amber-500/30',
+    verb: (item) => {
+      // Q&A reactions live in their own palette (LIKE, INSIGHTFUL,
+      // BENEFICIAL, AGREE, DISAGREE, THANKS) — not the post one. Resolve
+      // via `getQnaReaction` so the activity row shows ✅ "Agree" / 📚
+      // "Beneficial" instead of falling back to a 👍.
+      const r = item.qnaReactionType
+        ? getQnaReaction(item.qnaReactionType)
+        : null
+      return r ? `Reacted ${r.emoji} ${r.label} on an answer` : 'Reacted on an answer'
+    },
+  },
+  QNA_BEST_ANSWER_VOTE: {
+    icon: Award,
+    tone: 'text-emerald-600 bg-emerald-500/10 ring-emerald-500/30',
+    verb: (item) =>
+      item.actionNote === 'unvote'
+        ? 'Withdrew a "best answer" vote'
+        : 'Voted an answer as best',
+  },
+  QNA_ANSWER_FEEDBACK: {
+    icon: Star,
+    tone: 'text-amber-600 bg-amber-500/10 ring-amber-500/30',
+    verb: () => 'Gave feedback on an answer',
+  },
 }
 
 function formatDuration(totalSeconds) {
@@ -91,15 +152,50 @@ function formatDuration(totalSeconds) {
   return `${m}m ${s}s`
 }
 
+// Type prefixes that target Q&A entities — the activity row pulls
+// summaries from `item.question` / `item.answer` instead of `item.post`.
+const QNA_TYPES = new Set([
+  'QNA_QUESTION_CREATED',
+  'QNA_ANSWER_CREATED',
+  'QNA_REANSWER_CREATED',
+  'QNA_ANSWER_REACTION',
+  'QNA_BEST_ANSWER_VOTE',
+  'QNA_ANSWER_FEEDBACK',
+])
+
 // ─── Activity row ───────────────────────────────────────────────────
 function ActivityRow({ item, onDelete }) {
   const meta = TYPE_META[item.activityType] ?? TYPE_META.POST_COMMENT
   const Icon = meta.icon
-  const author = item.post?.author
-  const profileHref = author?.username ? `/profile/${author.username}` : null
+  const isQna = QNA_TYPES.has(item.activityType)
 
-  // The post / comment text preview is what to show under the verb.
-  const preview = item.comment?.textPreview || item.post?.textPreview || ''
+  // For Q&A activity the actor sits on `question.author` or
+  // `answer.author`. For post activity we fall back to `post.author`.
+  const author = isQna
+    ? item.question?.author ?? item.answer?.author ?? null
+    : item.post?.author ?? null
+  const profileHref = author?.username
+    ? `/profile/${getRawUsername(author)}`
+    : null
+
+  // The preview shown under the verb. Q&A: question title or answer
+  // body excerpt. Post: text preview from the post or the comment that
+  // was acted on.
+  const preview = isQna
+    ? item.question?.title ||
+      item.answer?.bodyPreview ||
+      item.answer?.body ||
+      ''
+    : item.comment?.textPreview || item.post?.textPreview || ''
+
+  // Permalink — Q&A items deep-link straight to the question detail
+  // page; the answer ID is hash-anchored so the row scrolls into view.
+  const linkHref = isQna
+    ? item.question?.id
+      ? `/questions/${item.question.id}${item.answer?.id ? `#answer-${item.answer.id}` : ''}`
+      : null
+    : null
+
   const thumbnail = resolveMediaUrl(item.post?.thumbnailUrl)
 
   return (
@@ -138,12 +234,12 @@ function ActivityRow({ item, onDelete }) {
                 >
                   <UserAvatar user={author} className="size-4" />
                   <span className="font-medium">
-                    {getFullName(author) || getUsername(author)}
+                    {getFullName(author) || getHandle(author)}
                   </span>
                 </Link>
               ) : (
                 <span className="text-muted-foreground">
-                  {getFullName(author) || getUsername(author)}
+                  {getFullName(author) || getHandle(author)}
                 </span>
               )}
             </>
@@ -156,9 +252,18 @@ function ActivityRow({ item, onDelete }) {
         </div>
 
         {preview ? (
-          <p className="mt-1 line-clamp-2 text-[13px] text-foreground/85">
-            {preview}
-          </p>
+          linkHref ? (
+            <Link
+              to={linkHref}
+              className="mt-1 line-clamp-2 text-[13px] text-foreground/85 transition-colors hover:text-foreground hover:underline"
+            >
+              {preview}
+            </Link>
+          ) : (
+            <p className="mt-1 line-clamp-2 text-[13px] text-foreground/85">
+              {preview}
+            </p>
+          )
         ) : null}
       </div>
 
@@ -224,6 +329,39 @@ export function ActivityPanel({ embedded = false }) {
   useEffect(() => {
     if (isAuthenticated) load()
   }, [isAuthenticated, load])
+
+  // Live updates — when the backend records a new activity (any tab,
+  // any device) it broadcasts on the per-user channel. Keep the panel
+  // in sync without polling: insert new rows at the top, drop deleted
+  // ones, wipe everything on a clear-all from another device.
+  useMyActivityStream(
+    {
+      onEvent: (type, payload) => {
+        if (type === 'ACTIVITY_DELETED') {
+          const id = payload?.id ?? payload?.activityId
+          if (!id) return
+          setItems((current) => current.filter((item) => item.id !== id))
+          return
+        }
+        if (type === 'ACTIVITY_CLEARED') {
+          if (payload?.type && filter !== 'ALL' && payload.type !== filter) return
+          setItems([])
+          return
+        }
+        // Append-style events — the payload is the full activity row.
+        if (!payload || !payload.id) return
+        if (filter !== 'ALL' && payload.activityType !== filter) return
+        setItems((current) =>
+          current.some((item) => item.id === payload.id)
+            ? current.map((item) =>
+                item.id === payload.id ? { ...item, ...payload } : item,
+              )
+            : [payload, ...current],
+        )
+      },
+    },
+    { enabled: isAuthenticated },
+  )
 
   async function handleDelete(activityId) {
     const previous = items

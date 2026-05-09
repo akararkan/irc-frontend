@@ -46,6 +46,26 @@ export async function unifiedSearch({ q, types, limit = 8 } = {}) {
   return response.data
 }
 
+/**
+ * Instant search — prefix-only LIKE 'q%' on users / posts / research /
+ * questions, no FTS work. Sub-5 ms warm. Use for search-as-you-type
+ * surfaces (topbar dropdown). For deeper relevance (full-text rank,
+ * trigram fallback) use `unifiedSearch` instead — typically wired to
+ * the submit / "see all" path.
+ *
+ * Same response shape as `unifiedSearch` so callers can swap them out.
+ * Cached on the server under `instant:` keys.
+ */
+export async function instantSearch({ q, types, limit = 6 } = {}) {
+  if (!q || !q.trim()) {
+    return { query: '', groups: {}, hits: [] }
+  }
+  const response = await api.get('/api/v1/search/instant', {
+    params: { q: q.trim(), limit, ...buildTypeParams(types) },
+  })
+  return response.data
+}
+
 // ── Per-corpus shortcuts. The backend uses ts_rank_cd for ordering,
 // then pg_trgm similarity as a typo-tolerant fallback when FTS returns
 // zero hits — same call from the frontend's perspective.

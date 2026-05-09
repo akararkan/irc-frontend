@@ -49,7 +49,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
-import { canUseQna } from '@/lib/roles'
+import { canAskQuestion } from '@/lib/roles'
 import { formatNumber } from '@/lib/format'
 
 const TITLE_MAX = 500
@@ -306,7 +306,7 @@ export function QuestionsPage() {
   const [tab, setTab] = useState(isAuthenticated ? 'FOLLOWING' : 'PUBLIC')
   const [sortKey, setSortKey] = useState('hottest')
 
-  const allowedToAsk = canUseQna(user)
+  const allowedToAsk = canAskQuestion(user)
   const visibleTabs = TABS.filter((item) => !item.authOnly || isAuthenticated)
   const sort = useMemo(
     () => SORTS.find((s) => s.value === sortKey) ?? SORTS[0],
@@ -375,9 +375,22 @@ export function QuestionsPage() {
 
       {isAuthenticated && !allowedToAsk ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/40 px-4 py-3 text-[13px] text-ink-3">
-          You can browse and read questions. Asking, answering, and giving
-          feedback is reserved for{' '}
-          <span className="font-semibold text-ink">scholars</span>.
+          {user?.role === 'RESEARCHER' ? (
+            <>
+              Browse, read, and{' '}
+              <span className="font-semibold text-ink">post answers</span> on
+              any open question. Opening new questions and giving feedback is
+              reserved for{' '}
+              <span className="font-semibold text-ink">scholars</span>.
+            </>
+          ) : (
+            <>
+              You can browse and read questions. Asking, answering, and giving
+              feedback is reserved for{' '}
+              <span className="font-semibold text-ink">scholars</span> and{' '}
+              <span className="font-semibold text-ink">researchers</span>.
+            </>
+          )}
         </div>
       ) : null}
 

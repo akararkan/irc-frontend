@@ -183,27 +183,44 @@ export async function createReanswerWithMedia(
 }
 
 /**
- * GET /api/v1/questions/{questionId}/answers/{answerId}/replies
- * Returns the reanswers (replies) hanging under a top-level answer,
- * ordered oldest-first. Public — no auth required to read.
+ * GET /api/v1/questions/{questionId}/answers/{answerId}/reanswers
+ *   (alias `/replies` is still accepted by older backends — we try the
+ *    canonical path first and silently fall back if it 404s.)
  *
- * The backend's `getReanswers(viewerId, Pageable)` overload may serialize
- * either as a bare List (legacy) or a Spring Page envelope. Callers want
- * an array, so we unwrap defensively here.
+ * Returns the reanswers (replies) hanging under any answer (top-level
+ * OR a nested reanswer — the structure is recursive), ordered oldest-
+ * first. Public — no auth required to read. Block-aware: a viewer in
+ * a block edge with the author never sees the row.
+ *
+ * The backend's `getReanswers(viewerId, Pageable)` overload may
+ * serialize either as a bare List (legacy) or a Spring Page envelope.
+ * Callers want an array, so we unwrap defensively.
  */
 export async function getAnswerReplies(
   questionId,
   answerId,
   { page = 0, size = 50 } = {},
 ) {
-  const response = await api.get(
-    `/api/v1/questions/${questionId}/answers/${answerId}/replies`,
-    { params: { page, size } },
-  )
-  const data = response.data
-  if (Array.isArray(data)) return data
-  if (Array.isArray(data?.content)) return data.content
-  return []
+  async function fetchAt(path) {
+    const response = await api.get(path, { params: { page, size } })
+    const data = response.data
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.content)) return data.content
+    return []
+  }
+
+  try {
+    return await fetchAt(
+      `/api/v1/questions/${questionId}/answers/${answerId}/reanswers`,
+    )
+  } catch (error) {
+    if (error?.response?.status === 404) {
+      return await fetchAt(
+        `/api/v1/questions/${questionId}/answers/${answerId}/replies`,
+      )
+    }
+    throw error
+  }
 }
 
 /**
@@ -222,9 +239,10 @@ export async function deleteAnswer(questionId, answerId) {
   await api.delete(`/api/v1/questions/${questionId}/answers/${answerId}`)
 }
 
-// ── Accept / Unaccept ─────────────────────────────────────────
-// Multiple answers can be accepted per question — the backend no
-// longer un-accepts other answers when one is accepted.
+// ── Accept / Unaccept (legacy single-vote path) ───────────────
+// Kept for the question-author / admin "accept" flow — the backend
+// still allows multiple answers to be accepted per question and does
+// NOT auto-unaccept others when a new accept lands.
 
 export async function acceptAnswer(questionId, answerId) {
   const response = await api.post(
@@ -236,6 +254,32 @@ export async function acceptAnswer(questionId, answerId) {
 export async function unacceptAnswer(questionId, answerId) {
   const response = await api.delete(
     `/api/v1/questions/${questionId}/answers/${answerId}/accept`,
+  )
+  return response.data
+}
+
+// ── Multi-scholar best-answer voting ──────────────────────────
+//
+// Any scholar (or admin) can vote an answer as "best". Votes are kept
+// in `BestAnswerVote(answerId, voterId)` — one vote per (answer,
+// scholar) pair, idempotent. The denormalised `bestAnswerVoteCount`
+// on the answer is updated atomically; listings render the badge
+// without an aggregate query.
+//
+// Reanswers (`parentAnswerId != null`) cannot be voted — the server
+// rejects with 400. The viewer's own vote ships back as `votedByMe`
+// on the answer DTO so the toggle stays honest across reloads.
+
+export async function voteBestAnswer(questionId, answerId) {
+  const response = await api.post(
+    `/api/v1/questions/${questionId}/answers/${answerId}/best`,
+  )
+  return response.data
+}
+
+export async function unvoteBestAnswer(questionId, answerId) {
+  const response = await api.delete(
+    `/api/v1/questions/${questionId}/answers/${answerId}/best`,
   )
   return response.data
 }

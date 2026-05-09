@@ -1,4 +1,5 @@
 import { api } from '@/api/client'
+import { API_URL } from '@/config/env'
 
 // ══════════════════════════════════════════════════════════════
 //  USER ACTIVITY  —  /api/v1/users/me/activity
@@ -81,4 +82,22 @@ export async function deleteWatchedReel(reelViewId) {
 export async function clearWatchedReels() {
   const response = await api.delete('/api/v1/users/me/reels/watched')
   return response.data
+}
+
+// ══════════════════════════════════════════════════════════════
+//  REALTIME  —  /api/v1/users/me/activity/stream  (SSE)
+// ══════════════════════════════════════════════════════════════
+//
+// Fan-out channel for the current user's activity log. Backed by the
+// per-user Redis pub/sub channel `irc:activity:{userId}` so a record
+// written by any backend instance reaches every device the user has
+// open. Used by the activity page (live insert), the topbar's recent-
+// search list, and any "you just X-ed" toasts.
+//
+// EventSource cannot send Authorization headers, so the access token
+// is appended as a query parameter and validated by the backend.
+export function userActivityStreamUrl(_resourceId, token) {
+  const url = new URL('/api/v1/users/me/activity/stream', API_URL)
+  if (token) url.searchParams.set('token', token)
+  return url.toString()
 }

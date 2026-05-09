@@ -74,9 +74,22 @@ export const ROLE_CAN_PUBLISH_RESEARCH = new Set([
   'SUPER_ADMIN',
 ])
 
-// Roles that can write in the Q&A area at all (ask, answer, give feedback).
+// Roles that can ask a question / mark a best answer (vote) / give
+// feedback. Researchers are deliberately excluded from these surfaces —
+// only scholars and admins curate the Q&A area. Mirrors the backend's
+// `findScholarOrThrow` and `findBestAnswerVoterOrThrow` gates.
 export const ROLE_CAN_USE_QNA = new Set([
   'SCHOLAR',
+  'ADMIN',
+  'SUPER_ADMIN',
+])
+
+// Roles that can author an answer or reanswer. Researchers ARE allowed
+// here — they contribute scholarship even though they can't open new
+// threads. Mirrors the backend's `findAnswerAuthorOrThrow` gate.
+export const ROLE_CAN_ANSWER_QNA = new Set([
+  'SCHOLAR',
+  'RESEARCHER',
   'ADMIN',
   'SUPER_ADMIN',
 ])
@@ -111,8 +124,40 @@ export function canPublishResearch(user) {
   return Boolean(user?.role && ROLE_CAN_PUBLISH_RESEARCH.has(user.role))
 }
 
-/** True if the user is allowed to ask, answer, or post in the Q&A area. */
+/**
+ * Legacy check — true if the user can write *anything* in the Q&A area
+ * (mirrors the old single-tier gate). Most callers should switch to one
+ * of the more precise helpers below; this one stays for back-compat with
+ * any spot we haven't migrated yet.
+ */
 export function canUseQna(user) {
+  return Boolean(user?.role && ROLE_CAN_USE_QNA.has(user.role))
+}
+
+/**
+ * Mirror of `findScholarOrThrow` — gates question authoring, lock /
+ * unlock, set max-answers, accept-as-best (legacy path), and answer
+ * feedback. Researchers are excluded.
+ */
+export function canAskQuestion(user) {
+  return Boolean(user?.role && ROLE_CAN_USE_QNA.has(user.role))
+}
+
+/**
+ * Mirror of `findAnswerAuthorOrThrow` — gates posting answers and
+ * reanswers. Researchers are allowed here in addition to scholars +
+ * admins.
+ */
+export function canAnswerQuestion(user) {
+  return Boolean(user?.role && ROLE_CAN_ANSWER_QNA.has(user.role))
+}
+
+/**
+ * Mirror of `findBestAnswerVoterOrThrow` — gates the "Mark as best
+ * answer" vote. Multiple scholars can vote on the same answer; a single
+ * vote per (answer, scholar) pair, idempotent. Researchers are excluded.
+ */
+export function canVoteBestAnswer(user) {
   return Boolean(user?.role && ROLE_CAN_USE_QNA.has(user.role))
 }
 

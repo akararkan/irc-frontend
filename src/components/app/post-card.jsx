@@ -56,6 +56,7 @@ import {
   repostPost,
   undoRepost,
 } from '@/features/posts/posts.api'
+import { useInView } from '@/hooks/use-in-view'
 import { usePostStream } from '@/hooks/use-post-stream'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
@@ -64,6 +65,8 @@ import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
 import {
   formatNumber,
   getFullName,
+  getHandle,
+  getRawUsername,
   getUsername,
   resolveMediaUrl,
 } from '@/lib/format'
@@ -627,13 +630,17 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
     setCommentCount(post.commentCount ?? 0)
   }, [post.commentCount])
 
-  // Per-post realtime: subscribe whenever the comments thread is open.
-  // Limiting to "open" keeps the EventSource fan-out reasonable on a
-  // long feed (browsers cap concurrent SSE streams per origin) while
-  // still giving an active reader a fully live thread. Handlers close
-  // over `post` from props on every render — `usePostStream` snapshots
-  // them via a ref each render, so the closure stays current without
-  // re-creating the EventSource.
+  // Per-post realtime — subscribe whenever the card is in (or near)
+  // the viewport, OR while the comments thread is open. Combining
+  // viewport-gating with the open-comments override means a reader
+  // looking at a card sees live view / reaction / share / comment
+  // counts immediately, while a card that's scrolled offscreen tears
+  // its EventSource down so a long feed doesn't hold a dozen open
+  // connections. Handlers close over `post` from props on every
+  // render — `usePostStream` snapshots them via a ref so the closure
+  // stays current without re-creating the EventSource.
+  const [setLiveRef, inView] = useInView({ rootMargin: '300px 0px 300px 0px' })
+
   usePostStream(
     post.id,
     {
@@ -693,11 +700,13 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
         )
       },
     },
-    { enabled: showComments || defaultCommentsOpen },
+    { enabled: inView || showComments || defaultCommentsOpen },
   )
 
   const author = normalizeAuthor(post)
   const authorUsername = getUsername(author)
+  const authorHandle = getHandle(author)
+  const authorRoute = getRawUsername(author)
   const isMine =
     currentUser &&
     (post.author?.id === currentUser.id ||
@@ -789,21 +798,46 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
   const topReactions =
     post.topReactionTypes ?? (post.myReaction ? [post.myReaction] : ['LIKE'])
 
-  const displayName = getFullName(author) || author.username
+  const displayName = getFullName(author) || authorHandle || 'Unknown'
+
+  // The expert / scholar / researcher hint paints the avatar ring in
+  // a subtle accent so an authoritative voice reads at a glance — same
+  // pattern the AnswerCard uses for "scholar's answer".
+  const accentRing =
+    author.role === 'SCHOLAR'
+      ? 'ring-amber-400/45'
+      : author.role === 'RESEARCHER'
+        ? 'ring-violet-400/40'
+        : isMine
+          ? 'ring-brand/35'
+          : 'ring-paper'
 
   return (
     <article
+      ref={setLiveRef}
       className={cn(
-        'group/post relative overflow-hidden rounded-2xl border border-border bg-paper transition-colors duration-200',
-        'hover:border-brand/25',
+        'group/post relative isolate overflow-hidden rounded-2xl border border-border bg-paper transition-all duration-200',
+        'hover:-translate-y-px hover:border-brand/25 hover:shadow-soft',
       )}
     >
+      {/* Left-edge accent rail — fades in on hover. Brand by default;
+          gold when the post is from a scholar. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-3 left-0 w-[3px] rounded-full opacity-0 transition-opacity duration-200 group-hover/post:opacity-100"
+        style={{
+          background:
+            author.role === 'SCHOLAR'
+              ? 'linear-gradient(180deg, var(--gold), var(--gold-2))'
+              : 'linear-gradient(180deg, var(--brand), var(--brand-muted))',
+        }}
+      />
       {/* ── Repost banner — when this card IS a repost ─────── */}
       {(post.isRepost || postType === 'REPOST') && post.sharedPost ? (
         <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-1.5 text-[11.5px] text-ink-3 sm:px-5">
           <Repeat2 className="size-3.5" />
           <Link
-            to={`/profile/${authorUsername}`}
+            to={`/profile/${authorRoute}`}
             className="font-semibold text-ink hover:underline"
           >
             {displayName}
@@ -815,19 +849,22 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       {/* ── Header ───────────────────────────────────────────── */}
       <header className="flex items-start gap-3 px-4 pt-4 sm:px-5">
         <Link
-          to={`/profile/${authorUsername}`}
-          className="shrink-0 transition-transform hover:scale-105"
+          to={`/profile/${authorRoute}`}
+          className="shrink-0 transition-transform hover:scale-[1.04]"
         >
           <UserAvatar
             user={author}
-            className="size-10 ring-2 ring-background"
+            className={cn(
+              'size-11 ring-2 ring-background transition-shadow',
+              accentRing,
+            )}
           />
         </Link>
 
         <div className="min-w-0 flex-1 leading-tight">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <Link
-              to={`/profile/${authorUsername}`}
+              to={`/profile/${authorRoute}`}
               className="truncate text-[14.5px] font-semibold tracking-tight hover:underline"
             >
               {displayName}
@@ -846,7 +883,9 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
             ) : null}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-ink-3">
-            {authorUsername ? <span>{authorUsername}</span> : null}
+            {authorHandle ? (
+              <span className="font-mono text-[11px]">@{authorHandle}</span>
+            ) : null}
             <span aria-hidden className="text-ink-4">·</span>
             <Link
               to={`/posts/${post.id}`}
@@ -949,7 +988,11 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
         </div>
       ) : null}
 
-      {/* ── Action bar — Threads / X style with inline counts ─── */}
+      {/* ── Action bar — Threads / X style with inline counts.
+           Each button gets a subtle motion-press, a colored hover halo
+           that hints at the action's tone (rose for reactions, violet
+           for comments, emerald for shares), and an animated count
+           that pulses in/out on every SSE-driven change. ─── */}
       <div className="mx-4 mt-2.5 flex items-center gap-1 border-t border-dashed border-border px-0 py-1.5 sm:mx-5">
         <ReactionPicker
           current={post.myReaction}
@@ -957,11 +1000,13 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
           onClear={handleClearReaction}
           disabled={working}
           trigger={({ toggleDefault, current }) => (
-            <button
+            <motion.button
               type="button"
               onClick={toggleDefault}
+              whileTap={{ scale: 0.92 }}
+              transition={{ type: 'spring', stiffness: 480, damping: 26 }}
               className={cn(
-                'group/like inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12.5px] font-semibold transition-all duration-200 active:scale-95',
+                'group/like inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-semibold transition-colors duration-200',
                 current
                   ? cn(
                       current.color,
@@ -970,38 +1015,89 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
                       current.ring,
                       'hover:brightness-95',
                     )
-                  : 'text-ink-3 hover:bg-muted hover:text-ink',
+                  : 'text-ink-3 hover:bg-rose-500/10 hover:text-rose-600',
               )}
             >
-              <span className="text-[17px] leading-none transition-transform group-hover/like:scale-110">
+              <span
+                className="text-[17px] leading-none transition-transform group-hover/like:-translate-y-0.5 group-hover/like:scale-115"
+                style={{
+                  filter: current
+                    ? 'drop-shadow(0 1px 2px color-mix(in oklch, currentColor 30%, transparent))'
+                    : undefined,
+                }}
+              >
                 {current?.emoji ?? '👍'}
               </span>
               {(post.reactionCount ?? 0) > 0 ? (
-                <span className="tabular-nums">{formatNumber(post.reactionCount)}</span>
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <motion.span
+                    key={post.reactionCount}
+                    initial={{ y: 6, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -6, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 460, damping: 30 }}
+                    className="inline-block tabular-nums"
+                  >
+                    {formatNumber(post.reactionCount)}
+                  </motion.span>
+                </AnimatePresence>
               ) : (
                 <span>{current?.label ?? 'Like'}</span>
               )}
-            </button>
+            </motion.button>
           )}
         />
 
-        <button
+        <motion.button
           type="button"
           onClick={() => setShowComments((value) => !value)}
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12.5px] font-medium text-ink-3 transition-colors hover:bg-muted hover:text-ink"
+          whileTap={{ scale: 0.92 }}
+          transition={{ type: 'spring', stiffness: 480, damping: 26 }}
+          className={cn(
+            'group/reply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors',
+            showComments
+              ? 'bg-violet-500/12 text-violet-700 ring-1 ring-violet-500/25 dark:text-violet-300'
+              : 'text-ink-3 hover:bg-violet-500/10 hover:text-violet-700 dark:hover:text-violet-300',
+          )}
         >
-          <MessageCircle className="size-[17px]" strokeWidth={1.75} />
+          <MessageCircle
+            className="size-[17px] transition-transform group-hover/reply:-translate-y-0.5"
+            strokeWidth={1.85}
+          />
           {commentCount > 0 ? (
-            <span className="tabular-nums">{formatNumber(commentCount)}</span>
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span
+                key={commentCount}
+                initial={{ y: 6, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -6, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 460, damping: 30 }}
+                className="inline-block tabular-nums"
+              >
+                {formatNumber(commentCount)}
+              </motion.span>
+            </AnimatePresence>
           ) : (
             <span>Reply</span>
           )}
-        </button>
+        </motion.button>
 
         <div className="ml-auto flex items-center">
           {(post.shareCount ?? 0) > 0 ? (
-            <span className="hidden px-2 text-[11px] text-ink-3 tabular-nums sm:inline">
-              {formatNumber(post.shareCount)}{' '}
+            <span className="hidden px-2 font-mono text-[11px] tabular-nums text-ink-3 sm:inline">
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={post.shareCount}
+                  initial={{ y: 5, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -5, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 460, damping: 30 }}
+                  className="inline-block"
+                >
+                  {formatNumber(post.shareCount)}
+                </motion.span>
+              </AnimatePresence>
+              {' '}
               {post.shareCount === 1 ? 'share' : 'shares'}
             </span>
           ) : null}

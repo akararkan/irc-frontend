@@ -17,9 +17,9 @@ import { NotificationBell } from '@/components/app/notification-bell'
 import { TweaksMenu } from '@/components/app/tweaks-menu'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { useAuth } from '@/features/auth/auth-context'
-import { unifiedSearch } from '@/features/search/search.api'
+import { instantSearch, unifiedSearch } from '@/features/search/search.api'
 import { cn } from '@/lib/utils'
-import { getFullName } from '@/lib/format'
+import { getFullName, getHandle } from '@/lib/format'
 import { getSearchTypeMeta, searchHitHref } from '@/lib/search'
 
 function isMacLike() {
@@ -68,13 +68,25 @@ function SearchHitRow({ hit, onActivate }) {
       }
     : null
 
+  // For USER hits the API returns the full name in `title` and the
+  // handle in `username`. Show name as primary, `@handle` as secondary.
+  // The handle is sanitized so a legacy email-shaped username never
+  // renders as `@user@gmail.com`.
+  const isUser = hit.type === 'USER'
+  const cleanHandle = isUser
+    ? getHandle({ username: hit.username || hit.snippet })
+    : null
+  const userPrimary = isUser
+    ? hit.title || cleanHandle || '(unknown)'
+    : hit.title || hit.snippet || '(untitled)'
+
   return (
     <Link
       to={href}
       onClick={() => onActivate?.(hit)}
       className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted/70 focus-visible:bg-muted/70 focus-visible:outline-none"
     >
-      {hit.type === 'USER' ? (
+      {isUser ? (
         <UserAvatar
           user={{
             username: hit.username ?? hit.title,
@@ -95,16 +107,14 @@ function SearchHitRow({ hit, onActivate }) {
         </span>
       )}
       <div className="min-w-0 flex-1 leading-tight">
-        <p className="truncate text-[13px] font-medium text-ink">
-          {hit.title ?? hit.snippet ?? '(untitled)'}
-        </p>
-        {hit.snippet && hit.snippet !== hit.title ? (
-          <p className="line-clamp-1 text-[11.5px] text-ink-3">
-            {hit.snippet}
-          </p>
+        <p className="truncate text-[13px] font-semibold text-ink">{userPrimary}</p>
+        {isUser && cleanHandle ? (
+          <p className="truncate font-mono text-[11px] text-ink-3">@{cleanHandle}</p>
+        ) : hit.snippet && hit.snippet !== hit.title ? (
+          <p className="line-clamp-1 text-[11.5px] text-ink-3">{hit.snippet}</p>
         ) : author?.username ? (
           <p className="truncate text-[11.5px] text-ink-3">
-            {author.username}
+            {author.fullName || `@${getHandle(author)}`}
           </p>
         ) : null}
       </div>
@@ -132,22 +142,34 @@ function SearchBar() {
 
     setIsLoading(true)
     let cancelled = false
-    const timeout = setTimeout(async () => {
+    // First request: hit /search/instant — prefix-only, no FTS, sub-5ms
+    // warm. The dropdown stays responsive even on slow networks. After
+    // a brief settle, fall back to the heavier /search for full ranked
+    // results (FTS + trigram fallback) so deeper matches surface too.
+    const fastTimer = setTimeout(async () => {
       try {
-        // 5 hits per corpus is enough for the dropdown without
-        // dwarfing the visible page below it.
+        const data = await instantSearch({ q: term, limit: 5 })
+        if (!cancelled) setUnified(data ?? null)
+      } catch {
+        // ignore — let the unified pass below cover it
+      }
+    }, 60)
+
+    const richTimer = setTimeout(async () => {
+      try {
         const data = await unifiedSearch({ q: term, limit: 5 })
         if (!cancelled) setUnified(data ?? null)
       } catch {
-        if (!cancelled) setUnified(null)
+        if (!cancelled) setUnified((current) => current ?? null)
       } finally {
         if (!cancelled) setIsLoading(false)
       }
-    }, 220)
+    }, 280)
 
     return () => {
       cancelled = true
-      clearTimeout(timeout)
+      clearTimeout(fastTimer)
+      clearTimeout(richTimer)
     }
   }, [query])
 
@@ -301,11 +323,13 @@ function AccountMenu() {
         <DropdownMenuLabel>
           <div className="leading-tight">
             <p className="truncate text-sm font-semibold text-foreground">
-              {getFullName(user)}
+              {getFullName(user) || getHandle(user) || 'Account'}
             </p>
-            <p className="truncate text-xs font-normal text-muted-foreground">
-              {user.username}
-            </p>
+            {getHandle(user) ? (
+              <p className="truncate font-mono text-[11px] font-normal text-muted-foreground">
+                @{getHandle(user)}
+              </p>
+            ) : null}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

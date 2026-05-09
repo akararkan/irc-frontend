@@ -1,5 +1,6 @@
 import {
   Angry,
+  Check,
   Frown,
   HandHeart,
   HeartHandshake,
@@ -8,8 +9,12 @@ import {
   Laugh,
   Lightbulb,
   PartyPopper,
+  ScrollText,
   Smile,
+  Sparkles,
+  ThumbsDown,
   ThumbsUp,
+  X,
 } from 'lucide-react'
 
 const POST_REACTION_MAP = {
@@ -79,6 +84,50 @@ const POST_REACTION_MAP = {
   },
 }
 
+// Q&A answers + reanswers use a *scholarship-tone* palette — agree /
+// disagree are first-class so an answer can be debated, and the rest
+// reads like a scholar's marginalia rather than social-feed emoji.
+// MUST match the backend's QnaReactionType enum exactly:
+//   LIKE, INSIGHTFUL, BENEFICIAL, AGREE, DISAGREE, THANKS.
+// A new value here without a matching backend update will be rejected
+// on POST .../react.
+const QNA_REACTION_MAP = {
+  LIKE: POST_REACTION_MAP.LIKE,
+  INSIGHTFUL: POST_REACTION_MAP.INSIGHTFUL,
+  BENEFICIAL: {
+    label: 'Beneficial',
+    icon: ScrollText,
+    color: 'text-amber-600',
+    bg: 'bg-amber-500/15',
+    ring: 'ring-amber-500/30',
+    emoji: '📚',
+  },
+  AGREE: {
+    label: 'Agree',
+    icon: Check,
+    color: 'text-emerald-600',
+    bg: 'bg-emerald-500/15',
+    ring: 'ring-emerald-500/30',
+    emoji: '✅',
+  },
+  DISAGREE: {
+    label: 'Disagree',
+    icon: ThumbsDown,
+    color: 'text-rose-600',
+    bg: 'bg-rose-500/15',
+    ring: 'ring-rose-500/30',
+    emoji: '❌',
+  },
+  THANKS: {
+    label: 'Thanks',
+    icon: Sparkles,
+    color: 'text-fuchsia-600',
+    bg: 'bg-fuchsia-500/15',
+    ring: 'ring-fuchsia-500/30',
+    emoji: '🙏',
+  },
+}
+
 const RESEARCH_REACTION_MAP = {
   LIKE: POST_REACTION_MAP.LIKE,
   LOVE: POST_REACTION_MAP.LOVE,
@@ -110,6 +159,7 @@ const RESEARCH_REACTION_MAP = {
 }
 
 export const POST_REACTIONS = Object.keys(POST_REACTION_MAP)
+export const QNA_REACTIONS = Object.keys(QNA_REACTION_MAP)
 export const RESEARCH_REACTIONS = Object.keys(RESEARCH_REACTION_MAP)
 
 export function getPostReaction(type) {
@@ -120,10 +170,18 @@ export function getResearchReaction(type) {
   return RESEARCH_REACTION_MAP[type] ?? RESEARCH_REACTION_MAP.LIKE
 }
 
+export function getQnaReaction(type) {
+  return QNA_REACTION_MAP[type] ?? QNA_REACTION_MAP.LIKE
+}
+
 export function getPostReactionList() {
   return POST_REACTIONS.map((type) => ({ type, ...POST_REACTION_MAP[type] }))
 }
 
 export function getResearchReactionList() {
   return RESEARCH_REACTIONS.map((type) => ({ type, ...RESEARCH_REACTION_MAP[type] }))
+}
+
+export function getQnaReactionList() {
+  return QNA_REACTIONS.map((type) => ({ type, ...QNA_REACTION_MAP[type] }))
 }

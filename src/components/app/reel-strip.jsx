@@ -7,7 +7,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { getReels } from '@/features/posts/posts.api'
 import { useAuth } from '@/features/auth/auth-context'
 import { cn } from '@/lib/utils'
-import { formatNumber, getFullName, resolveMediaUrl } from '@/lib/format'
+import {
+  formatNumber,
+  getFullName,
+  getHandle,
+  resolveMediaUrl,
+} from '@/lib/format'
 
 function normalizeAuthor(post) {
   if (post.author) {
@@ -100,7 +105,7 @@ function ReelThumb({ post, index }) {
           </div>
           <div className="space-y-1">
             <p className="font-display text-[13px] font-semibold leading-[1.25] tracking-[-0.005em] drop-shadow-sm">
-              {getFullName(author) || author.username || 'Unknown'}
+              {getFullName(author) || getHandle(author) || 'Unknown'}
             </p>
             <p className="inline-flex items-center gap-1 font-mono text-[10px] tabular-nums text-white/85">
               <Eye className="size-2.5" />

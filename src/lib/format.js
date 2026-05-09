@@ -24,7 +24,65 @@ export function getFullName(user) {
   if (parts.length) return parts.join(' ')
   const full = user.fullName ?? user.authorFullName ?? user.researcherFullName
   if (full) return full
-  return user.username ?? user.authorUsername ?? ''
+  // Last-ditch handle fallback — but strip email syntax so a row never
+  // renders as the user's literal email address. `getHandle` is safe to
+  // call here; it gracefully degrades when the input is undefined.
+  return getHandle(user)
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Email-shape detector. Returns true for a string that looks like an
+ * email address (so the UI can avoid rendering it as a handle).
+ */
+export function looksLikeEmail(value) {
+  if (!value || typeof value !== 'string') return false
+  return EMAIL_RE.test(value.trim())
+}
+
+/**
+ * Display-safe handle for a user. Some legacy accounts have their email
+ * stored as the `username`; rendering `@user@gmail.com` is jarring and
+ * leaks contact info. This helper returns:
+ *
+ *   - the local-part of an email-shaped username (`user@gmail.com` → `user`)
+ *   - the username as-is when it isn't email-shaped
+ *   - an empty string when no handle is available
+ *
+ * Use everywhere a `@handle` is rendered. Routing keys (`/profile/:username`)
+ * should still use the raw username so the link resolves on the backend —
+ * `getRawUsername(user)` is the canonical lookup for those cases.
+ */
+export function getHandle(user) {
+  if (!user) return ''
+  const raw =
+    user.username ??
+    user.authorUsername ??
+    user.researcherUsername ??
+    user.actorUsername ??
+    ''
+  if (!raw) return ''
+  if (looksLikeEmail(raw)) {
+    return raw.split('@')[0]
+  }
+  return raw
+}
+
+/**
+ * Raw username — the value the backend stores. Use this for routing
+ * (`/profile/${getRawUsername(user)}`) and API lookups, never for
+ * presentation. For presentation use `getHandle`.
+ */
+export function getRawUsername(user) {
+  if (!user) return ''
+  return (
+    user.username ??
+    user.authorUsername ??
+    user.researcherUsername ??
+    user.actorUsername ??
+    ''
+  )
 }
 
 export function getAvatarUrl(user) {

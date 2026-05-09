@@ -44,7 +44,7 @@ import {
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
-import { getFullName, resolveMediaUrl } from '@/lib/format'
+import { getFullName, getHandle, getRawUsername, resolveMediaUrl } from '@/lib/format'
 import { RelativeTime } from '@/components/app/relative-time'
 import { getPostReaction } from '@/lib/reactions'
 
@@ -87,8 +87,13 @@ function CommentComposer({
     Boolean(replyToUsername) &&
     Boolean(user?.username) &&
     user.username.toLowerCase() === replyToUsername.toLowerCase()
+  // Sanitize the handle in the prefilled mention — if the parent
+  // comment's author has an email-shaped username, `@user@gmail.com `
+  // would render as garbage and only `@user` would match the mention
+  // regex anyway. Insert the local-part so the chip is well-formed.
+  const replyHandle = getHandle({ username: replyToUsername })
   const initialText =
-    parentId && replyToUsername && !isSelfReply ? `@${replyToUsername} ` : ''
+    parentId && replyHandle && !isSelfReply ? `@${replyHandle} ` : ''
   const [text, setText] = useState(initialText)
   const [file, setFile] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -400,7 +405,10 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
       transition={{ type: 'spring', stiffness: 360, damping: 28 }}
       className="group/comment flex items-start gap-2"
     >
-      <Link to={`/profile/${author.username ?? ''}`} className="shrink-0 transition-transform hover:scale-105">
+      <Link
+        to={`/profile/${getRawUsername(author)}`}
+        className="shrink-0 transition-transform hover:scale-105"
+      >
         <UserAvatar user={author} className={depth === 0 ? 'size-8' : 'size-7'} />
       </Link>
       <div className="min-w-0 flex-1">
@@ -408,10 +416,24 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
           <div className="rounded-[18px] rounded-tl-[6px] bg-muted px-3.5 py-2 shadow-sm transition-colors group-hover/comment:bg-muted/80">
             <div className="flex items-start justify-between gap-2">
               <Link
-                to={`/profile/${author.username ?? ''}`}
-                className="block truncate text-[13px] font-semibold hover:underline"
+                to={`/profile/${getRawUsername(author)}`}
+                className="group/author block min-w-0 flex-1"
               >
-                {getFullName(author) || author.username}
+                <span className="block truncate text-[13px] font-semibold text-ink group-hover/author:underline">
+                  {getFullName(author) || getHandle(author) || 'Unknown user'}
+                </span>
+                {(() => {
+                  const handle = getHandle(author)
+                  const fullName = getFullName(author)
+                  if (!handle) return null
+                  if (fullName && fullName.toLowerCase() === handle.toLowerCase())
+                    return null
+                  return (
+                    <span className="block truncate font-mono text-[10.5px] text-ink-3">
+                      @{handle}
+                    </span>
+                  )
+                })()}
               </Link>
               {isMine && !editing ? (
                 <DropdownMenu>

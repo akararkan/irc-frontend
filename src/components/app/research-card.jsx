@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   Bookmark,
   Download,
@@ -11,8 +13,15 @@ import { Link } from 'react-router-dom'
 
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
+import { useInView } from '@/hooks/use-in-view'
+import { useResearchStream } from '@/hooks/use-research-stream'
 import { cn } from '@/lib/utils'
-import { formatNumber, resolveMediaUrl } from '@/lib/format'
+import {
+  formatNumber,
+  getFullName,
+  getHandle,
+  resolveMediaUrl,
+} from '@/lib/format'
 import { RelativeTime } from '@/components/app/relative-time'
 
 const STATUS_META = {
@@ -36,11 +45,111 @@ const STATUS_META = {
 
 /**
  * ResearchCard — manuscript-cover style paper card.
- * When a real cover image / video thumb exists we still honor it (top
- * media tile); otherwise we render a stylized "book" cover with a gilt
- * peer-review dot. Two-column on desktop, stacked on mobile.
+ *
+ * Self-manages its live counters: when the card is in (or near) the
+ * viewport, it subscribes to its per-research SSE channel and patches
+ * `viewCount`, `downloadCount`, `reactionCount`, `commentCount`,
+ * `saveCount`, `shareCount`, and `citationCount` as the backend
+ * broadcasts them. When the card scrolls offscreen the EventSource
+ * tears down so a long feed doesn't hold a dozen open connections.
+ *
+ * Counts are wrapped in `LiveCount` which animates a subtle pulse on
+ * change so the reader's eye registers the bump.
  */
-export function ResearchCard({ item }) {
+export function ResearchCard({ item: incoming }) {
+  // Local mirror so SSE-driven counter updates re-render the card
+  // without forcing every caller to thread an `onChange` prop.
+  const [item, setItem] = useState(incoming)
+
+  // Sync from props when the parent passes a fresh row (e.g. a new
+  // page lands, or the parent invalidates after a write). We compare
+  // by id so SSE patches don't get clobbered by a parent re-render
+  // that's still holding the older snapshot.
+  useEffect(() => {
+    setItem((current) =>
+      current?.id === incoming?.id ? { ...current, ...incoming } : incoming,
+    )
+  }, [incoming])
+
+  const [setLiveRef, inView] = useInView({ rootMargin: '300px 0px 300px 0px' })
+
+  const patch = useCallback(
+    (next) => setItem((current) => ({ ...current, ...next })),
+    [],
+  )
+
+  useResearchStream(
+    item?.id,
+    {
+      RESEARCH_UPDATED: (payload) => {
+        if (!payload?.id) return
+        // Preserve viewer-specific bookkeeping the broadcast omits.
+        patch({
+          ...payload,
+          currentUserSaved: item.currentUserSaved,
+          currentUserReaction: item.currentUserReaction,
+        })
+      },
+      VIEW_COUNT_UPDATED: (payload) => {
+        if (payload?.viewCount == null) return
+        patch({ viewCount: payload.viewCount })
+      },
+      DOWNLOAD_COUNT_UPDATED: (payload) => {
+        if (payload?.downloadCount == null) return
+        patch({ downloadCount: payload.downloadCount })
+      },
+      SAVE_COUNT_UPDATED: (payload) => {
+        if (payload?.saveCount == null) return
+        patch({ saveCount: payload.saveCount })
+      },
+      SHARE_COUNT_UPDATED: (payload) => {
+        if (payload?.shareCount == null) return
+        patch({ shareCount: payload.shareCount })
+      },
+      CITATION_COUNT_UPDATED: (payload) => {
+        if (payload?.citationCount == null) return
+        patch({ citationCount: payload.citationCount })
+      },
+      REACTION_ADDED: (payload) => {
+        if (payload == null) return
+        patch({
+          reactionCount: payload.reactionCount ?? item.reactionCount,
+          topReactionTypes: payload.topReactionTypes ?? item.topReactionTypes,
+        })
+      },
+      REACTION_CHANGED: (payload) => {
+        if (payload == null) return
+        patch({
+          reactionCount: payload.reactionCount ?? item.reactionCount,
+          topReactionTypes: payload.topReactionTypes ?? item.topReactionTypes,
+        })
+      },
+      REACTION_REMOVED: (payload) => {
+        if (payload == null) return
+        patch({
+          reactionCount: payload.reactionCount ?? item.reactionCount,
+          topReactionTypes: payload.topReactionTypes ?? item.topReactionTypes,
+        })
+      },
+      COMMENT_CREATED: (payload) => {
+        const next = payload?.commentCount ?? (item.commentCount ?? 0) + 1
+        patch({ commentCount: next })
+      },
+      COMMENT_DELETED: (payload) => {
+        const next =
+          payload?.commentCount ?? Math.max(0, (item.commentCount ?? 0) - 1)
+        patch({ commentCount: next })
+      },
+      REPLY_CREATED: (payload) => {
+        const next = payload?.commentCount ?? (item.commentCount ?? 0) + 1
+        patch({ commentCount: next })
+      },
+    },
+    { enabled: inView },
+  )
+
+  if (!item) return null
+
   const author = {
     id: item.researcherId,
     username: item.researcherUsername,
@@ -53,9 +162,12 @@ export function ResearchCard({ item }) {
   const href = `/research/${item.slug ?? item.id}`
   const status = STATUS_META[item.status] ?? STATUS_META.PUBLISHED
   const hasMedia = Boolean(cover || videoThumb)
+  const authorHandle = getHandle(author)
+  const authorName = getFullName(author) || authorHandle || 'Researcher'
 
   return (
     <Link
+      ref={setLiveRef}
       to={href}
       className={cn(
         'group block overflow-hidden rounded-2xl border border-border bg-paper',
@@ -214,42 +326,102 @@ export function ResearchCard({ item }) {
           <div className="min-w-0 flex-1 leading-tight">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="block truncate text-[13px] font-semibold text-ink-2">
-                {author.fullName ?? author.username}
+                {authorName}
               </span>
               <RoleBadge role="RESEARCHER" size="xs" />
             </div>
-            <p className="truncate text-[11px] text-ink-3">{author.username}</p>
+            {authorHandle ? (
+              <p className="truncate font-mono text-[10.5px] text-ink-3">
+                @{authorHandle}
+              </p>
+            ) : null}
           </div>
           <div className="flex items-center gap-3 text-[11.5px] text-ink-3">
             {item.citationCount ? (
-              <span className="inline-flex items-center gap-1 tabular-nums" title="Citations">
-                <Quote className="size-3.5" />
-                {formatNumber(item.citationCount)}
-              </span>
+              <LiveCount
+                value={item.citationCount}
+                icon={Quote}
+                label="Citations"
+              />
             ) : null}
-            <span className="inline-flex items-center gap-1 tabular-nums" title="Views">
-              <Eye className="size-3.5" />
-              {formatNumber(item.viewCount ?? 0)}
-            </span>
-            <span className="inline-flex items-center gap-1 tabular-nums" title="Reactions">
-              <Heart className="size-3.5" />
-              {formatNumber(item.reactionCount ?? 0)}
-            </span>
-            <span className="hidden items-center gap-1 tabular-nums sm:inline-flex" title="Comments">
-              <MessageCircle className="size-3.5" />
-              {formatNumber(item.commentCount ?? 0)}
-            </span>
-            <span className="hidden items-center gap-1 tabular-nums sm:inline-flex" title="Saves">
-              <Bookmark className="size-3.5" />
-              {formatNumber(item.saveCount ?? 0)}
-            </span>
-            <span className="hidden items-center gap-1 tabular-nums md:inline-flex" title="Downloads">
-              <Download className="size-3.5" />
-              {formatNumber(item.downloadCount ?? 0)}
-            </span>
+            <LiveCount
+              value={item.viewCount ?? 0}
+              icon={Eye}
+              label="Views"
+              showZero
+            />
+            <LiveCount
+              value={item.reactionCount ?? 0}
+              icon={Heart}
+              label="Reactions"
+              showZero
+            />
+            <LiveCount
+              value={item.commentCount ?? 0}
+              icon={MessageCircle}
+              label="Comments"
+              className="hidden sm:inline-flex"
+              showZero
+            />
+            <LiveCount
+              value={item.saveCount ?? 0}
+              icon={Bookmark}
+              label="Saves"
+              className="hidden sm:inline-flex"
+              showZero
+            />
+            <LiveCount
+              value={item.downloadCount ?? 0}
+              icon={Download}
+              label="Downloads"
+              className="hidden md:inline-flex"
+              showZero
+            />
           </div>
         </div>
       </div>
     </Link>
+  )
+}
+
+/**
+ * Single tabular-nums counter that pulses subtly when its value
+ * changes. The pulse comes from re-keying the inner span on `value`,
+ * so motion's enter animation runs each time the count flips.
+ *
+ * `showZero` keeps the counter visible at zero (used for view /
+ * reaction / comment counts that always belong on the row); without
+ * it the counter renders nothing when value is 0 (citations, etc).
+ */
+export function LiveCount({
+  value,
+  icon: Icon,
+  label,
+  className,
+  showZero = false,
+}) {
+  if (!showZero && !value) return null
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 tabular-nums',
+        className,
+      )}
+      title={label}
+    >
+      {Icon ? <Icon className="size-3.5" /> : null}
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={value}
+          initial={{ y: 6, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -6, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 460, damping: 30 }}
+          className="inline-block"
+        >
+          {formatNumber(value)}
+        </motion.span>
+      </AnimatePresence>
+    </span>
   )
 }

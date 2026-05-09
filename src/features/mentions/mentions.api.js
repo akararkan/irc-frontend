@@ -33,6 +33,30 @@ export async function suggestMentions({ q, limit = 8 } = {}) {
 }
 
 /**
+ * Lock-in the user that was actually picked from the autocomplete
+ * dropdown. Records a `MENTION_LOOKUP` activity row pointing at the
+ * picked user, which feeds the per-user activity stream + history.
+ *
+ * Best-effort — failures are swallowed so a flaky network never blocks
+ * the user from inserting the mention chip. Returns `true` on a 2xx,
+ * `false` otherwise (callers rarely need this; the recording is async
+ * server-side anyway).
+ */
+export async function recordMentionClick({ q, targetUserId, targetUsername } = {}) {
+  if (!targetUserId && !targetUsername) return false
+  try {
+    await api.post('/api/v1/mentions/click', {
+      q: (q ?? '').trim(),
+      targetUserId: targetUserId ?? null,
+      targetUsername: targetUsername ?? null,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Server-authoritative mention parser. Returns the deduped lower-cased
  * usernames the backend would notify, the `@followers` sentinel flag,
  * and a list of tokens with offsets so the UI can highlight without

@@ -5,9 +5,20 @@ import { cn } from '@/lib/utils'
 import {
   getPostReaction,
   getPostReactionList,
+  getQnaReaction,
+  getQnaReactionList,
   getResearchReaction,
   getResearchReactionList,
 } from '@/lib/reactions'
+
+// Map of `reactionSet` → (resolver, list-builder). Picker / summary
+// surfaces choose the palette by passing `reactionSet="qna"` etc.;
+// defaulting to "post" preserves the existing call sites.
+const REACTION_SETS = {
+  post:     { resolve: getPostReaction,     list: getPostReactionList },
+  research: { resolve: getResearchReaction, list: getResearchReactionList },
+  qna:      { resolve: getQnaReaction,      list: getQnaReactionList },
+}
 
 // Facebook-style hover-to-open reaction picker.
 //   - Single click on the trigger toggles the default reaction (Like).
@@ -30,9 +41,9 @@ export function ReactionPicker({
   className,
   align = 'left',
 }) {
-  const reactionList =
-    reactionSet === 'research' ? getResearchReactionList() : getPostReactionList()
-  const resolve = reactionSet === 'research' ? getResearchReaction : getPostReaction
+  const set = REACTION_SETS[reactionSet] ?? REACTION_SETS.post
+  const reactionList = set.list()
+  const resolve = set.resolve
 
   const [open, setOpen] = useState(false)
   const [hovered, setHovered] = useState(null)

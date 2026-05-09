@@ -23,6 +23,11 @@ export const QUESTION_REALTIME_EVENTS = [
   'ANSWER_FEEDBACK_ADDED',
   'ANSWER_FEEDBACK_EDITED',
   'ANSWER_FEEDBACK_DELETED',
+  // Multi-scholar best-answer voting — payload includes the fresh
+  // `bestAnswerVoteCount` so subscribers update the badge instantly,
+  // plus `answerId` and `voterId` for granular UI updates.
+  'BEST_ANSWER_VOTED',
+  'BEST_ANSWER_UNVOTED',
 ]
 
 /**

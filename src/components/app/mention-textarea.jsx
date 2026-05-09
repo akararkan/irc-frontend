@@ -1,14 +1,18 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Megaphone } from 'lucide-react'
+import { Loader2, Megaphone, Search, UserRound } from 'lucide-react'
 
 import { Textarea } from '@/components/ui/textarea'
+import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
-import { suggestMentions } from '@/features/mentions/mentions.api'
+import {
+  recordMentionClick,
+  suggestMentions,
+} from '@/features/mentions/mentions.api'
 import { findActiveMention } from '@/lib/mentions'
 import { seedUserCache } from '@/lib/user-cache'
 import { cn } from '@/lib/utils'
-import { getFullName } from '@/lib/format'
+import { getFullName, getHandle } from '@/lib/format'
 
 const FOLLOWERS_OPTION = {
   id: '__followers__',
@@ -26,13 +30,14 @@ const FOLLOWERS_OPTION = {
  *     comments/answers anyway, but hiding it keeps the UI honest)
  *
  * Behavior:
- *   - Typing `@` opens the dropdown; further typing filters via searchUsers
+ *   - Typing `@` opens the dropdown; further typing filters via suggestMentions
  *   - ↑/↓ navigates, Enter or Tab picks, Esc closes
  *   - Selecting replaces the in-progress `@partial` with `@username `
+ *   - Picking a user fires a fire-and-forget POST /api/v1/mentions/click
+ *     so the backend records a MENTION_LOOKUP activity row
  *
- * Caret-anchored dropdown is rendered relative to a mirror div that mimics
- * the textarea's wrapping; this is the standard "mirror element" trick to
- * place a popover at the caret without measuring the canvas glyphs.
+ * Display rule: every row shows the user's **full name** as the primary
+ * label and `@username` as the secondary handle. Email is never shown.
  */
 export const MentionTextarea = forwardRef(function MentionTextarea(
   {
@@ -43,8 +48,8 @@ export const MentionTextarea = forwardRef(function MentionTextarea(
     allowFollowersToken = false,
     className,
     wrapperClassName,
-    minSearchLength = 1,
-    maxResults = 6,
+    minSearchLength = 0,
+    maxResults = 8,
     ...textareaProps
   },
   ref,
@@ -125,7 +130,7 @@ export const MentionTextarea = forwardRef(function MentionTextarea(
       } finally {
         if (!cancelled) setLoading(false)
       }
-    }, 180)
+    }, 160)
 
     return () => {
       cancelled = true
@@ -171,7 +176,7 @@ export const MentionTextarea = forwardRef(function MentionTextarea(
     const top = span.offsetTop - el.scrollTop
     const left = span.offsetLeft - el.scrollLeft
     const lineHeight = parseFloat(style.lineHeight) || 16
-    setCoords({ top: top + lineHeight + 4, left, height: lineHeight })
+    setCoords({ top: top + lineHeight + 6, left, height: lineHeight })
     mirror.textContent = ''
   }, [active, value])
 
@@ -181,12 +186,35 @@ export const MentionTextarea = forwardRef(function MentionTextarea(
     const el = innerRef.current
     const before = value.slice(0, active.start)
     const after = value.slice(active.start + 1 + active.query.length) // +1 for `@`
-    const insert = `@${option.username} `
+    // Insert the sanitized handle, never the raw email-shaped username.
+    // If we inserted `@user@gmail.com`, both the FE and backend mention
+    // tokenizers (which match `@[a-zA-Z0-9_.]{2,50}`) would consume only
+    // `@user`, leaving `@gmail.com` as orphan plain text — visually
+    // broken. The handle keeps the chip well-formed; the user-cache
+    // seeding below preserves the link to the canonical user record.
+    const handle =
+      option.isFollowers ? option.username : (getHandle(option) || option.username)
+    const insert = `@${handle} `
     const next = `${before}${insert}${after}`
     onChange?.(next)
-    // Cache the picked user so the rendered mention chip shows their
-    // display name (Facebook-style) the instant the post is published.
-    if (!option.isFollowers) seedUserCache(option)
+    if (!option.isFollowers) {
+      // Cache the picked user so the rendered mention chip shows their
+      // display name (Facebook-style) the instant the post is published.
+      // We seed under both shapes (handle + raw username) so a chip that
+      // resolves via either lookup hits the same record.
+      seedUserCache(option)
+      if (handle && handle !== option.username) {
+        seedUserCache({ ...option, username: handle })
+      }
+      // Best-effort: tell the backend the picker locked in this user.
+      // Records a MENTION_LOOKUP activity that streams to the per-user
+      // realtime channel so cross-device "recent mentions" stay fresh.
+      recordMentionClick({
+        q: active.query.trim(),
+        targetUserId: option.id,
+        targetUsername: option.username,
+      })
+    }
     setActive(null)
     setResults([])
     // Restore caret right after the inserted token
@@ -226,29 +254,78 @@ export const MentionTextarea = forwardRef(function MentionTextarea(
     onKeyDown?.(event)
   }
 
-  const showDropdown = active != null && (results.length > 0 || loading)
+  const showDropdown =
+    active != null && (results.length > 0 || loading || (active.query?.length ?? 0) > 0)
 
   const dropdown = useMemo(() => {
     if (!showDropdown) return null
+    const query = active?.query?.trim() ?? ''
+    const peopleResults = results.filter((r) => !r.isFollowers)
+    const showEmpty =
+      !loading && peopleResults.length === 0 && query.length > 0
     return (
       <motion.div
         key="mention-popover"
-        initial={{ opacity: 0, y: -4 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -4 }}
-        transition={{ duration: 0.12 }}
+        initial={{ opacity: 0, y: -6, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -6, scale: 0.97 }}
+        transition={{ type: 'spring', stiffness: 480, damping: 32 }}
         role="listbox"
         className={cn(
-          'absolute z-30 max-h-64 w-72 overflow-y-auto rounded-xl border border-border bg-popover/95 p-1 shadow-soft-lg backdrop-blur',
+          'absolute z-30 w-[320px] overflow-hidden rounded-2xl border border-border/80 bg-popover/98 p-1 shadow-soft-lg backdrop-blur-md',
         )}
         style={{ top: coords.top, left: coords.left }}
       >
-        {loading && results.length === 0 ? (
-          <p className="px-3 py-2 text-[12px] text-ink-3">Searching…</p>
-        ) : null}
-        {results.map((option, i) => {
-          const highlight = i === highlighted
-          if (option.isFollowers) {
+        <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 pb-1.5 pt-1">
+          <Search className="size-3 text-ink-4" />
+          <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-3">
+            Mention {query ? `· @${query}` : 'someone'}
+          </span>
+          {loading ? (
+            <Loader2 className="ml-auto size-3 animate-spin text-ink-3" />
+          ) : (
+            <span className="ml-auto rounded-md bg-muted px-1.5 py-0.5 font-mono text-[9.5px] font-semibold tabular-nums text-ink-3">
+              {peopleResults.length || 0}
+            </span>
+          )}
+        </div>
+
+        <div className="max-h-72 overflow-y-auto py-1">
+          {results.map((option, i) => {
+            const highlight = i === highlighted
+            if (option.isFollowers) {
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="option"
+                  aria-selected={highlight}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => pick(option)}
+                  onMouseEnter={() => setHighlighted(i)}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors',
+                    highlight
+                      ? 'bg-gold-soft/60 text-gold-2'
+                      : 'text-ink hover:bg-muted',
+                  )}
+                >
+                  <span className="grid size-9 place-items-center rounded-full bg-gold-soft text-gold-2">
+                    <Megaphone className="size-4" strokeWidth={1.9} />
+                  </span>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="block font-display text-[13.5px] font-semibold tracking-[-0.005em]">
+                      Notify all followers
+                    </span>
+                    <span className="block font-mono text-[10.5px] text-ink-3">
+                      @followers
+                    </span>
+                  </span>
+                </button>
+              )
+            }
+            const handle = getHandle(option)
+            const display = getFullName(option) || handle || 'Unknown'
             return (
               <button
                 key={option.id}
@@ -259,48 +336,66 @@ export const MentionTextarea = forwardRef(function MentionTextarea(
                 onClick={() => pick(option)}
                 onMouseEnter={() => setHighlighted(i)}
                 className={cn(
-                  'flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors',
-                  highlight ? 'bg-gold-soft/60 text-gold-2' : 'text-ink hover:bg-muted',
+                  'group/mention flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors',
+                  highlight ? 'bg-brand/10 text-brand' : 'text-ink hover:bg-muted/70',
                 )}
               >
-                <span className="grid size-7 place-items-center rounded-full bg-gold-soft text-gold-2">
-                  <Megaphone className="size-3.5" strokeWidth={1.9} />
-                </span>
-                <span className="flex-1">
-                  <span className="font-semibold">@followers</span>
-                  <span className="ml-1.5 text-[11px] text-ink-3">
-                    Notify everyone who follows you
+                <UserAvatar user={option} className="size-9 ring-1 ring-border" />
+                <span className="min-w-0 flex-1 leading-tight">
+                  <span className="flex items-center gap-1.5">
+                    <span className="block truncate font-display text-[13.5px] font-semibold tracking-[-0.005em] text-ink">
+                      {display}
+                    </span>
+                    {option.role ? (
+                      <RoleBadge role={option.role} size="xs" showIcon={false} />
+                    ) : null}
                   </span>
+                  {handle ? (
+                    <span className="block truncate font-mono text-[11px] text-ink-3">
+                      @{handle}
+                    </span>
+                  ) : null}
                 </span>
+                {highlight ? (
+                  <kbd
+                    aria-hidden
+                    className="hidden shrink-0 rounded border border-border bg-paper px-1 py-[1px] font-mono text-[9.5px] font-semibold text-ink-3 group-hover/mention:inline-block"
+                  >
+                    ↵
+                  </kbd>
+                ) : null}
               </button>
             )
-          }
-          return (
-            <button
-              key={option.id}
-              type="button"
-              role="option"
-              aria-selected={highlight}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => pick(option)}
-              onMouseEnter={() => setHighlighted(i)}
-              className={cn(
-                'flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors',
-                highlight ? 'bg-brand/10 text-brand' : 'text-ink hover:bg-muted',
-              )}
-            >
-              <UserAvatar user={option} className="size-7 ring-1 ring-border" />
-              <span className="min-w-0 flex-1 leading-tight">
-                <span className="block truncate font-semibold">
-                  {getFullName(option) || option.username}
-                </span>
-                <span className="block truncate text-[11px] text-ink-3">
-                  {option.username}
-                </span>
-              </span>
-            </button>
-          )
-        })}
+          })}
+
+          {showEmpty ? (
+            <div className="flex flex-col items-center gap-1 px-3 py-4 text-center">
+              <UserRound className="size-5 text-ink-4" />
+              <p className="font-display text-[12.5px] font-semibold tracking-[-0.005em] text-ink-2">
+                No people match “@{query}”
+              </p>
+              <p className="text-[11px] text-ink-3">
+                Try a shorter prefix, or check the spelling.
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        {peopleResults.length > 0 ? (
+          <div className="flex items-center justify-between border-t border-border/60 px-2.5 pb-1 pt-1.5 font-mono text-[10px] text-ink-3">
+            <span className="inline-flex items-center gap-1.5">
+              <kbd className="rounded border border-border bg-paper px-1 py-[1px] text-[9.5px] font-semibold">↑↓</kbd>
+              navigate
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <kbd className="rounded border border-border bg-paper px-1 py-[1px] text-[9.5px] font-semibold">↵</kbd>
+              pick
+              <span className="text-ink-4">·</span>
+              <kbd className="rounded border border-border bg-paper px-1 py-[1px] text-[9.5px] font-semibold">esc</kbd>
+              close
+            </span>
+          </div>
+        ) : null}
       </motion.div>
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps

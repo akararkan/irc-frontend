@@ -1001,7 +1001,14 @@ export function ResearchDetailPage() {
         if (data?.id) recordResearchView(data.id).catch(() => {})
       } catch (error) {
         if (!cancelled) {
-          toast.error(extractApiMessage(error, 'Could not load research.'))
+          // 404 is the canonical "not visible to you" signal from the
+          // backend — covers both "doesn't exist" and "viewer is in a
+          // block edge with the researcher". Skip the toast and let the
+          // EmptyState below explain it.
+          const status = error?.response?.status ?? error?.status
+          if (status !== 404) {
+            toast.error(extractApiMessage(error, 'Could not load research.'))
+          }
           setResearch(null)
         }
       } finally {
@@ -1437,8 +1444,8 @@ export function ResearchDetailPage() {
   if (!research) {
     return (
       <EmptyState
-        title="Research not found"
-        description="It may have been removed, unpublished, or set to private."
+        title="This research isn't available"
+        description="It may have been removed, unpublished, or the researcher has restricted who can see it."
         action={
           <Button asChild size="sm" variant="outline" className="rounded-full">
             <Link to="/research">Back to research</Link>
