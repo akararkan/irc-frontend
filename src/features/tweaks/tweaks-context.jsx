@@ -2,10 +2,15 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 
 const STORAGE_KEY = 'irc.tweaks.v1'
 
+// All persisted tweak settings. Keep keys short so localStorage stays
+// readable; the migration story is "missing key → default".
 const DEFAULTS = {
-  theme: 'light',         // 'light' | 'dark'
-  accent: 'emerald',      // 'emerald' | 'rust' | 'violet' | 'ink'
+  theme: 'light',          // 'light' | 'dark'
+  accent: 'emerald',       // 'emerald' | 'rust' | 'violet' | 'ink'
   displayFont: 'fraunces', // 'fraunces' | 'cormorant' | 'system'
+  fontScale: 'comfortable', // 'compact' | 'comfortable' | 'cozy' | 'large'
+  density: 'comfortable',   // 'comfortable' | 'compact'
+  reducedMotion: false,     // honour prefers-reduced-motion when toggled on
 }
 
 export const ACCENT_OPTIONS = [
@@ -21,6 +26,21 @@ export const FONT_OPTIONS = [
   { value: 'system',    label: 'System sans',        hint: 'No serif' },
 ]
 
+// Maps each `fontScale` setting to a multiplier applied on the
+// document root. Headings, body, and chrome all scale proportionally.
+// The keys also drive a swatch row in TweaksMenu — order matters.
+export const FONT_SCALE_OPTIONS = [
+  { value: 'compact',      label: 'Compact',      hint: 'More content per screen', sample: 'A',  factor: 0.92 },
+  { value: 'comfortable',  label: 'Comfortable',  hint: 'Default reading size',    sample: 'A',  factor: 1.0  },
+  { value: 'cozy',         label: 'Cozy',         hint: 'A touch larger',          sample: 'A',  factor: 1.08 },
+  { value: 'large',        label: 'Large',        hint: 'Maximum legibility',      sample: 'A',  factor: 1.16 },
+]
+
+export const DENSITY_OPTIONS = [
+  { value: 'comfortable', label: 'Comfortable', hint: 'Generous spacing' },
+  { value: 'compact',     label: 'Compact',     hint: 'Tight rows for power users' },
+]
+
 function readInitial() {
   if (typeof window === 'undefined') return DEFAULTS
   try {
@@ -29,17 +49,33 @@ function readInitial() {
   } catch {
     /* ignore */
   }
-  // Honor system preference for first-run dark mode
+  // First-run defaults follow the OS — dark mode + reduced motion are
+  // common preferences the user shouldn't have to set twice.
   const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
-  return { ...DEFAULTS, theme: prefersDark ? 'dark' : 'light' }
+  const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  return {
+    ...DEFAULTS,
+    theme: prefersDark ? 'dark' : 'light',
+    reducedMotion: !!prefersReduced,
+  }
 }
 
-function applyToDocument({ theme, accent, displayFont }) {
+function applyToDocument(tweaks) {
   if (typeof document === 'undefined') return
   const root = document.documentElement
-  root.classList.toggle('dark', theme === 'dark')
-  root.dataset.accent = accent
-  root.dataset.font = displayFont
+  root.classList.toggle('dark', tweaks.theme === 'dark')
+  root.dataset.accent = tweaks.accent
+  root.dataset.font = tweaks.displayFont
+  root.dataset.fontScale = tweaks.fontScale
+  root.dataset.density = tweaks.density
+  root.dataset.reducedMotion = tweaks.reducedMotion ? 'true' : 'false'
+
+  // `--font-scale` is consumed by the global zoom rule on `<main>` so
+  // every text-bearing element in the content column scales together
+  // — Tailwind's hardcoded px sizes included.
+  const factor =
+    FONT_SCALE_OPTIONS.find((o) => o.value === tweaks.fontScale)?.factor ?? 1
+  root.style.setProperty('--font-scale', String(factor))
 }
 
 const TweaksContext = createContext(null)
@@ -56,16 +92,22 @@ export function TweaksProvider({ children }) {
     }
   }, [tweaks])
 
-  const setTheme       = useCallback((theme)       => setTweaks((t) => ({ ...t, theme })), [])
-  const setAccent      = useCallback((accent)      => setTweaks((t) => ({ ...t, accent })), [])
-  const setDisplayFont = useCallback((displayFont) => setTweaks((t) => ({ ...t, displayFont })), [])
-  const reset          = useCallback(() => setTweaks(DEFAULTS), [])
+  const setTheme         = useCallback((theme)         => setTweaks((t) => ({ ...t, theme })), [])
+  const setAccent        = useCallback((accent)        => setTweaks((t) => ({ ...t, accent })), [])
+  const setDisplayFont   = useCallback((displayFont)   => setTweaks((t) => ({ ...t, displayFont })), [])
+  const setFontScale     = useCallback((fontScale)     => setTweaks((t) => ({ ...t, fontScale })), [])
+  const setDensity       = useCallback((density)       => setTweaks((t) => ({ ...t, density })), [])
+  const setReducedMotion = useCallback((reducedMotion) => setTweaks((t) => ({ ...t, reducedMotion })), [])
+  const reset            = useCallback(() => setTweaks(DEFAULTS), [])
 
   const value = {
     ...tweaks,
     setTheme,
     setAccent,
     setDisplayFont,
+    setFontScale,
+    setDensity,
+    setReducedMotion,
     reset,
     isDark: tweaks.theme === 'dark',
   }

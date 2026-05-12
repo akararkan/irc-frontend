@@ -5,8 +5,13 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ───────────────────────────────────────────────────────────
-   IRC theme — warm paper, emerald-teal ink, manuscript gilt
-   Drop-in editorial design system.
+   IRC Scholar — design specification (v1.0, May 2026)
+   A reading room for careful thinkers.
+
+   Three principles drive every decision:
+     · Surface restraint  — white cards, hairline borders, no gradients.
+     · Semantic color     — hue encodes meaning (status, role, reaction).
+     · Editorial type     — sans for chrome, serif for moments of weight.
    ─────────────────────────────────────────────────────────── */
 
 @theme inline {
@@ -30,13 +35,13 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Brand */
+  /* Brand — IRC deep teal */
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-soft: var(--brand-soft);
   --color-brand-muted: var(--brand-muted);
 
-  /* Gilt */
+  /* Gilt — used sparingly for verified / accepted accents */
   --color-gold: var(--gold);
   --color-gold-2: var(--gold-2);
   --color-gold-foreground: var(--gold-foreground);
@@ -49,7 +54,7 @@
   --color-ink-4: var(--ink-4);
   --color-paper: var(--paper);
 
-  /* In-content accents */
+  /* Semantic content accents — every backend enum maps here */
   --color-accent-rust: var(--accent-rust);
   --color-accent-sage: var(--accent-sage);
   --color-accent-violet: var(--accent-violet);
@@ -66,231 +71,285 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --radius-sm: calc(var(--radius) * 0.5);
-  --radius-md: calc(var(--radius) * 0.75);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.5);
-  --radius-2xl: calc(var(--radius) * 2);
+  /* Semantic pill / fill colors — exposed for utilities */
+  --color-ok-bg: var(--ok-bg);
+  --color-ok-fg: var(--ok-fg);
+  --color-info-bg: var(--info-bg);
+  --color-info-fg: var(--info-fg);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-fg: var(--warn-fg);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-fg: var(--danger-fg);
+  --color-mute-bg: var(--mute-bg);
+  --color-mute-fg: var(--mute-fg);
+  --color-purple-bg: var(--purple-bg);
+  --color-purple-fg: var(--purple-fg);
 
-  /* Type stack — system sans for UI, Fraunces for editorial display */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Fraunces", "Cormorant Garamond", Georgia, serif;
-  --font-serif: "Fraunces", "Cormorant Garamond", Georgia, serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco,
-    Consolas, "Liberation Mono", monospace;
-}
+  /* Radii — spec calls for 4 / 6 / 10 / 14 / pill */
+  --radius-sm: calc(var(--radius) * 0.4);   /* ≈ 4px  */
+  --radius-md: calc(var(--radius) * 0.6);   /* ≈ 6px  */
+  --radius-lg: var(--radius);               /* = 10px */
+  --radius-xl: calc(var(--radius) * 1.4);   /* ≈ 14px */
+  --radius-2xl: calc(var(--radius) * 2);    /* = 20px */
 
-:root {
-  --radius: 0.85rem;
-
-  /* Surfaces — warm paper */
-  --background: oklch(0.985 0.003 95);
-  --foreground: oklch(0.20 0.012 270);
-  --paper: oklch(1 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.20 0.012 270);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.20 0.012 270);
-
-  --primary: oklch(0.24 0.015 270);
-  --primary-foreground: oklch(0.985 0.003 95);
-  --secondary: oklch(0.965 0.005 250);
-  --secondary-foreground: oklch(0.24 0.015 270);
-  --muted: oklch(0.97 0.004 95);
-  --muted-foreground: oklch(0.50 0.012 270);
-  --accent: oklch(0.96 0.006 175);
-  --accent-foreground: oklch(0.24 0.015 270);
-  --destructive: oklch(0.58 0.20 27);
-  --destructive-foreground: oklch(0.99 0 0);
-
-  --border: oklch(0.92 0.006 250);
-  --input: oklch(0.94 0.005 250);
-  --ring: oklch(0.55 0.10 175);
-
-  /* Ink scale (text hierarchy — use these instead of opacity) */
-  --ink: oklch(0.20 0.012 270);
-  --ink-2: oklch(0.40 0.012 270);
-  --ink-3: oklch(0.55 0.010 270);
-  --ink-4: oklch(0.72 0.008 270);
-
-  /* Brand — emerald-teal calligraphic ink */
-  --brand: oklch(0.42 0.10 175);
-  --brand-foreground: oklch(0.985 0.003 95);
-  --brand-soft: oklch(0.94 0.025 175);
-  --brand-muted: oklch(0.78 0.05 175);
-
-  /* Gilt — manuscript gold (use sparingly) */
-  --gold: oklch(0.72 0.13 80);
-  --gold-2: oklch(0.62 0.13 65);
-  --gold-foreground: oklch(0.20 0.015 270);
-  --gold-soft: oklch(0.96 0.04 85);
-
-  /* In-content accents */
-  --accent-rust: oklch(0.62 0.13 38);
-  --accent-sage: oklch(0.55 0.08 150);
-  --accent-violet: oklch(0.52 0.12 285);
-  --accent-amber: oklch(0.72 0.14 75);
-  --accent-sky: oklch(0.62 0.10 220);
-
-  --sidebar: oklch(0.985 0.003 95);
-  --sidebar-foreground: oklch(0.20 0.012 270);
-  --sidebar-primary: oklch(0.42 0.10 175);
-  --sidebar-primary-foreground: oklch(0.985 0.003 95);
-  --sidebar-accent: oklch(0.95 0.012 175);
-  --sidebar-accent-foreground: oklch(0.30 0.06 175);
-  --sidebar-border: oklch(0.92 0.006 250);
-  --sidebar-ring: oklch(0.55 0.10 175);
-}
-
-.dark {
-  /* Surfaces — warmer charcoal so paper still glows next to background */
-  --background: oklch(0.165 0.014 270);
-  --foreground: oklch(0.96 0.006 95);
-  --paper: oklch(0.215 0.016 270);
-  --card: oklch(0.215 0.016 270);
-  --card-foreground: oklch(0.96 0.006 95);
-  --popover: oklch(0.215 0.016 270);
-  --popover-foreground: oklch(0.96 0.006 95);
-
-  --primary: oklch(0.96 0.006 95);
-  --primary-foreground: oklch(0.20 0.012 270);
-  --secondary: oklch(0.245 0.014 270);
-  --secondary-foreground: oklch(0.96 0.006 95);
-  --muted: oklch(0.235 0.014 270);
-  --muted-foreground: oklch(0.72 0.012 270);
-  --accent: oklch(0.265 0.020 175);
-  --accent-foreground: oklch(0.96 0.006 95);
-  --destructive: oklch(0.68 0.20 27);
-  --destructive-foreground: oklch(0.155 0.012 270);
-
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.66 0.10 175);
-
-  /* Ink scale — readable across the warmer paper */
-  --ink: oklch(0.97 0.006 95);
-  --ink-2: oklch(0.85 0.008 95);
-  --ink-3: oklch(0.70 0.010 95);
-  --ink-4: oklch(0.54 0.010 95);
-
-  /* Brand — slightly brighter teal so it pops on dark paper */
-  --brand: oklch(0.80 0.10 175);
-  --brand-foreground: oklch(0.16 0.018 175);
-  --brand-soft: oklch(0.32 0.06 175);
-  --brand-muted: oklch(0.46 0.06 175);
-
-  /* Gilt — warmer in dark mode */
-  --gold: oklch(0.84 0.14 80);
-  --gold-2: oklch(0.74 0.13 65);
-  --gold-foreground: oklch(0.18 0.012 270);
-  --gold-soft: oklch(0.32 0.06 85);
-
-  --accent-rust: oklch(0.76 0.13 38);
-  --accent-sage: oklch(0.76 0.08 150);
-  --accent-violet: oklch(0.76 0.12 285);
-  --accent-amber: oklch(0.84 0.14 75);
-  --accent-sky: oklch(0.76 0.10 220);
-
-  /* Sidebar — a touch deeper than background for a quiet step-down */
-  --sidebar: oklch(0.145 0.012 270);
-  --sidebar-foreground: oklch(0.96 0.006 95);
-  --sidebar-primary: oklch(0.80 0.10 175);
-  --sidebar-primary-foreground: oklch(0.16 0.018 175);
-  --sidebar-accent: oklch(0.265 0.020 175);
-  --sidebar-accent-foreground: oklch(0.92 0.04 175);
-  --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.66 0.10 175);
+  /* Type stack — Geist (sans) for chrome and body,
+     Newsreader (serif) for editorial weight, Geist Mono for IDs.   */
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Newsreader", "Fraunces", "Cormorant Garamond", Georgia,
+    serif;
+  --font-serif: "Newsreader", "Fraunces", "Cormorant Garamond", Georgia,
+    serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 /* ───────────────────────────────────────────────────────────
-   Tweaks — runtime accent + display-font variants.
-   The TweaksProvider applies `data-accent` and `data-font`
-   to <html>, and these rules swap the matching tokens.
+   LIGHT — warm scholarly cream, white cards, IRC deep teal
+   ─────────────────────────────────────────────────────────── */
+:root {
+  --radius: 0.625rem; /* 10px → matches spec --r-lg */
+
+  /* Page chrome — clean off-white, no yellow cast ----------- */
+  --background: #FBFBFA;            /* off-white paper */
+  --page-tint:  #F4F4F2;
+
+  /* Surfaces inside content --------------------------------- */
+  --paper:      #FFFFFF;
+  --card:       #FFFFFF;
+  --card-foreground: #131316;
+  --popover:    #FFFFFF;
+  --popover-foreground: #131316;
+  --foreground: #131316;
+
+  /* Quiet secondary / muted surfaces ------------------------ */
+  --secondary: #F6F6F4;             /* hover / nav-active surface */
+  --secondary-foreground: #131316;
+  --muted:     #F1F1EE;             /* tag / soft chip background */
+  --muted-foreground: #6B6B70;
+  --accent:    #F1F1EE;             /* neutral hover surface */
+  --accent-foreground: #131316;
+
+  /* Primary action — pure ink ------------------------------- */
+  --primary: #131316;
+  --primary-foreground: #FBFBFA;
+
+  /* Destructive --------------------------------------------- */
+  --destructive: #A12D2D;
+  --destructive-foreground: #FFFFFF;
+
+  /* Lines & inputs ------------------------------------------ */
+  --border: #E7E7E3;                /* neutral hairline (cards) */
+  --input:  #E7E7E3;
+  --ring:   #0F6E56;                /* focus ring = brand teal */
+
+  /* Ink scale — text hierarchy ------------------------------ */
+  --ink:   #131316;                 /* primary text */
+  --ink-2: #3A3A40;                 /* secondary text */
+  --ink-3: #6B6B70;                 /* muted text */
+  --ink-4: #9B9B9F;                 /* hint text */
+
+  /* Brand — IRC deep teal ----------------------------------- */
+  --brand: #0F6E56;
+  --brand-foreground: #FFFFFF;
+  --brand-soft: #DDF0E7;            /* spec accent-soft */
+  --brand-muted: #7CB8A4;
+
+  /* Gilt — manuscript gold, used sparingly ------------------ */
+  --gold: #B57417;
+  --gold-2: #8E5A0F;
+  --gold-foreground: #FFFFFF;
+  --gold-soft: #FAEBD2;
+
+  /* Semantic foreground + soft fill pairs ------------------- */
+  --ok-bg:    #DDF0E7;  --ok-fg:    #0A553F;
+  --info-bg:  #E0ECFA;  --info-fg:  #0C447C;
+  --warn-bg:  #FAEBD2;  --warn-fg:  #6B3B07;
+  --danger-bg:#FBE5E5;  --danger-fg:#791C1C;
+  --mute-bg:  #ECEAE3;  --mute-fg:  #43403A;
+  --purple-bg:#ECEAFA;  --purple-fg:#3C3489;
+
+  /* In-content accents — kept for back-compat with components */
+  --accent-rust:   #B57417;
+  --accent-sage:   #0F6E56;
+  --accent-violet: #514999;
+  --accent-amber:  #B57417;
+  --accent-sky:    #185FA5;
+
+  /* Sidebar — same off-white as content, hairline divider --- */
+  --sidebar: #FBFBFA;
+  --sidebar-foreground: #131316;
+  --sidebar-primary: #0F6E56;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F4F4F2;
+  --sidebar-accent-foreground: #131316;
+  --sidebar-border: #ECECE8;        /* neutral hairline */
+  --sidebar-ring: #0F6E56;
+}
+
+/* ───────────────────────────────────────────────────────────
+   DARK — warm charcoal, paper rises, teal stays the constant
+   ─────────────────────────────────────────────────────────── */
+.dark {
+  --background: #14110C;            /* deep ink as page bg */
+  --page-tint:  #1B1812;
+
+  --paper:    #1F1B14;
+  --card:     #1F1B14;
+  --card-foreground: #F2EDDF;
+  --popover:  #1F1B14;
+  --popover-foreground: #F2EDDF;
+  --foreground: #F2EDDF;
+
+  --secondary: #232019;
+  --secondary-foreground: #F2EDDF;
+  --muted:    #232019;
+  --muted-foreground: #A6A091;
+  --accent:   #2A2620;
+  --accent-foreground: #F2EDDF;
+
+  --primary: #F2EDDF;
+  --primary-foreground: #14110C;
+
+  --destructive: #D85A30;
+  --destructive-foreground: #14110C;
+
+  --border: rgba(229, 220, 196, 0.10);
+  --input:  rgba(229, 220, 196, 0.14);
+  --ring:   #5BBA9C;
+
+  --ink:   #F2EDDF;
+  --ink-2: #D8D2BF;
+  --ink-3: #A6A091;
+  --ink-4: #7A7468;
+
+  --brand: #5BBA9C;
+  --brand-foreground: #14110C;
+  --brand-soft: rgba(91, 186, 156, 0.18);
+  --brand-muted: rgba(91, 186, 156, 0.55);
+
+  --gold: #E0A04A;
+  --gold-2: #C68630;
+  --gold-foreground: #14110C;
+  --gold-soft: rgba(224, 160, 74, 0.18);
+
+  /* Semantic — soften fills, brighten foregrounds */
+  --ok-bg: rgba(91, 186, 156, 0.18);   --ok-fg: #9FD9C2;
+  --info-bg: rgba(96, 156, 220, 0.18); --info-fg: #A6C8EE;
+  --warn-bg: rgba(224, 160, 74, 0.18); --warn-fg: #E5BE85;
+  --danger-bg: rgba(216, 90, 48, 0.18);--danger-fg: #F0A88E;
+  --mute-bg: rgba(229, 220, 196, 0.08);--mute-fg: #D8D2BF;
+  --purple-bg: rgba(160, 152, 220, 0.18);--purple-fg: #C0B8E8;
+
+  --accent-rust:   #D88A4A;
+  --accent-sage:   #5BBA9C;
+  --accent-violet: #A097DC;
+  --accent-amber:  #E0A04A;
+  --accent-sky:    #79A8DC;
+
+  --sidebar: #100E0A;
+  --sidebar-foreground: #F2EDDF;
+  --sidebar-primary: #5BBA9C;
+  --sidebar-primary-foreground: #14110C;
+  --sidebar-accent: #1B1812;
+  --sidebar-accent-foreground: #F2EDDF;
+  --sidebar-border: rgba(229, 220, 196, 0.08);
+  --sidebar-ring: #5BBA9C;
+}
+
+/* ───────────────────────────────────────────────────────────
+   Accent variants — runtime override via [data-accent]
    ─────────────────────────────────────────────────────────── */
 
-/* Accent: Rust (madder) */
+/* Rust */
 :root[data-accent="rust"] {
-  --brand: oklch(0.62 0.13 38);
-  --brand-soft: oklch(0.95 0.04 38);
-  --brand-muted: oklch(0.78 0.07 38);
-  --ring: oklch(0.62 0.13 38);
-  --sidebar-primary: oklch(0.62 0.13 38);
-  --sidebar-accent: oklch(0.95 0.04 38);
-  --sidebar-accent-foreground: oklch(0.34 0.10 38);
-  --sidebar-ring: oklch(0.62 0.13 38);
+  --brand: #B45431;
+  --brand-soft: #FAE2D5;
+  --brand-muted: #D89A7E;
+  --ring: #B45431;
+  --sidebar-primary: #B45431;
+  --sidebar-accent: #FAE2D5;
+  --sidebar-accent-foreground: #5A2814;
+  --sidebar-ring: #B45431;
 }
 .dark[data-accent="rust"] {
-  --brand: oklch(0.78 0.13 38);
-  --brand-soft: oklch(0.32 0.08 38);
-  --brand-muted: oklch(0.46 0.08 38);
-  --ring: oklch(0.74 0.13 38);
-  --sidebar-primary: oklch(0.78 0.13 38);
-  --sidebar-accent: oklch(0.32 0.08 38);
-  --sidebar-accent-foreground: oklch(0.92 0.06 38);
-  --sidebar-ring: oklch(0.74 0.13 38);
+  --brand: #E08A6A;
+  --brand-soft: rgba(224, 138, 106, 0.20);
+  --brand-muted: rgba(224, 138, 106, 0.55);
+  --ring: #E08A6A;
+  --sidebar-primary: #E08A6A;
+  --sidebar-accent: rgba(224, 138, 106, 0.20);
+  --sidebar-accent-foreground: #F6CDB6;
+  --sidebar-ring: #E08A6A;
 }
 
-/* Accent: Violet (indigo) */
+/* Violet */
 :root[data-accent="violet"] {
-  --brand: oklch(0.52 0.12 285);
-  --brand-soft: oklch(0.95 0.03 285);
-  --brand-muted: oklch(0.78 0.06 285);
-  --ring: oklch(0.52 0.12 285);
-  --sidebar-primary: oklch(0.52 0.12 285);
-  --sidebar-accent: oklch(0.95 0.03 285);
-  --sidebar-accent-foreground: oklch(0.30 0.08 285);
-  --sidebar-ring: oklch(0.52 0.12 285);
+  --brand: #514999;
+  --brand-soft: #ECEAFA;
+  --brand-muted: #9590C8;
+  --ring: #514999;
+  --sidebar-primary: #514999;
+  --sidebar-accent: #ECEAFA;
+  --sidebar-accent-foreground: #3C3489;
+  --sidebar-ring: #514999;
 }
 .dark[data-accent="violet"] {
-  --brand: oklch(0.78 0.12 285);
-  --brand-soft: oklch(0.30 0.07 285);
-  --brand-muted: oklch(0.44 0.07 285);
-  --ring: oklch(0.74 0.12 285);
-  --sidebar-primary: oklch(0.78 0.12 285);
-  --sidebar-accent: oklch(0.30 0.07 285);
-  --sidebar-accent-foreground: oklch(0.92 0.06 285);
-  --sidebar-ring: oklch(0.74 0.12 285);
+  --brand: #A097DC;
+  --brand-soft: rgba(160, 152, 220, 0.20);
+  --brand-muted: rgba(160, 152, 220, 0.55);
+  --ring: #A097DC;
+  --sidebar-primary: #A097DC;
+  --sidebar-accent: rgba(160, 152, 220, 0.20);
+  --sidebar-accent-foreground: #C0B8E8;
+  --sidebar-ring: #A097DC;
 }
 
-/* Accent: Pure ink (monochrome) */
+/* Pure ink (monochrome) */
 :root[data-accent="ink"] {
-  --brand: oklch(0.22 0.012 270);
-  --brand-soft: oklch(0.94 0.005 270);
-  --brand-muted: oklch(0.72 0.008 270);
-  --ring: oklch(0.40 0.012 270);
-  --sidebar-primary: oklch(0.22 0.012 270);
-  --sidebar-accent: oklch(0.94 0.005 270);
-  --sidebar-accent-foreground: oklch(0.22 0.012 270);
-  --sidebar-ring: oklch(0.40 0.012 270);
+  --brand: #14110C;
+  --brand-soft: #ECEAE3;
+  --brand-muted: #A6A091;
+  --ring: #3A352C;
+  --sidebar-primary: #14110C;
+  --sidebar-accent: #ECEAE3;
+  --sidebar-accent-foreground: #14110C;
+  --sidebar-ring: #3A352C;
 }
 .dark[data-accent="ink"] {
-  --brand: oklch(0.92 0.006 95);
-  --brand-foreground: oklch(0.18 0.012 270);
-  --brand-soft: oklch(0.28 0.010 270);
-  --brand-muted: oklch(0.42 0.010 270);
-  --ring: oklch(0.78 0.010 270);
-  --sidebar-primary: oklch(0.92 0.006 95);
-  --sidebar-primary-foreground: oklch(0.18 0.012 270);
-  --sidebar-accent: oklch(0.28 0.010 270);
-  --sidebar-accent-foreground: oklch(0.92 0.006 95);
-  --sidebar-ring: oklch(0.78 0.010 270);
+  --brand: #F2EDDF;
+  --brand-foreground: #14110C;
+  --brand-soft: rgba(242, 237, 223, 0.12);
+  --brand-muted: rgba(242, 237, 223, 0.45);
+  --ring: #D8D2BF;
+  --sidebar-primary: #F2EDDF;
+  --sidebar-primary-foreground: #14110C;
+  --sidebar-accent: rgba(242, 237, 223, 0.10);
+  --sidebar-accent-foreground: #F2EDDF;
+  --sidebar-ring: #D8D2BF;
 }
 
-/* Display font swaps */
+/* Display-font variants -------------------------------------- */
 :root[data-font="cormorant"] {
   --font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
-  --font-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --font-serif:   "Cormorant Garamond", Georgia, "Times New Roman", serif;
+}
+:root[data-font="fraunces"] {
+  --font-display: "Fraunces", "Newsreader", Georgia, serif;
+  --font-serif:   "Fraunces", "Newsreader", Georgia, serif;
 }
 :root[data-font="system"] {
   --font-display: var(--font-sans);
-  --font-serif: var(--font-sans);
+  --font-serif:   var(--font-sans);
 }
 :root[data-font="system"] .font-display {
   letter-spacing: -0.018em;
-  font-weight: 700;
+  font-weight: 600;
 }
 
+/* ───────────────────────────────────────────────────────────
+   BASE
+   ─────────────────────────────────────────────────────────── */
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -305,14 +364,40 @@
   body {
     @apply min-h-screen bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.65;
+    font-feature-settings: "ss01", "cv11";
   }
 
-  /* Editorial display — Fraunces serif, tight tracking, balanced wrap. */
+  /* Whisper-quiet paper grain so the off-white reads as paper, not flat
+     screen white. Keep it well below perceptual threshold.            */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.18;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.035 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+  .dark body::before { mix-blend-mode: screen; opacity: 0.14; }
+
+  /* Smoother interactions — every interactive surface eases in 180ms */
+  button, a, input, textarea, select, [role="button"] {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 180ms;
+    transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  /* Editorial display — Newsreader serif, tight tracking, italic emphasis. */
   .font-display {
     font-family: var(--font-display);
     letter-spacing: -0.012em;
-    font-weight: 600;
+    font-weight: 500;
   }
+  .font-display em,
+  em.font-display { font-style: italic; font-weight: 400; }
 
   .font-mono,
   .tabular-nums {
@@ -321,8 +406,8 @@
   }
 
   ::selection {
-    background-color: color-mix(in oklch, var(--brand) 25%, transparent);
-    color: var(--foreground);
+    background-color: var(--brand);
+    color: var(--brand-foreground);
   }
 
   ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -339,12 +424,27 @@
   }
 }
 
+/* ───────────────────────────────────────────────────────────
+   UTILITIES — spec-aligned helpers used across components
+   ─────────────────────────────────────────────────────────── */
 @layer utilities {
-  /* Frosted, glass-like top chrome */
+
+  /* Frosted top-chrome — sticky topbar over warm cream. */
   .glass-panel {
-    background: color-mix(in oklch, var(--background) 78%, transparent);
-    backdrop-filter: saturate(140%) blur(14px);
-    -webkit-backdrop-filter: saturate(140%) blur(14px);
+    background: color-mix(in oklch, var(--background) 85%, transparent);
+    backdrop-filter: saturate(180%) blur(10px);
+    -webkit-backdrop-filter: saturate(180%) blur(10px);
+  }
+
+  /* Hairline divider — spec's 0.5px warm line under chrome. */
+  .hairline-warm {
+    border-color: var(--sidebar-border);
+  }
+  .hairline-warm-b {
+    border-bottom: 0.5px solid var(--sidebar-border);
+  }
+  .hairline-warm-t {
+    border-top: 0.5px solid var(--sidebar-border);
   }
 
   /* Multicolor hairline used on top edge of hero cards */
@@ -367,29 +467,31 @@
     pointer-events: none;
   }
 
-  /* Soft elevation — replaces heavy shadows everywhere */
+  /* Soft elevation — replaces heavy shadows everywhere.
+     Default to almost nothing; the spec leans on borders, not shadow.   */
   .shadow-soft {
     box-shadow:
-      0 1px 0 0 color-mix(in oklch, var(--foreground) 4%, transparent),
-      0 8px 24px -16px color-mix(in oklch, var(--foreground) 28%, transparent);
+      0 1px 0 0 color-mix(in oklch, var(--foreground) 3%, transparent),
+      0 6px 18px -14px color-mix(in oklch, var(--foreground) 22%, transparent);
   }
   .shadow-soft-lg {
     box-shadow:
       0 1px 0 0 color-mix(in oklch, var(--foreground) 4%, transparent),
-      0 24px 60px -28px color-mix(in oklch, var(--foreground) 32%, transparent);
+      0 18px 48px -24px color-mix(in oklch, var(--foreground) 28%, transparent);
   }
 
-  /* Brand wash on inset bar (used for active nav indicator) */
+  /* Brand wash on inset bar (active nav indicator). */
   .brand-bar { background: var(--brand); }
 
-  /* Editorial first-letter for long-form post bodies */
+  /* Editorial drop-cap — for the abstract on the research detail page. */
   .first-letter-display::first-letter {
     font-family: var(--font-display);
-    font-size: 2.6em;
+    font-size: 3.6em;
     line-height: 0.9;
     float: left;
-    padding: 0.05em 0.12em 0 0;
-    color: var(--foreground);
+    font-weight: 500;
+    padding: 0.06em 0.14em 0 0;
+    color: var(--brand);
   }
 
   /* Manuscript ornament divider */
@@ -429,13 +531,14 @@
   .scrollbar-none::-webkit-scrollbar { display: none; }
   .scrollbar-none { scrollbar-width: none; }
 
+  /* Subtle dotted page texture (used inside mockup .frame analogues). */
   .bg-pattern {
     background-image: radial-gradient(
       circle at 1px 1px,
-      color-mix(in oklch, var(--foreground) 16%, transparent) 1px,
+      color-mix(in oklch, var(--foreground) 12%, transparent) 1px,
       transparent 0
     );
-    background-size: 22px 22px;
+    background-size: 24px 24px;
   }
 
   .bg-grid {
@@ -453,9 +556,206 @@
     background-size: 32px 32px;
   }
 
+  /* Semantic pill backgrounds — back the spec's status-tag colors.
+     Used directly via class, or surface through the Badge component.   */
+  .pill-success { background: var(--ok-bg);     color: var(--ok-fg); }
+  .pill-info    { background: var(--info-bg);   color: var(--info-fg); }
+  .pill-warn    { background: var(--warn-bg);   color: var(--warn-fg); }
+  .pill-danger  { background: var(--danger-bg); color: var(--danger-fg); }
+  .pill-mute    { background: var(--mute-bg);   color: var(--mute-fg); }
+  .pill-purple  { background: var(--purple-bg); color: var(--purple-fg); }
+
+  /* Spec § Posts / Q&A — reaction pill (`.rx`).
+     A hairline-bordered pill. Active state fills with info-soft and
+     trades the neutral border for an info-fg one.                      */
+  .rx {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 0.5px solid var(--border);
+    background: transparent;
+    color: var(--ink);
+    font-size: 12px;
+    line-height: 1;
+    font-feature-settings: "tnum";
+    transition: background-color 180ms, border-color 180ms, color 180ms;
+  }
+  .rx:hover { background: var(--secondary); }
+  .rx.is-on {
+    background: var(--info-bg);
+    border-color: var(--info-fg);
+    color: var(--info-fg);
+  }
+  .rx-bare {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 8px;
+    border-radius: 999px;
+    color: var(--ink-3);
+    font-size: 12px;
+    line-height: 1;
+    font-feature-settings: "tnum";
+    transition: background-color 180ms, color 180ms;
+  }
+  .rx-bare:hover { background: var(--secondary); color: var(--ink); }
+  .rx-bare.is-on { color: var(--ink); }
+
+  /* Reel side-rail action — glass blur over the dark canvas. */
+  .glass-rail {
+    display: grid;
+    place-items: center;
+    width: 38px; height: 38px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 0.5px solid rgba(255, 255, 255, 0.18);
+    color: white;
+    transition: background-color 180ms, transform 180ms;
+  }
+  .glass-rail:hover { background: rgba(255, 255, 255, 0.22); }
+  .glass-rail.is-on { background: var(--brand); border-color: var(--brand); }
+
+  /* Smoother card hover — pairs with hairline borders */
+  .card-hover {
+    transition: border-color 200ms ease, background-color 200ms ease;
+  }
+  .card-hover:hover { border-color: color-mix(in oklch, var(--ink) 20%, var(--border)); }
+
+  /* Mono-id text token — for IRC sequence IDs and DOIs. */
+  .text-mono-id {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    color: var(--ink-3);
+  }
+
+  /* Editorial italic — pull-quote-ish callout inside body prose. */
+  .serif-italic {
+    font-family: var(--font-serif);
+    font-style: italic;
+  }
+
   /* Back-compat shims for legacy class names */
   .bg-islamic-gradient { background-color: var(--secondary); color: var(--foreground); }
   .bg-islamic-gradient-soft { background-color: var(--muted); }
   .text-gradient-islamic { color: var(--foreground); }
   .ring-islamic { background: var(--border); }
+}
+
+/* TikTok-style shimmer used by the reels loading skeleton. The mask
+   sweeps left-to-right across each shimmer element on a 1.4s loop. */
+@keyframes reel-shimmer {
+  0%   { background-position: -150% 0; }
+  100% { background-position:  150% 0; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   USER TWEAKS — font-scale, reduced motion, density
+   ─────────────────────────────────────────────────────────────
+   `--font-scale` is set on the document root by TweaksProvider
+   based on the user's Font size choice (compact / comfortable /
+   cozy / large). Applying it as a CSS zoom on the main content
+   column scales every text size proportionally — including
+   Tailwind's hard-coded px sizes — without rewriting every
+   utility class. Sidebar and topbar stay at their default size
+   so chrome doesn't visibly resize when the user tweaks reading
+   comfort. Reels owns its own viewport so it's left untouched. */
+main {
+  zoom: var(--font-scale, 1);
+}
+/* Mobile bottom tabs sit outside `<main>` so they stay at full
+   size for finger-friendly touch targets even at compact scale. */
+
+/* Reduced-motion override — when the user opts in (or their OS
+   asks via prefers-reduced-motion), kill non-essential animations
+   so transitions don't trigger vestibular discomfort. The very
+   short crossfades (under 200 ms) survive so UI changes are still
+   discoverable. */
+:where([data-reduced-motion="true"]) *,
+:where([data-reduced-motion="true"]) *::before,
+:where([data-reduced-motion="true"]) *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 120ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Compact density — tighten vertical spacing on the feed cards so
+   power users see more rows on screen. Cards opt in via Tailwind
+   spacing, so we only need to nudge a couple of common rhythms. */
+:where([data-density="compact"]) main .space-y-4 > * + * { margin-top: 0.625rem; }
+:where([data-density="compact"]) main .space-y-5 > * + * { margin-top: 0.75rem; }
+:where([data-density="compact"]) main .space-y-6 > * + * { margin-top: 0.9rem; }
+
+/* ─────────────────────────────────────────────────────────────
+   RTL / Arabic-script typography
+   ─────────────────────────────────────────────────────────────
+   Posts, research, Q&A, comments and reels all tag their text
+   containers with `dir="auto"` so each paragraph picks the
+   correct base direction from its first strong character. When
+   a node ends up resolving to RTL, the rules below kick in:
+
+     • Body switches to "Noto Naskh Arabic" — the standard
+       scholarly naskh used across academic Arabic publishing.
+     • Display surfaces (research titles, hero post text) use
+       "Amiri", a calligraphic naskh designed for headlines.
+     • Line-height bumps to 1.85 — Arabic diacritics and tashkīl
+       need extra vertical room to breathe.
+     • Italic is disabled — Arabic script doesn't slant.
+     • Tabular-nums forced on counters so Arabic-Indic digits
+       still align in tight UI rows.
+     • Letter-spacing reset to 0 — kerning is intrinsic to the
+       script and any tracking we use for Latin breaks the run.
+*/
+
+:is([dir="rtl"], [lang="ar"], [lang^="ku"], [lang="fa"], [lang="ur"]) {
+  font-family: "Noto Naskh Arabic", "SF Arabic", "Geeza Pro",
+    "Segoe UI", "Tahoma", system-ui, sans-serif;
+  line-height: 1.85;
+  letter-spacing: 0;
+  font-style: normal;
+}
+
+/* Display-class headings inside an RTL context — research titles,
+   post hero text, page headers. Amiri renders Arabic at large
+   sizes the way Newsreader handles English serif headings — but
+   it reads heavy at body sizes, so we deliberately leave
+   `.font-serif` body paragraphs to fall back to the Noto Naskh
+   stack set on the base rule above. */
+:is([dir="rtl"], [lang="ar"], [lang^="ku"], [lang="fa"], [lang="ur"]) :is(
+  h1, h2, h3, h4,
+  .font-display
+) {
+  font-family: "Amiri", "Noto Naskh Arabic", "SF Arabic", Georgia, serif;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  line-height: 1.55;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+/* Mono surfaces inside an RTL run (timestamps, counters, IRC IDs)
+   keep a sans-serif Arabic so digits and Latin glyphs still line
+   up — but `Geist Mono` only ships Latin, so a fallback Arabic
+   sans is the right choice here. */
+:is([dir="rtl"], [lang="ar"], [lang^="ku"], [lang="fa"], [lang="ur"]) :is(
+  .font-mono,
+  pre, code, kbd, samp
+) {
+  font-family: "Geist Mono", "Noto Sans Arabic", ui-monospace, monospace;
+  letter-spacing: 0;
+}
+
+/* Paragraph spacing — Arabic body copy reads at a slightly bigger
+   x-height. The increment is conservative so a paragraph mixing
+   English and Arabic doesn't visibly jump between sentences. */
+[dir="rtl"] p,
+[lang="ar"] p,
+[lang^="ku"] p,
+[lang="fa"] p,
+[lang="ur"] p {
+  font-size: 1.04em;
 }

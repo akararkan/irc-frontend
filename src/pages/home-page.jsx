@@ -3,8 +3,8 @@ import { useRef } from 'react'
 import { CommunityComposer } from '@/components/app/community-composer'
 import { CommunityMasthead } from '@/components/app/community-masthead'
 import { ContactsRail } from '@/components/app/contacts-rail'
-import { PostsFeed } from '@/components/app/posts-feed'
 import { ReelStrip } from '@/components/app/reel-strip'
+import { UnifiedFeed } from '@/components/app/unified-feed'
 import { useAuth } from '@/features/auth/auth-context'
 
 export function HomePage() {
@@ -12,6 +12,9 @@ export function HomePage() {
   const feedRef = useRef(null)
   const composerRef = useRef(null)
 
+  // Unified feed merges posts + research + Q&A into one chronological
+  // stream and exposes `insertPost / insertResearch / insertQuestion`
+  // imperatives so newly-authored content can slot in optimistically.
   function handlePosted(newPost) {
     feedRef.current?.insertPost(newPost)
   }
@@ -50,7 +53,7 @@ export function HomePage() {
           <CommunityComposer ref={composerRef} onPosted={handlePosted} />
         ) : null}
 
-        <PostsFeed ref={feedRef} />
+        <UnifiedFeed ref={feedRef} />
       </div>
 
       {isAuthenticated ? (

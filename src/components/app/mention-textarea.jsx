@@ -405,6 +405,11 @@ export const MentionTextarea = forwardRef(function MentionTextarea(
     <div className={cn('relative', wrapperClassName)}>
       <Textarea
         ref={innerRef}
+        // `dir="auto"` lets the textarea flip alignment as the user
+        // types — typing English aligns left, switching to Arabic /
+        // Kurdish flips to right alignment. Mixed-language drafts
+        // work naturally line by line.
+        dir="auto"
         value={value}
         onChange={(event) => onChange?.(event.target.value)}
         onKeyDown={handleKeyDown}

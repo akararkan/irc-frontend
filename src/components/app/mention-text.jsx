@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { tokenizeMentions } from '@/lib/mentions'
 import { useResolvedUser } from '@/lib/user-cache'
 import { cn } from '@/lib/utils'
-import { getFullName } from '@/lib/format'
+import { getFullName, getHandle } from '@/lib/format'
 
 /**
  * Single mention chip — Facebook-style.
@@ -20,8 +20,13 @@ import { getFullName } from '@/lib/format'
  */
 function MentionLink({ username, className }) {
   const resolved = useResolvedUser(username)
-  const display = resolved ? getFullName(resolved) || resolved.username : null
-  const label = display || username
+  // Display-safe handle: an email-shaped username never lands on screen
+  // as a literal address — getHandle strips it to the local-part.
+  const fallbackHandle = getHandle({ username })
+  const display = resolved
+    ? getFullName(resolved) || getHandle(resolved)
+    : null
+  const label = display || fallbackHandle || username
   return (
     <Link
       to={`/profile/${username}`}
@@ -29,7 +34,7 @@ function MentionLink({ username, className }) {
         'font-semibold text-brand transition-colors hover:underline',
         className,
       )}
-      title={resolved?.username ?? username}
+      title={getHandle(resolved) ? `@${getHandle(resolved)}` : `@${fallbackHandle || username}`}
     >
       {label}
     </Link>

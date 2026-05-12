@@ -239,7 +239,7 @@ export function NotificationBell() {
                   className={cn(
                     'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
                     isConnected
-                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                      ? 'bg-[color-mix(in_oklch,var(--accent-sage)_14%,transparent)] text-accent-sage'
                       : 'bg-muted text-muted-foreground',
                   )}
                   title={isConnected ? 'Live stream connected' : 'Reconnecting…'}
@@ -255,7 +255,7 @@ export function NotificationBell() {
                   className={cn(
                     'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors',
                     soundEnabled
-                      ? 'text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300'
+                      ? 'text-accent-sage hover:bg-[color-mix(in_oklch,var(--accent-sage)_12%,transparent)]'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                   title={

@@ -3,10 +3,14 @@ import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowLeft,
   Award,
+  Bookmark,
   CheckCircle2,
   ChevronDown,
   CornerDownRight,
+  Eye,
   Hash,
+  Heart,
+  HelpCircle,
   Library,
   Link2,
   Loader2,
@@ -16,6 +20,7 @@ import {
   Paperclip,
   Pencil,
   Reply,
+  Share2,
   Sparkles,
   Star,
   Trash2,
@@ -40,7 +45,6 @@ import { AnswerSources } from '@/components/app/answer-sources'
 import { AudioPlayer } from '@/components/app/audio-player'
 import { MentionText } from '@/components/app/mention-text'
 import { EditAnswerDialog } from '@/components/app/edit-answer-dialog'
-import { ReactionPicker } from '@/components/app/reaction-picker'
 import { ReanswerComposer } from '@/components/app/reanswer-composer'
 import { EditQuestionDialog } from '@/components/app/edit-question-dialog'
 import { EmptyState } from '@/components/app/empty-state'
@@ -75,7 +79,6 @@ import {
   resolveMediaUrl,
 } from '@/lib/format'
 import { RelativeTime } from '@/components/app/relative-time'
-import { getQnaReaction } from '@/lib/reactions'
 import {
   canAnswerQuestion,
   canManageAnswer,
@@ -84,27 +87,14 @@ import {
   isExpertAnswerer,
 } from '@/lib/roles'
 
+// Status palette per IRC Scholar spec — OPEN success, ANSWERED info,
+// CLOSED / ARCHIVED muted. The same map is used on the feed card so the
+// pill reads identically across surfaces.
 const STATUS_META = {
-  OPEN: {
-    label: 'Open',
-    className:
-      'bg-sky-500/10 text-sky-700 ring-sky-500/20 dark:text-sky-300',
-  },
-  ANSWERED: {
-    label: 'Answered',
-    className:
-      'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-  },
-  CLOSED: {
-    label: 'Closed',
-    className:
-      'bg-zinc-500/10 text-zinc-700 ring-zinc-500/20 dark:text-zinc-300',
-  },
-  ARCHIVED: {
-    label: 'Archived',
-    className:
-      'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  },
+  OPEN:     { label: 'Open',     className: 'pill-success' },
+  ANSWERED: { label: 'Answered', className: 'pill-info' },
+  CLOSED:   { label: 'Closed',   className: 'pill-mute' },
+  ARCHIVED: { label: 'Archived', className: 'pill-mute' },
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -149,7 +139,6 @@ function sortAnswers(list) {
 function QuestionHeader({ question }) {
   const author = authorOf(question)
   const status = STATUS_META[question.status] ?? STATUS_META.OPEN
-  const expert = isExpertAnswerer(author.role)
   const authorRoute = getRawUsername(author)
   const authorHandle = getHandle(author)
   const authorName = getFullName(author) || authorHandle || 'Unknown'
@@ -160,137 +149,113 @@ function QuestionHeader({ question }) {
   const sealed = sealVotes > 0 || Boolean(question.hasAcceptedAnswer)
 
   return (
-    <section className="relative">
-      {/* Subtle paper card under the header — keeps the page editorial
-          but visually anchors the question above the answer column. */}
-      <div className="space-y-4 rounded-3xl border border-border bg-paper p-5 shadow-soft sm:p-6">
-        {/* Eyebrow row — status + meta inline */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[11px] font-medium text-muted-foreground">
-          <span
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ring-1',
-              status.className,
-            )}
-          >
-            {question.status === 'ANSWERED' ? (
-              <CheckCircle2 className="size-3" />
-            ) : (
-              <span className="size-1.5 animate-pulse rounded-full bg-current" />
-            )}
-            {status.label}
+    <section className="rounded-xl border-[0.5px] border-border bg-paper p-6 sm:p-7">
+      {/* Top status row — spec §07 question card */}
+      <div className="flex flex-wrap items-center gap-2 text-[12px]">
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium leading-none',
+            status.className,
+          )}
+        >
+          <HelpCircle className="size-3" strokeWidth={1.5} />
+          {status.label}
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2 py-0.5 text-[11px] font-medium">
+          {formatNumber(question.answerCount ?? 0)}{' '}
+          {(question.answerCount ?? 0) === 1 ? 'answer' : 'answers'}
+        </span>
+        {question.viewCount != null ? (
+          <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2 py-0.5 text-[11px] font-medium">
+            <Eye className="size-3" strokeWidth={1.5} />
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span
+                key={question.viewCount}
+                initial={{ y: 5, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -5, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 460, damping: 30 }}
+                className="inline-block tabular-nums"
+              >
+                {formatNumber(question.viewCount)}
+              </motion.span>
+            </AnimatePresence>
+            {' '}views
           </span>
-
-          {sealed ? (
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
-              style={{
-                background:
-                  'color-mix(in oklch, var(--gold) 14%, transparent)',
-                color: 'var(--gold-2)',
-                boxShadow:
-                  '0 0 0 1px color-mix(in oklch, var(--gold) 28%, transparent) inset',
-              }}
-              title={`${sealVotes} ${
-                sealVotes === 1 ? 'scholar has' : 'scholars have'
-              } sealed an answer`}
-            >
-              <span className="text-[10px]">★</span>
-              {sealVotes > 1
-                ? `${formatNumber(sealVotes)} scholar seals`
-                : 'Sealed by scholar'}
-            </span>
-          ) : null}
-
-          {question.answersLocked ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3 ring-1 ring-border">
-              <Lock className="size-3" />
-              Answers locked
-            </span>
-          ) : null}
-
-          {question.maxAnswers != null ? (
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] ring-1',
-                (question.answerCount ?? 0) >= question.maxAnswers
-                  ? 'bg-[color-mix(in_oklch,var(--accent-amber)_14%,transparent)] text-accent-amber ring-[color-mix(in_oklch,var(--accent-amber)_25%,transparent)]'
-                  : 'bg-muted text-ink-3 ring-border',
-              )}
-              title={`${question.answerCount ?? 0} answer${
-                (question.answerCount ?? 0) === 1 ? '' : 's'
-              } / ${question.maxAnswers} cap`}
-            >
-              <Hash className="size-3" />
-              {formatNumber(question.answerCount ?? 0)}
-              <span className="opacity-70">/{question.maxAnswers}</span>
-            </span>
-          ) : null}
-
-          {question.viewCount != null ? (
-            <span className="ml-auto font-mono tabular-nums text-[10.5px] text-ink-4">
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.span
-                  key={question.viewCount}
-                  initial={{ y: 5, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -5, opacity: 0 }}
-                  transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-                  className="inline-block"
-                >
-                  {formatNumber(question.viewCount)}
-                </motion.span>
-              </AnimatePresence>
-              {' '}views
-            </span>
-          ) : null}
-        </div>
-
-        {/* Title — Fraunces, large but tight */}
-        <h1 className="font-display text-[30px] leading-[1.08] tracking-[-0.018em] text-foreground text-balance sm:text-[36px]">
-          {question.title}
-        </h1>
-
-        {/* Author block — full name + sanitized handle + role */}
-        <div className="flex flex-wrap items-center gap-2.5 text-[13px]">
-          <Link to={`/profile/${authorRoute}`} className="shrink-0">
-            <UserAvatar
-              user={author}
-              className={cn(
-                'size-9 ring-2 ring-background',
-                expert && 'ring-amber-400/40',
-              )}
-            />
-          </Link>
-          <div className="min-w-0 leading-tight">
-            <Link
-              to={`/profile/${authorRoute}`}
-              className="block truncate font-display text-[14px] font-semibold tracking-[-0.005em] text-ink hover:underline"
-            >
-              {authorName}
-            </Link>
-            <div className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-              {authorHandle ? (
-                <span className="font-mono text-[10.5px] text-ink-3">
-                  @{authorHandle}
-                </span>
-              ) : null}
-              <span aria-hidden className="text-ink-4">·</span>
-              <span>
-                asked <RelativeTime entity={question} />
-                {question.updatedAt && question.updatedAt !== question.createdAt
-                  ? ' · edited'
-                  : ''}
-              </span>
-            </div>
-          </div>
-          {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
-        </div>
-
-        {question.body ? (
-          <p className="max-w-prose whitespace-pre-wrap text-[15.5px] leading-[1.7] text-foreground/90">
-            <MentionText text={question.body} />
-          </p>
         ) : null}
+        {sealed ? (
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+            style={{ background: 'var(--gold-soft)', color: 'var(--gold-2)' }}
+            title={`${sealVotes} ${sealVotes === 1 ? 'scholar has' : 'scholars have'} sealed an answer`}
+          >
+            <Award className="size-3" strokeWidth={1.5} />
+            {sealVotes > 1 ? `${formatNumber(sealVotes)} seals` : 'Sealed'}
+          </span>
+        ) : null}
+        {question.answersLocked ? (
+          <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2 py-0.5 text-[11px] font-medium">
+            <Lock className="size-3" strokeWidth={1.5} />
+            Locked
+          </span>
+        ) : null}
+        <span className="ml-auto font-mono text-[11px] text-ink-3">
+          <RelativeTime entity={question} />
+        </span>
+      </div>
+
+      {/* Title — Newsreader, generous */}
+      <h1
+        dir="auto"
+        className="mt-4 font-display text-[28px] font-medium leading-[1.18] tracking-[-0.018em] text-ink text-balance sm:text-[34px]"
+      >
+        {question.title}
+      </h1>
+
+      {/* Body */}
+      {question.body ? (
+        <p
+          dir="auto"
+          className="mt-3 max-w-prose whitespace-pre-wrap text-[15px] leading-[1.65] text-ink-2"
+        >
+          <MentionText text={question.body} />
+        </p>
+      ) : null}
+
+      {/* Asker row — hairline above, save/share on the right */}
+      <div className="mt-5 flex flex-wrap items-center gap-3 border-t-[0.5px] border-border pt-4">
+        <Link to={`/profile/${authorRoute}`} className="shrink-0">
+          <UserAvatar user={author} className="size-[34px]" />
+        </Link>
+        <div className="min-w-0 flex-1 leading-tight">
+          <Link
+            to={`/profile/${authorRoute}`}
+            className="block truncate text-[14px] font-medium text-ink hover:underline"
+          >
+            {authorName}
+          </Link>
+          <div className="mt-0.5 flex items-center gap-1.5 font-mono text-[11px] text-ink-3">
+            {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
+            {authorHandle ? <span>@{authorHandle}</span> : null}
+            <span aria-hidden>·</span>
+            <span>
+              Asked <RelativeTime entity={question} />
+              {question.updatedAt && question.updatedAt !== question.createdAt
+                ? ' · edited'
+                : ''}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button className="rx-bare" type="button" title="Save">
+            <Bookmark className="size-[14px]" strokeWidth={1.5} />
+            Save
+          </button>
+          <button className="rx-bare" type="button" title="Share">
+            <Share2 className="size-[14px]" strokeWidth={1.5} />
+            Share
+          </button>
+        </div>
       </div>
     </section>
   )
@@ -331,46 +296,55 @@ function AnswerMedia({ url, type, thumbnailUrl }) {
 }
 
 // ─── Inline reaction row for answers / reanswers ───────────────────
-// Uses the *Q&A* reaction palette (LIKE, INSIGHTFUL, BENEFICIAL, AGREE,
-// DISAGREE, THANKS) — must match the backend's QnaReactionType enum
-// since the server validates the value before persisting. Optimistic
-// updates flow back through `onPatch` so the SSE stream can reconcile
-// when `ANSWER_REACTION_ADDED/CHANGED/REMOVED` echoes the same write
-// back from the server.
-function AnswerReactionRow({ questionId, answer, isAuthenticated, onPatch }) {
+// Single LIKE (Instagram heart). The backend collapsed the QnaReactionType
+// enum to LIKE-only; tap toggles, repeat is idempotent. Optimistic
+// updates flow back through `onPatch` so the SSE stream's
+// ANSWER_REACTION_ADDED / ANSWER_REACTION_REMOVED echo reconciles.
+function AnswerReactionRow({
+  questionId,
+  answer,
+  isAuthenticated,
+  onPatch,
+  // `compact` kept for compatibility with the call sites — same heart
+  // either way.
+  // eslint-disable-next-line no-unused-vars
+  compact = false,
+  trailing = null,
+}) {
   const toast = useToast()
   const [working, setWorking] = useState(false)
-  const myReaction = answer.myReaction ?? null
+  const liked = Boolean(answer.myReaction)
   const reactionCount = answer.reactionCount ?? 0
-  const meta = myReaction ? getQnaReaction(myReaction) : null
 
-  async function handlePick(type) {
+  async function toggle() {
     if (!isAuthenticated) {
       toast.info('Sign in to react.')
       return
     }
     if (working) return
-    const wasReacting = Boolean(myReaction)
     const previous = {
-      myReaction,
+      myReaction: answer.myReaction,
       reactionCount,
-      topReactionTypes: answer.topReactionTypes,
     }
     onPatch?.({
       id: answer.id,
       parentAnswerId: answer.parentAnswerId,
-      myReaction: type,
-      reactionCount: wasReacting ? reactionCount : reactionCount + 1,
+      myReaction: liked ? null : 'LIKE',
+      reactionCount: liked
+        ? Math.max(0, reactionCount - 1)
+        : reactionCount + 1,
     })
     setWorking(true)
     try {
-      const updated = await reactToAnswer(questionId, answer.id, type)
-      if (updated) {
-        onPatch?.({
-          ...updated,
-          parentAnswerId: answer.parentAnswerId ?? updated.parentAnswerId,
-          myReaction: type,
-        })
+      // Fire the write — don't merge the response body. AnswerResponse
+      // echoes a stale reactionCount through Hibernate's L1 cache, so
+      // spreading it would clobber our optimistic +1. The
+      // ANSWER_REACTION_ADDED / ANSWER_REACTION_REMOVED SSE event
+      // arrives a tick later with the authoritative count.
+      if (liked) {
+        await removeAnswerReaction(questionId, answer.id)
+      } else {
+        await reactToAnswer(questionId, answer.id, 'LIKE')
       }
     } catch (error) {
       onPatch?.({
@@ -384,64 +358,30 @@ function AnswerReactionRow({ questionId, answer, isAuthenticated, onPatch }) {
     }
   }
 
-  async function handleClear() {
-    if (!myReaction || working) return
-    const previous = {
-      myReaction,
-      reactionCount,
-      topReactionTypes: answer.topReactionTypes,
-    }
-    onPatch?.({
-      id: answer.id,
-      parentAnswerId: answer.parentAnswerId,
-      myReaction: null,
-      reactionCount: Math.max(0, reactionCount - 1),
-    })
-    setWorking(true)
-    try {
-      await removeAnswerReaction(questionId, answer.id)
-    } catch (error) {
-      onPatch?.({
-        id: answer.id,
-        parentAnswerId: answer.parentAnswerId,
-        ...previous,
-      })
-      toast.error(friendlyApiMessage(error, 'Could not remove reaction.'))
-    } finally {
-      setWorking(false)
-    }
-  }
-
   return (
-    <ReactionPicker
-      current={myReaction}
-      onSelect={handlePick}
-      onClear={handleClear}
-      disabled={working}
-      reactionSet="qna"
-      trigger={({ toggleDefault, current }) => (
-        <button
-          type="button"
-          onClick={toggleDefault}
-          disabled={working}
-          className={cn(
-            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold transition-all duration-200 active:scale-95',
-            current
-              ? cn(current.color, current.bg, 'ring-1', current.ring)
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-          )}
-        >
-          <span className="text-[15px] leading-none">
-            {current?.emoji ?? meta?.emoji ?? '👍'}
-          </span>
-          {reactionCount > 0 ? (
-            <span className="tabular-nums">{formatNumber(reactionCount)}</span>
-          ) : (
-            <span>{current?.label ?? 'Like'}</span>
-          )}
-        </button>
-      )}
-    />
+    <div className="flex w-full flex-wrap items-center gap-1.5">
+      <button
+        type="button"
+        disabled={working}
+        onClick={toggle}
+        className={cn('rx', liked && 'is-on', 'active:scale-95')}
+        title={liked ? 'Unlike' : 'Like'}
+        aria-pressed={liked}
+        aria-label={liked ? 'Unlike' : 'Like'}
+      >
+        <Heart
+          className="size-[14px]"
+          strokeWidth={1.5}
+          fill={liked ? 'currentColor' : 'none'}
+        />
+        {reactionCount > 0 ? (
+          <span className="tabular-nums">{formatNumber(reactionCount)}</span>
+        ) : (
+          <span>Like</span>
+        )}
+      </button>
+      {trailing ? <div className="ml-auto flex items-center">{trailing}</div> : null}
+    </div>
   )
 }
 
@@ -495,17 +435,22 @@ function AnswerCard({
   // Vote bookkeeping. Reanswers (replies) can never be "best" — the
   // backend rejects the vote endpoint on them anyway, so the button
   // stays hidden in the reanswer rail below.
+  // Per the IRC Scholar spec, we distinguish two signals the backend
+  // tracks separately:
+  //   * `accepted` (boolean)        → asker accepted this answer
+  //   * `bestAnswerVoteCount` (int) → scholar consensus votes
+  // The card decorates accordingly: a success-green frame + "Accepted
+  // by asker" pill for the former, an amber trophy pill for the latter.
   const bestVoteCount = answer.bestAnswerVoteCount ?? 0
-  const isBest =
-    Boolean(answer.isBestAnswer) ||
-    Boolean(answer.accepted) ||
-    bestVoteCount > 0
+  const isAccepted = Boolean(answer.accepted)
+  const isVoted = bestVoteCount > 0
+  const isBest = isAccepted || isVoted || Boolean(answer.isBestAnswer)
   const [voteBusy, setVoteBusy] = useState(false)
 
-  // "Best" answers open by default — whether earned via legacy accept
-  // OR scholar votes. Everything else collapses to a one-line summary
-  // the reader can expand with a click.
-  const [expanded, setExpanded] = useState(isBest)
+  // Spec §07 — answers are *always* expanded. The reader sees the full
+  // body, sources, reactions, asker feedback, and the entire reply
+  // thread at a glance. No accordion, no lazy collapse.
+  const expanded = true
   const [showReanswerComposer, setShowReanswerComposer] = useState(false)
 
   const attachmentCount = answer.attachments?.length ?? 0
@@ -514,17 +459,16 @@ function AnswerCard({
     ? (replies?.length ?? 0)
     : (answer.replyCount ?? 0)
 
-  // Lazy-load reanswers on first expand if there are any to fetch.
+  // Always pull replies the first time we mount with any reply count.
   useEffect(() => {
     if (
-      expanded
-      && !repliesLoaded
+      !repliesLoaded
       && !repliesLoading
       && (answer.replyCount ?? 0) > 0
     ) {
       onLoadReplies?.(answer.id)
     }
-  }, [expanded, repliesLoaded, repliesLoading, answer.id, answer.replyCount, onLoadReplies])
+  }, [repliesLoaded, repliesLoading, answer.id, answer.replyCount, onLoadReplies])
 
   // First line of the body — used as the collapsed snippet
   const snippet = useMemo(() => {
@@ -542,123 +486,113 @@ function AnswerCard({
       exit={{ opacity: 0, y: -6, scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 320, damping: 28 }}
       className={cn(
-        'group/answer relative isolate overflow-hidden rounded-2xl border bg-card transition-all',
-        isBest
-          ? 'border-emerald-500/30 shadow-soft'
-          : 'border-border hover:border-foreground/15 hover:shadow-soft',
+        'group/answer relative isolate rounded-xl bg-paper transition-colors',
+        // Spec §07: accepted answers get the only 1.5px-border + green
+        // ring treatment. Everything else uses the 0.5px hairline.
+        isAccepted
+          ? 'border-[1.5px] border-ok-fg shadow-[0_0_0_4px_var(--ok-bg)]'
+          : 'border-[0.5px] border-border card-hover',
       )}
     >
-      {isBest ? (
-        <div className="flex items-center gap-2 border-b border-emerald-500/20 bg-emerald-500/5 px-5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
-          <Award className="size-3.5" />
-          <span>Best answer</span>
-          {bestVoteCount > 0 ? (
-            <span
-              className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-[1px] font-mono text-[9.5px] tabular-nums tracking-[0.04em] text-emerald-700 ring-1 ring-emerald-500/25 dark:text-emerald-300"
-              title={`${bestVoteCount} ${bestVoteCount === 1 ? 'scholar has' : 'scholars have'} voted this as best`}
-            >
-              <Star className="size-3" />
-              {formatNumber(bestVoteCount)}
-              {bestVoteCount === 1 ? ' scholar' : ' scholars'}
+      {/* Floating green tick for accepted answers — spec ::before mark */}
+      {isAccepted ? (
+        <span
+          aria-hidden
+          className="absolute -top-3 left-[18px] grid size-6 place-items-center rounded-full text-white"
+          style={{ background: 'var(--ok-fg)' }}
+        >
+          <CheckCircle2 className="size-3.5" strokeWidth={2} />
+        </span>
+      ) : null}
+
+      {/* Top status row — accepted / votes / edited time */}
+      {(isAccepted || isVoted) ? (
+        <div className="flex flex-wrap items-center gap-2 px-6 pt-5">
+          {isAccepted ? (
+            <span className="inline-flex items-center gap-1 rounded-full pill-success px-2 py-0.5 text-[11px] font-medium leading-none">
+              <CheckCircle2 className="size-3" strokeWidth={1.5} />
+              Accepted by asker
             </span>
           ) : null}
+          {isVoted ? (
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium leading-none"
+              style={{ background: 'var(--gold-soft)', color: 'var(--gold-2)' }}
+              title={`${bestVoteCount} ${bestVoteCount === 1 ? 'scholar has' : 'scholars have'} voted this as best`}
+            >
+              <Award className="size-3" strokeWidth={1.5} />
+              {formatNumber(bestVoteCount)}{' '}
+              {bestVoteCount === 1 ? 'scholar vote' : 'scholar votes'}
+            </span>
+          ) : null}
+          <span className="ml-auto font-mono text-[11px] text-ink-3">
+            <RelativeTime entity={answer} />
+            {answer.edited ? ' · edited' : ''}
+          </span>
         </div>
       ) : expert ? (
-        <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/5 px-5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
-          <Star className="size-3.5" />
-          {author.role === 'SCHOLAR' ? "Scholar's answer" : 'Expert answer'}
+        <div className="flex items-center gap-2 px-6 pt-5">
+          <span className="inline-flex items-center gap-1 rounded-full pill-info px-2 py-0.5 text-[11px] font-medium leading-none">
+            <Star className="size-3" strokeWidth={1.5} />
+            {author.role === 'SCHOLAR' ? "Scholar's answer" : 'Expert answer'}
+          </span>
+          <span className="ml-auto font-mono text-[11px] text-ink-3">
+            <RelativeTime entity={answer} />
+            {answer.edited ? ' · edited' : ''}
+          </span>
         </div>
       ) : null}
 
       {/* ── Header — always visible, click to toggle ─────────── */}
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-        aria-controls={`answer-body-${answer.id}`}
-        className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted/40 sm:px-5"
-      >
+      {/* Author row — flat, always visible, no toggle (spec §07). */}
+      <div className="flex w-full items-start gap-3 px-6 pt-4">
         <Link
           to={`/profile/${getRawUsername(author)}`}
-          onClick={(event) => event.stopPropagation()}
           className="shrink-0"
         >
-          <UserAvatar
-            user={author}
-            className={cn(
-              'size-10 ring-2 ring-background',
-              expert && 'ring-amber-400/40',
-              isBest && 'ring-emerald-400/40',
-            )}
-          />
+          <UserAvatar user={author} className="size-10" />
         </Link>
 
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
             <Link
               to={`/profile/${getRawUsername(author)}`}
-              onClick={(event) => event.stopPropagation()}
-              className="truncate text-[14px] font-semibold hover:underline"
+              className="truncate text-[14px] font-medium text-ink hover:underline"
             >
               {getFullName(author) || getHandle(author) || 'Unknown'}
             </Link>
-            {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
+            {/* Account-type chip — Scholar / Researcher / Admin etc.
+                rendered at full sm-size so the reader instantly knows
+                the answerer's standing on a question they care about. */}
+            {author.role ? <RoleBadge role={author.role} size="sm" /> : null}
             {isQuestionAuthor ? (
               <span
-                className="inline-flex items-center rounded-full bg-brand/10 px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-brand ring-1 ring-brand/20"
+                className="inline-flex items-center rounded-full pill-info px-1.5 py-0.5 text-[10px] font-medium leading-none"
                 title="The question's author posted this answer"
               >
                 Author
               </span>
             ) : null}
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11.5px] text-muted-foreground">
-            {getHandle(author) ? (
-              <span className="font-mono text-[10.5px] text-ink-3">
-                @{getHandle(author)}
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11.5px] text-ink-3">
+            {expert ? (
+              <span>
+                Verified scholar
+                {answer.expertSubtitle ? ` · ${answer.expertSubtitle}` : ''}
               </span>
             ) : null}
-            <span aria-hidden className="text-ink-4">·</span>
-            <RelativeTime entity={answer} />
-            {answer.edited ? <span className="italic">· edited</span> : null}
+            {getHandle(author) ? (
+              <>
+                {expert ? <span aria-hidden>·</span> : null}
+                <span className="font-mono text-[10.5px]">
+                  @{getHandle(author)}
+                </span>
+              </>
+            ) : null}
           </div>
-
-          {/* Collapsed snippet + chips. Hidden when expanded. */}
-          {!expanded && snippet ? (
-            <p className="mt-1 line-clamp-1 text-[13.5px] text-muted-foreground">
-              {snippet}
-            </p>
-          ) : null}
-
-          {!expanded ? (
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-              {attachmentCount > 0 ? (
-                <span className="inline-flex items-center gap-1">
-                  <Paperclip className="size-3" />
-                  {formatNumber(attachmentCount)} {attachmentCount === 1 ? 'file' : 'files'}
-                </span>
-              ) : null}
-              {sourceCount > 0 ? (
-                <span className="inline-flex items-center gap-1">
-                  <Library className="size-3" />
-                  {formatNumber(sourceCount)} {sourceCount === 1 ? 'source' : 'sources'}
-                </span>
-              ) : null}
-              {replyCount > 0 ? (
-                <span className="inline-flex items-center gap-1">
-                  <Reply className="size-3" />
-                  {formatNumber(replyCount)}{' '}
-                  {replyCount === 1 ? 'reanswer' : 'reanswers'}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
         </div>
 
-        <div
-          className="flex shrink-0 items-center gap-1"
-          onClick={(event) => event.stopPropagation()}
-        >
+        <div className="flex shrink-0 items-center gap-1">
           {(canManageThisAnswer || canManage) ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -666,17 +600,13 @@ function AnswerCard({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="rounded-full text-muted-foreground opacity-60 transition-opacity hover:opacity-100 group-hover/answer:opacity-100"
+                  className="rounded-md text-ink-3 hover:text-ink"
                   aria-label="More"
                 >
                   <MoreHorizontal className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                {/* Legacy single-author accept — surfaced only for the
-                    question owner / admin. The community vote (multi-
-                    scholar) is the primary mechanism, but the owner's
-                    accept still works and is honoured by the backend. */}
                 {canManage && !answer.parentAnswerId ? (
                   answer.accepted ? (
                     <DropdownMenuItem onSelect={() => onUnaccept(answer.id)}>
@@ -690,10 +620,6 @@ function AnswerCard({
                     </DropdownMenuItem>
                   )
                 ) : null}
-                {/* Edit body: backend allows answer author OR question
-                    owner OR admin (canManageAnswer). The dropdown only
-                    surfaces Edit for the answer's author since the body
-                    is the author's voice — admins/owners get Delete only. */}
                 {isAnswerOwner ? (
                   <>
                     {canManage ? <DropdownMenuSeparator /> : null}
@@ -718,35 +644,17 @@ function AnswerCard({
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
-
-          {/* Chevron — rotates when expanded */}
-          <span
-            aria-hidden
-            className={cn(
-              'inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-transform duration-200',
-              expanded && 'rotate-180',
-            )}
-          >
-            <ChevronDown className="size-4" />
-          </span>
         </div>
-      </button>
+      </div>
 
-      {/* ── Expandable body ──────────────────────────────────── */}
-      <AnimatePresence initial={false}>
-        {expanded ? (
-          <motion.div
-            id={`answer-body-${answer.id}`}
-            key="body"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ type: 'spring', stiffness: 280, damping: 30 }}
-            className="overflow-hidden"
-          >
-            <div className="space-y-4 border-t border-border px-4 py-5 sm:px-5">
+      {/* ── Body — always shown per spec §07 ────────────────── */}
+      <div>
+        <div className="space-y-4 px-6 pb-5 pt-4">
               {answer.body ? (
-                <p className="whitespace-pre-wrap text-[15px] leading-[1.7] text-foreground/95">
+                <p
+                  dir="auto"
+                  className="whitespace-pre-wrap text-[16px] leading-[1.7] text-ink"
+                >
                   <MentionText text={answer.body} />
                 </p>
               ) : null}
@@ -827,13 +735,7 @@ function AnswerCard({
                 />
                 {(answer.reactionCount ?? 0) > 0 ? (
                   <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-muted-foreground">
-                    {(answer.topReactionTypes ?? [])
-                      .slice(0, 3)
-                      .map((type) => (
-                        <span key={type} className="text-[14px] leading-none">
-                          {getQnaReaction(type)?.emoji ?? '👍'}
-                        </span>
-                      ))}
+                    <Heart className="size-3.5 fill-current text-rose-600" strokeWidth={1.6} />
                     <span className="tabular-nums">
                       {formatNumber(answer.reactionCount)}
                     </span>
@@ -865,7 +767,7 @@ function AnswerCard({
                     className={cn(
                       'ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition-all duration-200 active:scale-95',
                       answer.votedByMe
-                        ? 'bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/30 dark:text-emerald-300'
+                        ? 'bg-[color-mix(in_oklch,var(--gold)_18%,transparent)] text-gold-2 ring-1 ring-[color-mix(in_oklch,var(--gold)_30%,transparent)]'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                     )}
                     title={
@@ -877,9 +779,7 @@ function AnswerCard({
                     <Award
                       className={cn(
                         'size-3.5',
-                        answer.votedByMe
-                          ? 'fill-current text-emerald-600 dark:text-emerald-300'
-                          : '',
+                        answer.votedByMe ? 'fill-current' : '',
                       )}
                     />
                     <span>
@@ -894,7 +794,7 @@ function AnswerCard({
                 ) : bestVoteCount > 0 && !answer.parentAnswerId ? (
                   // Non-voters still see the consensus count.
                   <span
-                    className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11.5px] font-semibold text-emerald-700 ring-1 ring-emerald-500/25 dark:text-emerald-300"
+                    className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_oklch,var(--gold)_14%,transparent)] px-2.5 py-1 text-[11.5px] font-semibold text-gold-2 ring-1 ring-[color-mix(in_oklch,var(--gold)_25%,transparent)]"
                     title={`${bestVoteCount} ${
                       bestVoteCount === 1 ? 'scholar' : 'scholars'
                     } voted this as best`}
@@ -906,46 +806,23 @@ function AnswerCard({
                 ) : null}
               </div>
 
-              {/* Reanswers — scholar-to-scholar reply thread hanging
-                   off this answer. Reanswers are *reply notes*, not
-                   full answers: lighter weight, no attachments / sources
-                   / feedback machinery. The header reads like a section
-                   tag inside the answer (same eyebrow style we use on
-                   the question header), tied visually to the body
-                   above by the dashed top rule. */}
-              <div className="border-t border-dashed border-border pt-4">
+              {/* Reanswers — always visible reply thread (spec §07). */}
+              <div className="border-t-[0.5px] border-border pt-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span
-                      aria-hidden
-                      className="inline-block h-[1.5px] w-3 rounded-full"
-                      style={{ background: 'var(--brand)' }}
-                    />
-                    <h4 className="font-display text-[11px] font-bold uppercase tracking-[0.18em] text-ink-3">
-                      Reply thread
-                    </h4>
-                    {replyCount > 0 ? (
-                      <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10.5px] tabular-nums text-ink-3 ring-1 ring-border">
-                        {formatNumber(replyCount)}
-                      </span>
-                    ) : null}
+                  <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
+                    <span>{formatNumber(replyCount)} {replyCount === 1 ? 'reply' : 'replies'}</span>
                     {repliesLoading ? (
-                      <Loader2 className="size-3 animate-spin text-muted-foreground" />
+                      <Loader2 className="size-3 animate-spin" />
                     ) : null}
                   </div>
                   {allowedToAnswer ? (
                     <button
                       type="button"
                       onClick={() => setShowReanswerComposer((v) => !v)}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-semibold transition-colors',
-                        showReanswerComposer
-                          ? 'bg-ink text-paper'
-                          : 'border border-border bg-paper text-ink-2 hover:border-brand/40 hover:bg-brand-soft/40 hover:text-brand',
-                      )}
+                      className={cn('rx-bare', showReanswerComposer && 'is-on')}
                     >
-                      <CornerDownRight className="size-3.5" />
-                      {showReanswerComposer ? 'Cancel' : 'Reply to this answer'}
+                      <CornerDownRight className="size-3.5" strokeWidth={1.5} />
+                      {showReanswerComposer ? 'Cancel' : 'Reply'}
                     </button>
                   ) : null}
                 </div>
@@ -997,32 +874,17 @@ function AnswerCard({
                     </AnimatePresence>
                   </div>
                 ) : repliesLoaded && !repliesLoading ? (
-                  <p className="rounded-lg bg-muted/40 px-3 py-2 text-[12px] italic text-ink-3">
+                  <p className="font-display text-[13px] italic text-ink-3">
                     {showReanswerComposer
                       ? 'Be the first to reply.'
                       : allowedToAnswer
                         ? 'No replies yet — open the conversation.'
                         : 'No replies yet.'}
                   </p>
-                ) : !repliesLoaded && (answer.replyCount ?? 0) > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => onLoadReplies?.(answer.id)}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full border border-border bg-paper px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-3',
-                      'transition-colors hover:border-brand/40 hover:bg-brand-soft/40 hover:text-brand',
-                    )}
-                  >
-                    <ChevronDown className="size-3" />
-                    Show {formatNumber(answer.replyCount)}{' '}
-                    {(answer.replyCount ?? 0) === 1 ? 'reply' : 'replies'}
-                  </button>
                 ) : null}
               </div>
             </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      </div>
     </motion.article>
   )
 }
@@ -1083,11 +945,10 @@ function ReanswerItem({
   const authorName = getFullName(author) || authorHandle || 'Unknown'
 
   const [showReplyBox, setShowReplyBox] = useState(false)
-  // Nested replies are *open by default* — the user explicitly asked
-  // for the whole thread to be visible without having to click "Show N
-  // replies" first. The toggle is still here so a long sub-tree can be
-  // collapsed; we just don't gate the initial render on a click.
-  const [nestedOpen, setNestedOpen] = useState(true)
+  // Nested replies are *always visible* — no view/hide toggle. Behaviour
+  // matches the comment thread spec (1-level nest, flat layout) so a
+  // reader sees the whole conversation at a glance, the way community
+  // post comments work.
 
   // Nested children come from the page-level `repliesByAnswer` map.
   // Keeping the data on the page (instead of in component state) means
@@ -1099,41 +960,30 @@ function ReanswerItem({
   const nested = nestedBucket?.items ?? []
   const nestedLoaded = Boolean(nestedBucket?.loaded)
   const loadingNested = Boolean(nestedBucket?.loading)
-  const expectedReplyCount = reply.replyCount ?? 0
+  const reportedReplyCount = reply.replyCount ?? 0
+  // The backend sometimes omits `replyCount` on individual reanswer
+  // payloads, so we can't rely on it to decide whether to fetch the
+  // nested thread — doing so leaves the sub-tree invisible until a
+  // reaction patch happens to fill the count in. Trust the loaded
+  // list once we have it, fall back to the reported count otherwise.
+  const effectiveReplyCount = nestedLoaded ? nested.length : reportedReplyCount
 
-  // Auto-fetch the nested thread the moment we know it has children.
-  // Top-level reanswers fire this once, and SSE-driven `replyCount`
-  // bumps later trigger the same effect to backfill new sub-trees.
-  // Guard against re-fires while loading or when the bucket is already
-  // populated.
+  // Auto-fetch the nested thread on mount for every depth-0 reanswer.
+  // We don't gate on replyCount: an extra GET that returns an empty
+  // list is cheaper than a sub-tree the user can't see until they
+  // click a reaction. Once loaded, the effect won't re-fire (the
+  // bucket guards both `nestedLoaded` and `loadingNested`).
   useEffect(() => {
     if (!reply?.id) return
     if (depth !== 0) return
-    if (expectedReplyCount <= 0) return
     if (nestedLoaded || loadingNested) return
     onLoadReplies?.(reply.id)
-    // `onLoadReplies` is a stable useCallback on the page; depth is
-    // captured at call time. We re-fire when the *expected* count
-    // changes (e.g. a new SSE event lifted it from 0 → 1).
-  }, [reply?.id, depth, expectedReplyCount, nestedLoaded, loadingNested, onLoadReplies])
-
-  async function toggleNested() {
-    if (nestedOpen) {
-      setNestedOpen(false)
-      return
-    }
-    if (!nestedLoaded && !loadingNested) {
-      // Fire-and-forget — the page handles errors via toast and state.
-      onLoadReplies?.(reply.id)
-    }
-    setNestedOpen(true)
-  }
+  }, [reply?.id, depth, nestedLoaded, loadingNested, onLoadReplies])
 
   function handleNestedCreated(child) {
     // Delegate to the page so the bucket is the single source of truth
     // and any SSE echo from the same write deduplicates by id.
     onReanswerCreated?.(reply.id, child)
-    setNestedOpen(true)
     setShowReplyBox(false)
   }
 
@@ -1147,12 +997,9 @@ function ReanswerItem({
   // sub-tree, or another sibling further down the parent's list.
   const hasOpenChildren =
     showReplyBox ||
-    (nestedOpen && nested.length > 0) ||
-    (depth === 0 && (reply.replyCount ?? 0) > 0 && !isLast)
+    nested.length > 0 ||
+    (depth === 0 && effectiveReplyCount > 0 && !isLast)
   const showSpine = !isLast || hasOpenChildren
-  const reactionInfo = (reply.topReactionTypes ?? [])
-    .slice(0, 3)
-    .map((type) => getQnaReaction(type)?.emoji ?? '👍')
 
   // Nested replies (depth 1) — render like a Facebook-style comment:
   // tiny avatar + speech bubble holding name + body, with a small React
@@ -1171,6 +1018,8 @@ function ReanswerItem({
         onEdit={onEdit}
         onDelete={onDelete}
         onAnswerPatch={onAnswerPatch}
+        allowedToAnswer={allowedToAnswer}
+        onReanswerCreated={onReanswerCreated}
       />
     )
   }
@@ -1203,8 +1052,8 @@ function ReanswerItem({
               className={cn(
                 depth === 0 ? 'size-8' : 'size-7',
                 'ring-2 ring-paper',
-                expert && 'ring-amber-400/40',
-                isBest(reply) && 'ring-emerald-400/40',
+                expert && 'ring-[color-mix(in_oklch,var(--accent-sky)_35%,transparent)]',
+                isBest(reply) && 'ring-[color-mix(in_oklch,var(--accent-sage)_45%,transparent)]',
               )}
             />
           </Link>
@@ -1259,7 +1108,7 @@ function ReanswerItem({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="ml-auto rounded-full p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover/reanswer:opacity-100"
+                    className="ml-auto rounded-full p-1 text-ink-3 transition-colors hover:bg-muted hover:text-ink"
                     aria-label="More"
                   >
                     <MoreHorizontal className="size-3.5" />
@@ -1291,7 +1140,10 @@ function ReanswerItem({
 
           {/* Body — flows directly under the header, no bubble. */}
           {reply.body ? (
-            <p className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.6] text-foreground/95">
+            <p
+              dir="auto"
+              className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.6] text-foreground/95"
+            >
               <MentionText text={reply.body} />
             </p>
           ) : null}
@@ -1365,13 +1217,10 @@ function ReanswerItem({
 
             {(reply.reactionCount ?? 0) > 0 ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-border bg-paper px-1.5 py-0.5 text-[10.5px]">
-                <span className="flex -space-x-1">
-                  {reactionInfo.map((emoji, i) => (
-                    <span key={i} className="text-[12px] leading-none">
-                      {emoji}
-                    </span>
-                  ))}
-                </span>
+                <Heart
+                  className="size-3 fill-current text-rose-600"
+                  strokeWidth={1.6}
+                />
                 <span className="tabular-nums text-muted-foreground">
                   {formatNumber(reply.reactionCount)}
                 </span>
@@ -1391,78 +1240,45 @@ function ReanswerItem({
             </div>
           ) : null}
 
-          {depth === 0 && (reply.replyCount ?? 0) > 0 ? (
-            <button
-              type="button"
-              onClick={toggleNested}
-              disabled={loadingNested}
-              className={cn(
-                'mt-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-paper px-2.5 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-3',
-                'transition-colors hover:border-brand/30 hover:bg-brand-soft/40 hover:text-brand',
-              )}
-            >
-              <ChevronDown
-                className={cn(
-                  'size-3 transition-transform',
-                  nestedOpen && 'rotate-180',
-                )}
-              />
-              {loadingNested
-                ? 'Loading…'
-                : nestedOpen
-                  ? `Hide ${reply.replyCount} ${
-                      reply.replyCount === 1 ? 'reply' : 'replies'
-                    }`
-                  : `View ${reply.replyCount} ${
-                      reply.replyCount === 1 ? 'reply' : 'replies'
-                    }`}
-            </button>
-          ) : null}
-
-          {/* Nested level — recurses with depth 1. Indented under this
-              row's content column, with an L-shaped connector tying it
-              to the parent's avatar spine. */}
-          <AnimatePresence initial={false}>
-            {depth === 0 && nestedOpen ? (
-              <motion.div
-                key="nested-reanswers"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ type: 'spring', stiffness: 260, damping: 30 }}
-                className="overflow-hidden"
-              >
-                <div className="relative mt-4 space-y-4">
-                  <AnimatePresence initial={false}>
-                    {nested.map((child, index) => (
-                      <ReanswerItem
-                        key={child.id}
-                        questionId={questionId}
-                        question={question}
-                        reply={child}
-                        parentAnswerId={reply.id}
-                        currentUser={currentUser}
-                        isAuthenticated={isAuthenticated}
-                        allowedToAnswer={allowedToAnswer}
-                        canManageAnswer={
-                          canManageAnswer(currentUser, question, child)
-                        }
-                        onEdit={onEdit}
-                        onDelete={(childId) => handleNestedDelete(childId)}
-                        onAnswerPatch={onAnswerPatch}
-                        repliesByAnswer={repliesByAnswer}
-                        onLoadReplies={onLoadReplies}
-                        onReanswerCreated={onReanswerCreated}
-                        onReanswerDelete={onReanswerDelete}
-                        depth={1}
-                        isLast={index === nested.length - 1}
-                      />
-                    ))}
-                  </AnimatePresence>
+          {/* Nested level — always visible (no toggle), recurses with
+              depth 1. Loading state surfaces inline while the bucket
+              hydrates so the spine still reads as an active thread. */}
+          {depth === 0 ? (
+            <div className="relative mt-4 space-y-4">
+              {loadingNested && nested.length === 0 ? (
+                <div className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-ink-3">
+                  <Loader2 className="size-3 animate-spin" />
+                  Loading replies…
                 </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
+              ) : null}
+              <AnimatePresence initial={false}>
+                {nested.map((child, index) => (
+                  <ReanswerItem
+                    key={child.id}
+                    questionId={questionId}
+                    question={question}
+                    reply={child}
+                    parentAnswerId={reply.id}
+                    currentUser={currentUser}
+                    isAuthenticated={isAuthenticated}
+                    allowedToAnswer={allowedToAnswer}
+                    canManageAnswer={
+                      canManageAnswer(currentUser, question, child)
+                    }
+                    onEdit={onEdit}
+                    onDelete={(childId) => handleNestedDelete(childId)}
+                    onAnswerPatch={onAnswerPatch}
+                    repliesByAnswer={repliesByAnswer}
+                    onLoadReplies={onLoadReplies}
+                    onReanswerCreated={onReanswerCreated}
+                    onReanswerDelete={onReanswerDelete}
+                    depth={1}
+                    isLast={index === nested.length - 1}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          ) : null}
         </div>
       </div>
     </motion.div>
@@ -1492,6 +1308,11 @@ function NestedReplyItem({
   onEdit,
   onDelete,
   onAnswerPatch,
+  /** Allow composing a re-reply — sibling depth-1 nested reply that
+   *  posts to the same depth-0 reanswer parent, with an @mention of
+   *  this reply's author so the conversation stays threaded. */
+  allowedToAnswer = false,
+  onReanswerCreated,
 }) {
   const author = authorOf(reply)
   const expert = isExpertAnswerer(author.role)
@@ -1503,9 +1324,13 @@ function NestedReplyItem({
   const authorHandle = getHandle(author)
   const authorName = getFullName(author) || authorHandle || 'Unknown'
 
-  const reactionInfo = (reply.topReactionTypes ?? [])
-    .slice(0, 3)
-    .map((type) => getQnaReaction(type)?.emoji ?? '👍')
+  const [showReplyBox, setShowReplyBox] = useState(false)
+  // Re-reply parent — backend stores parent/child as a flat parentAnswerId
+  // chain. We deliberately keep nested replies *flat at depth-1* by posting
+  // siblings under the same depth-0 ancestor, mirroring how Twitter / FB
+  // flatten beyond a single nest. The ancestor id lives on this reply's
+  // own `parentAnswerId`.
+  const reReplyParentId = reply.parentAnswerId
 
   return (
     <motion.div
@@ -1525,7 +1350,7 @@ function NestedReplyItem({
           user={author}
           className={cn(
             'size-7 ring-2 ring-paper',
-            expert && 'ring-amber-400/40',
+            expert && 'ring-[color-mix(in_oklch,var(--accent-sky)_35%,transparent)]',
           )}
         />
       </Link>
@@ -1569,7 +1394,7 @@ function NestedReplyItem({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="-mr-1 -mt-1 rounded-full p-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover/nested:opacity-100"
+                      className="-mr-1 -mt-1 rounded-full p-1 text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
                       aria-label="More"
                     >
                       <MoreHorizontal className="size-3.5" />
@@ -1600,7 +1425,10 @@ function NestedReplyItem({
             </div>
 
             {reply.body ? (
-              <p className="mt-0.5 whitespace-pre-wrap break-words text-[13.5px] leading-[1.55] text-foreground/95">
+              <p
+                dir="auto"
+                className="mt-0.5 whitespace-pre-wrap break-words text-[13.5px] leading-[1.55] text-foreground/95"
+              >
                 <MentionText text={reply.body} />
               </p>
             ) : null}
@@ -1640,11 +1468,10 @@ function NestedReplyItem({
                 transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                 className="absolute -bottom-2 right-2 inline-flex items-center gap-0.5 rounded-full border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium shadow-sm"
               >
-                {reactionInfo.map((emoji, i) => (
-                  <span key={i} className="text-[12px] leading-none">
-                    {emoji}
-                  </span>
-                ))}
+                <Heart
+                  className="size-3 fill-current text-rose-600"
+                  strokeWidth={1.6}
+                />
                 <span className="tabular-nums text-muted-foreground">
                   {formatNumber(reply.reactionCount)}
                 </span>
@@ -1653,19 +1480,48 @@ function NestedReplyItem({
           </AnimatePresence>
         </div>
 
-        {/* Action row — React picker only. No "Reply" affordance at
-            this depth (single-level nesting cap, just like comments).
-            Time sits inline so the row stays compact. */}
-        <div className="mt-2 flex items-center gap-3 pl-3 text-[11px] font-medium text-muted-foreground">
+        {/* Action row — React picker + Reply (flat re-reply). Time
+            sits inline so the row stays compact. */}
+        <div className="mt-2 flex flex-wrap items-center gap-3 pl-3 text-[11px] font-medium text-muted-foreground">
           <AnswerReactionRow
             questionId={questionId}
             answer={reply}
             isAuthenticated={isAuthenticated}
             onPatch={onAnswerPatch}
           />
+          {allowedToAnswer && isAuthenticated && reReplyParentId ? (
+            <button
+              type="button"
+              onClick={() => setShowReplyBox((v) => !v)}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium transition-colors',
+                showReplyBox
+                  ? 'bg-ink text-paper'
+                  : 'hover:bg-muted hover:text-foreground',
+              )}
+            >
+              <CornerDownRight className="size-3" />
+              {showReplyBox ? 'Cancel' : 'Reply'}
+            </button>
+          ) : null}
           <RelativeTime entity={reply} />
           {reply.edited ? <span className="italic">(edited)</span> : null}
         </div>
+
+        {showReplyBox && reReplyParentId ? (
+          <div className="mt-2.5 pl-3">
+            <ReanswerComposer
+              questionId={questionId}
+              parentAnswerId={reReplyParentId}
+              parentAuthor={author}
+              onCreated={(created) => {
+                onReanswerCreated?.(reReplyParentId, created)
+                setShowReplyBox(false)
+              }}
+              onCancel={() => setShowReplyBox(false)}
+            />
+          </div>
+        ) : null}
       </div>
     </motion.div>
   )
@@ -1857,11 +1713,7 @@ export function QuestionDetailPage() {
     if (!payload) return
     const id = payload.answerId ?? payload.id
     if (!id) return
-    const patch = {
-      id,
-      reactionCount: payload.reactionCount,
-      topReactionTypes: payload.topReactionTypes,
-    }
+    const patch = { id, reactionCount: payload.reactionCount }
     if (payload.parentAnswerId) patch.parentAnswerId = payload.parentAnswerId
     applyAnswerPatch(patch)
   }
@@ -1983,6 +1835,16 @@ export function QuestionDetailPage() {
       toast.info('This question was removed by its author.')
       navigate('/questions', { replace: true })
     },
+    // Live view counter — Backend dedupes per-viewer for 1 h via
+    // Redis SET NX EX, then bumps `viewCount` and broadcasts the
+    // fresh value here. Mirrors post / research view streams.
+    VIEW_COUNT_UPDATED: (payload) => {
+      const next = payload?.questionViewCount ?? payload?.viewCount
+      if (next == null) return
+      setQuestion((current) =>
+        current ? { ...current, viewCount: next } : current,
+      )
+    },
     ANSWER_CREATED: (payload) => {
       if (!payload?.id) return
       setAnswers((current) =>
@@ -2096,7 +1958,6 @@ export function QuestionDetailPage() {
       applyAnswerPatch({ ...payload, accepted: false })
     },
     ANSWER_REACTION_ADDED: patchAnswerReactionFromEvent,
-    ANSWER_REACTION_CHANGED: patchAnswerReactionFromEvent,
     ANSWER_REACTION_REMOVED: patchAnswerReactionFromEvent,
     ANSWER_FEEDBACK_ADDED: (payload) => {
       const id = payload?.answerId ?? payload?.id
@@ -2157,10 +2018,11 @@ export function QuestionDetailPage() {
   // question author OR admin/super-admin. Admins inherit every owner
   // affordance (lock, limit, accept, give feedback, edit, delete).
   const canManage = canManageQuestion(user, question)
-  // Researchers ARE allowed to answer (and reanswer), but they can't
-  // open new questions or vote on best answers — that gate sits below.
+  // Scholars and Researchers can answer and reanswer. Marking an
+  // answer as "best" is the question author's editorial decision —
+  // nobody else (even admins) gets to override it.
   const allowedToAnswer = canAnswerQuestion(user)
-  const allowedToVoteBest = canVoteBestAnswer(user)
+  const allowedToVoteBest = canVoteBestAnswer(user, question)
 
   const sortedAnswers = useMemo(() => sortAnswers(answers), [answers])
   const limitReached =
@@ -2544,9 +2406,9 @@ export function QuestionDetailPage() {
             </span>
           ) : null}
           {sortedAnswers.some((a) => a.accepted) ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-              <Award className="size-3" />
-              {formatNumber(sortedAnswers.filter((a) => a.accepted).length)} best
+            <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_oklch,var(--accent-sage)_14%,transparent)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-sage">
+              <CheckCircle2 className="size-3" />
+              {formatNumber(sortedAnswers.filter((a) => a.accepted).length)} accepted
             </span>
           ) : null}
           <span className="ml-2 h-px flex-1 bg-border" aria-hidden />

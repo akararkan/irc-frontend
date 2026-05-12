@@ -35,6 +35,7 @@ import {
 } from '@/features/research/research.api'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
+import { RoleBadge } from '@/components/app/role-badge'
 import { canPublishResearch } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
@@ -311,7 +312,12 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Publish research</DialogTitle>
+            <DialogTitle className="flex flex-wrap items-center gap-2">
+              <span>Publish research</span>
+              {user?.role ? (
+                <RoleBadge role={user.role} size="sm" />
+              ) : null}
+            </DialogTitle>
             <DialogDescription>
               Create a draft you can publish from your research workspace later. Fields marked with
               an asterisk are required.

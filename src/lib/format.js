@@ -41,6 +41,31 @@ export function looksLikeEmail(value) {
   return EMAIL_RE.test(value.trim())
 }
 
+// Unicode ranges for the Arabic, Hebrew, Syriac, Thaana, N'Ko and
+// Arabic Presentation Forms blocks — the scripts that resolve to RTL
+// in the bidi algorithm. Used to decide if a paragraph's leading
+// character is RTL so we can skip Latin-only typographic flourishes
+// (e.g. drop caps).
+const RTL_CHAR_RE = /[֐-׿؀-ۿ܀-ݏހ-޿߀-߿ࠀ-࠿ࢠ-ࣿיִ-﷿ﹰ-﻿]/
+
+/**
+ * Returns true when the first strong directional character of `value`
+ * belongs to an RTL script (Arabic, Hebrew, Kurdish Sorani, etc.).
+ * Used to gate Latin-print typography that doesn't translate to
+ * Arabic — drop caps are the canonical example.
+ */
+export function startsWithRtl(value) {
+  if (!value || typeof value !== 'string') return false
+  // Walk to the first non-whitespace, non-punctuation grapheme so a
+  // paragraph that opens with a stray quote or bracket still resolves
+  // by the language of its actual content.
+  for (const ch of value.trim()) {
+    if (/\s/.test(ch)) continue
+    return RTL_CHAR_RE.test(ch)
+  }
+  return false
+}
+
 /**
  * Display-safe handle for a user. Some legacy accounts have their email
  * stored as the `username`; rendering `@user@gmail.com` is jarring and

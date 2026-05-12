@@ -1,35 +1,43 @@
-import { BadgeCheck, FlaskConical, GraduationCap, Shield, ShieldCheck, User } from 'lucide-react'
+import { BadgeCheck, GraduationCap, Microscope, Shield, ShieldCheck, User } from 'lucide-react'
 
+// Role colour mapping mirrors the IRC Scholar design spec:
+//   Scholar      → info  (sky)     · mortarboard icon
+//   Researcher   → success (sage)  · microscope icon
+//   Admin        → warning (amber) · shield icon
+//   Super admin  → danger  (rust)  · shield-check icon
+//   User         → no badge (returned null in getRoleInfo for non-mapped)
+// Each className uses the semantic `pill-*` utilities so the badge
+// reads identically to the static spec mockups.
 const ROLE_MAP = {
   USER: {
     label: 'Member',
     icon: User,
-    className: 'bg-slate-500/10 text-slate-600 ring-slate-500/20 dark:text-slate-300',
-    dotClass: 'bg-slate-500',
+    className: 'pill-mute',
+    dotClass: 'bg-ink-3',
   },
   SCHOLAR: {
     label: 'Scholar',
     icon: GraduationCap,
-    className: 'bg-sky-500/15 text-sky-700 ring-sky-500/25 dark:text-sky-300',
-    dotClass: 'bg-sky-500',
+    className: 'pill-info',
+    dotClass: 'bg-info-fg',
   },
   RESEARCHER: {
     label: 'Researcher',
-    icon: FlaskConical,
-    className: 'bg-violet-500/15 text-violet-700 ring-violet-500/25 dark:text-violet-300',
-    dotClass: 'bg-violet-500',
+    icon: Microscope,
+    className: 'pill-success',
+    dotClass: 'bg-ok-fg',
   },
   ADMIN: {
     label: 'Admin',
     icon: Shield,
-    className: 'bg-amber-500/15 text-amber-700 ring-amber-500/25 dark:text-amber-300',
-    dotClass: 'bg-amber-500',
+    className: 'pill-warn',
+    dotClass: 'bg-warn-fg',
   },
   SUPER_ADMIN: {
     label: 'Super admin',
     icon: ShieldCheck,
-    className: 'bg-rose-500/15 text-rose-700 ring-rose-500/25 dark:text-rose-300',
-    dotClass: 'bg-rose-500',
+    className: 'pill-danger',
+    dotClass: 'bg-danger-fg',
   },
 }
 
@@ -66,32 +74,28 @@ const ROLE_MAP = {
  *        (admins also pass through canManageQuestion).
  */
 
-// Roles that can author research.
+// Roles that can author research. Admins moderate the platform but
+// don't publish original scholarship under their administrative seat —
+// only Scholars and Researchers create content.
 export const ROLE_CAN_PUBLISH_RESEARCH = new Set([
   'SCHOLAR',
   'RESEARCHER',
-  'ADMIN',
-  'SUPER_ADMIN',
 ])
 
-// Roles that can ask a question / mark a best answer (vote) / give
-// feedback. Researchers are deliberately excluded from these surfaces —
-// only scholars and admins curate the Q&A area. Mirrors the backend's
-// `findScholarOrThrow` and `findBestAnswerVoterOrThrow` gates.
+// Roles that can ask a question / open a new Q&A thread. Asking a
+// question is treated as content authoring (same gate as research) —
+// only Scholars and Researchers may open threads. Admins still
+// moderate via `canManageQuestion`.
 export const ROLE_CAN_USE_QNA = new Set([
   'SCHOLAR',
-  'ADMIN',
-  'SUPER_ADMIN',
+  'RESEARCHER',
 ])
 
-// Roles that can author an answer or reanswer. Researchers ARE allowed
-// here — they contribute scholarship even though they can't open new
-// threads. Mirrors the backend's `findAnswerAuthorOrThrow` gate.
+// Roles that can author an answer or reanswer — same Scholar +
+// Researcher set as the asker pool.
 export const ROLE_CAN_ANSWER_QNA = new Set([
   'SCHOLAR',
   'RESEARCHER',
-  'ADMIN',
-  'SUPER_ADMIN',
 ])
 
 // Site-wide moderators — used for "admin override" checks that mirror the
@@ -115,7 +119,7 @@ export function getRoleInfo(role) {
   return ROLE_MAP[role] ?? {
     label: role,
     icon: BadgeCheck,
-    className: 'bg-muted text-muted-foreground ring-border',
+    className: 'pill-mute',
     dotClass: 'bg-muted-foreground',
   }
 }
@@ -124,63 +128,45 @@ export function canPublishResearch(user) {
   return Boolean(user?.role && ROLE_CAN_PUBLISH_RESEARCH.has(user.role))
 }
 
-/**
- * Legacy check — true if the user can write *anything* in the Q&A area
- * (mirrors the old single-tier gate). Most callers should switch to one
- * of the more precise helpers below; this one stays for back-compat with
- * any spot we haven't migrated yet.
- */
 export function canUseQna(user) {
   return Boolean(user?.role && ROLE_CAN_USE_QNA.has(user.role))
 }
 
-/**
- * Mirror of `findScholarOrThrow` — gates question authoring, lock /
- * unlock, set max-answers, accept-as-best (legacy path), and answer
- * feedback. Researchers are excluded.
- */
 export function canAskQuestion(user) {
   return Boolean(user?.role && ROLE_CAN_USE_QNA.has(user.role))
 }
 
-/**
- * Mirror of `findAnswerAuthorOrThrow` — gates posting answers and
- * reanswers. Researchers are allowed here in addition to scholars +
- * admins.
- */
 export function canAnswerQuestion(user) {
   return Boolean(user?.role && ROLE_CAN_ANSWER_QNA.has(user.role))
 }
 
 /**
- * Mirror of `findBestAnswerVoterOrThrow` — gates the "Mark as best
- * answer" vote. Multiple scholars can vote on the same answer; a single
- * vote per (answer, scholar) pair, idempotent. Researchers are excluded.
+ * Marking an answer as "best" is the question author's privilege alone
+ * — only they decide which answer resolves their question. Admins do
+ * NOT override this (they can still delete or moderate, but the
+ * editorial judgement of "this is the best answer" belongs to the
+ * person who asked).
+ *
+ * Callers must pass the `question` so we can compare authors. The
+ * old single-arg signature (just `user`) is rejected since it can't
+ * answer the underlying question.
  */
-export function canVoteBestAnswer(user) {
-  return Boolean(user?.role && ROLE_CAN_USE_QNA.has(user.role))
+export function canVoteBestAnswer(user, question) {
+  if (!user || !question) return false
+  if (!user.id) return false
+  return user.id === question.authorId
 }
 
-/** ADMIN or SUPER_ADMIN — used for the admin-override branches. */
 export function isAdminLike(user) {
   return Boolean(user?.role && ROLE_ADMIN_LIKE.has(user.role))
 }
 
-/**
- * Mirror of `QuestionServiceImpl#canManageQuestion`: question author
- * OR an admin/super-admin. Gates lock/unlock, set limit, accept,
- * give/edit/delete feedback, and delete question.
- */
 export function canManageQuestion(user, question) {
   if (!user || !question) return false
   if (user.id && user.id === question.authorId) return true
   return isAdminLike(user)
 }
 
-/**
- * Mirror of `QuestionServiceImpl#canManageAnswer`: answer author OR
- * question author OR admin/super-admin. Gates edit/delete answer.
- */
 export function canManageAnswer(user, question, answer) {
   if (!user || !question || !answer) return false
   if (user.id && user.id === answer.authorId) return true

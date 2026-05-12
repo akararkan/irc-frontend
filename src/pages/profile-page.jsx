@@ -1,6 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Ban, Bookmark, MapPin, ShieldAlert, UserMinus, UserPlus } from 'lucide-react'
+import {
+  AtSign,
+  Award,
+  Ban,
+  Bookmark,
+  Calendar,
+  Eye,
+  Globe,
+  Mail,
+  MapPin,
+  MessageSquare,
+  MoreHorizontal,
+  Plus,
+  ShieldAlert,
+  UserMinus,
+  UserPlus,
+} from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -13,6 +29,7 @@ import { QuestionFeedCard } from '@/components/app/question-feed-card'
 import { ResearchCard } from '@/components/app/research-card'
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
+import { cn } from '@/lib/utils'
 import { getUserByUsername } from '@/features/users/users.api'
 import {
   blockUser,
@@ -35,23 +52,53 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { canPublishResearch } from '@/lib/roles'
 import { extractApiMessage } from '@/lib/api-error'
-import { formatNumber, getFullName } from '@/lib/format'
+import { formatNumber, getFullName, getHandle } from '@/lib/format'
 
+// Spec §09 — single stat cell. Big tabular number on top, mono micro
+// caption beneath. Lives inside the .profile-stats strip.
 function Stat({ label, value, to }) {
   const content = (
-    <div>
-      <p className="text-base font-semibold">{formatNumber(value ?? 0)}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
-    </div>
+    <>
+      <div className="text-[20px] font-medium tabular-nums leading-[1.1] text-ink">
+        {formatNumber(value ?? 0)}
+      </div>
+      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-3">
+        {label}
+      </div>
+    </>
   )
   if (to) {
     return (
-      <Link to={to} className="rounded-lg px-2 py-1 transition-colors hover:bg-muted">
+      <Link
+        to={to}
+        className="min-w-0 flex-1 rounded-md px-2 py-1 transition-colors hover:bg-paper"
+      >
         {content}
       </Link>
     )
   }
-  return content
+  return <div className="min-w-0 flex-1 px-2 py-1">{content}</div>
+}
+
+// Profile-link pill — used for handle / ORCID / website / email rows.
+function ProfileLink({ href, icon: Icon, children, title }) {
+  const inner = (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-info-fg transition-colors hover:bg-info-bg/60"
+      style={{ color: 'var(--info-fg)' }}
+    >
+      {Icon ? <Icon className="size-[13px]" strokeWidth={1.5} /> : null}
+      {children}
+    </span>
+  )
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" title={title || href}>
+        {inner}
+      </a>
+    )
+  }
+  return inner
 }
 
 function ProfilePosts({ userId }) {
@@ -500,7 +547,7 @@ export function ProfilePage() {
         ...(response?.updatedStatus ?? {}),
         isFollowing: true,
       }))
-      toast.success(`Following ${profile.username}`)
+      toast.success(`Following ${getFullName(profile) || getHandle(profile)}`)
     })
   }
 
@@ -524,7 +571,7 @@ export function ProfilePage() {
         isBlocking: true,
         isFollowing: false,
       }))
-      toast.success(`Blocked ${profile.username}`)
+      toast.success(`Blocked ${getFullName(profile) || getHandle(profile)}`)
     })
   }
 
@@ -586,26 +633,96 @@ export function ProfilePage() {
   const followingCount = status?.followingCount ?? profile.followingCount ?? 0
   const showsResearch = canPublishResearch(profile)
 
+  // Display-safe handle — strips an email-shaped username down to its
+  // local-part so other viewers never see a profile's email address.
+  const handle = getHandle(profile)
+  const verified = Boolean(profile.verified ?? profile.isVerified)
+  const joinedDate = profile.createdAt
+    ? new Date(profile.createdAt)
+    : profile.joinedAt
+      ? new Date(profile.joinedAt)
+      : null
+  const joinedLabel = joinedDate
+    ? joinedDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+    : null
+  const postsCount = profile.postsCount ?? profile.postCount ?? 0
+  const researchCount = profile.researchCount ?? profile.publicationsCount ?? 0
+  const answersCount = profile.answersCount ?? profile.answerCount ?? 0
+  const reelsCount = profile.reelsCount ?? 0
+  const profileViewsLabel =
+    profile.profileViewsThisWeek != null
+      ? `${formatNumber(profile.profileViewsThisWeek)} profile views this week`
+      : null
+
+  // Identity links from the spec — handle / ORCID / website / email.
+  const linkList = []
+  if (handle) linkList.push({ icon: AtSign, label: `@${handle}`, href: null })
+  if (profile.orcid) {
+    linkList.push({
+      icon: Award,
+      label: `ORCID: ${profile.orcid}`,
+      href: `https://orcid.org/${profile.orcid}`,
+    })
+  }
+  if (profile.website) {
+    linkList.push({
+      icon: Globe,
+      label: profile.website.replace(/^https?:\/\//, ''),
+      href: profile.website.startsWith('http') ? profile.website : `https://${profile.website}`,
+    })
+  }
+  // Privacy: only the user themselves ever sees their own email. We
+  // ignore profile.showEmail on purpose — even if the backend ships it
+  // as true, we never expose an email address to other viewers.
+  if (profile.email && isMe) {
+    linkList.push({ icon: Mail, label: profile.email, href: `mailto:${profile.email}` })
+  }
+  ;(profile.links ?? []).forEach((link) => {
+    if (!link?.url) return
+    linkList.push({
+      icon: Globe,
+      label: link.description || link.url.replace(/^https?:\/\//, ''),
+      href: link.url,
+    })
+  })
+
   return (
     <div className="space-y-6">
-      <motion.div
+      <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+        className="overflow-hidden rounded-xl border-[0.5px] border-border bg-paper"
       >
-      <Card className="overflow-hidden border bg-card shadow-sm">
-        <div className="relative h-36 overflow-hidden">
+        {/* Cover — green-to-blue soft wash (spec §09 .profile-cover) */}
+        <div className="relative h-[120px] overflow-hidden">
           <div
             className="absolute inset-0"
             style={{
-              backgroundImage:
-                'radial-gradient(circle at 20% 20%, oklch(0.82 0.12 285 / 0.35), transparent 45%), radial-gradient(circle at 80% 30%, oklch(0.85 0.14 75 / 0.35), transparent 50%), radial-gradient(circle at 50% 100%, oklch(0.82 0.1 220 / 0.35), transparent 55%), linear-gradient(135deg, oklch(0.96 0.005 250), oklch(0.92 0.008 250))',
+              background:
+                'linear-gradient(135deg, var(--brand-soft) 0%, var(--info-bg) 100%)',
             }}
           />
-          <div className="absolute inset-0 bg-pattern opacity-20 mix-blend-multiply" />
+          <div
+            aria-hidden
+            className="absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(circle at 20% 30%, color-mix(in oklch, var(--brand) 15%, transparent) 0, transparent 50%), radial-gradient(circle at 80% 70%, color-mix(in oklch, var(--info-fg) 15%, transparent) 0, transparent 50%)',
+            }}
+          />
+          <button
+            type="button"
+            className="absolute right-3 top-3 grid size-8 place-items-center rounded-md border-[0.5px] border-white/40 bg-white/80 text-ink-2 backdrop-blur transition-colors hover:bg-white"
+            aria-label="More"
+          >
+            <MoreHorizontal className="size-4" />
+          </button>
         </div>
-        <CardContent className="relative space-y-4 px-5 pb-5 pt-0">
-          <div className="-mt-12 flex flex-wrap items-end justify-between gap-4">
+
+        {/* Inner content — avatar overflows, name + actions */}
+        <div className="relative px-6 pb-6 pt-0 sm:px-7">
+          <div className="-mt-11 flex flex-wrap items-end justify-between gap-4">
             <motion.div
               initial={{ scale: 0.7, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -613,49 +730,63 @@ export function ProfilePage() {
             >
               <UserAvatar
                 user={profile}
-                className="size-24 border-4 border-background shadow-xl"
+                className="size-[88px] border-4 border-paper text-[30px]"
               />
             </motion.div>
-            {!isMe && isAuthenticated ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {status?.isBlocking ? (
-                  <Button size="sm" variant="outline" className="rounded-full" onClick={handleUnblock} disabled={working}>
+
+            {/* Right-side actions */}
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              {!isMe && isAuthenticated ? (
+                status?.isBlocking ? (
+                  <Button size="sm" variant="outline" className="rounded-md" onClick={handleUnblock} disabled={working}>
                     Unblock
                   </Button>
                 ) : (
                   <>
                     <Button
                       size="sm"
-                      variant={status?.isFollowing ? 'outline' : 'default'}
-                      className="rounded-full"
+                      variant="outline"
+                      className="rounded-md gap-1.5"
+                      title="Message"
+                    >
+                      <Mail className="size-4" strokeWidth={1.5} />
+                      Message
+                    </Button>
+                    <Button
+                      size="sm"
+                      className={cn(
+                        'rounded-md gap-1.5',
+                        status?.isFollowing
+                          ? 'bg-secondary text-ink hover:bg-muted'
+                          : 'bg-ink text-paper hover:bg-ink-2',
+                      )}
                       onClick={status?.isFollowing ? handleUnfollow : handleFollow}
                       disabled={working}
                     >
                       {status?.isFollowing ? (
                         <>
-                          <UserMinus className="size-4" /> Following
+                          <UserMinus className="size-4" strokeWidth={1.5} /> Following
                         </>
                       ) : (
                         <>
-                          <UserPlus className="size-4" /> Follow
+                          <Plus className="size-4" strokeWidth={1.5} /> Follow
                         </>
                       )}
                     </Button>
                     <Button
-                      size="sm"
-                      variant={status?.isRestricting ? 'secondary' : 'ghost'}
-                      className="rounded-full"
+                      size="icon-sm"
+                      variant="ghost"
+                      className="rounded-md text-ink-3"
                       onClick={handleToggleRestrict}
                       disabled={working}
                       title={status?.isRestricting ? 'Unrestrict' : 'Restrict'}
                     >
                       <ShieldAlert className="size-4" />
-                      {status?.isRestricting ? 'Restricted' : 'Restrict'}
                     </Button>
                     <Button
                       size="icon-sm"
                       variant="ghost"
-                      className="rounded-full text-muted-foreground"
+                      className="rounded-md text-ink-3"
                       onClick={handleBlock}
                       disabled={working}
                       title="Block"
@@ -663,54 +794,137 @@ export function ProfilePage() {
                       <Ban className="size-4" />
                     </Button>
                   </>
-                )}
-              </div>
-            ) : null}
-            {isMe ? (
-              <Button asChild size="sm" variant="outline" className="rounded-full">
-                <Link to="/settings">Edit profile</Link>
-              </Button>
-            ) : null}
-          </div>
-
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight">{getFullName(profile)}</h1>
-              {profile.role ? <RoleBadge role={profile.role} size="sm" /> : null}
+                )
+              ) : null}
+              {isMe ? (
+                <Button asChild size="sm" variant="outline" className="rounded-md">
+                  <Link to="/settings">Edit profile</Link>
+                </Button>
+              ) : null}
             </div>
-            <p className="text-sm text-muted-foreground">{profile.username}</p>
-            {profile.profileBio ? (
-              <p className="whitespace-pre-wrap text-sm leading-6">{profile.profileBio}</p>
-            ) : null}
-            {profile.location ? (
-              <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="size-3.5" />
-                {profile.location}
-              </p>
-            ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 pt-2">
+          {/* Name row — Newsreader serif, verified rosette, role pill */}
+          <div className="mt-4 flex flex-wrap items-center gap-2.5">
+            <h1 className="font-display text-[28px] font-medium leading-[1.1] tracking-[-0.02em] text-ink sm:text-[30px]">
+              {getFullName(profile) || handle}
+            </h1>
+            {verified ? (
+              <span
+                aria-hidden
+                title="Verified"
+                className="grid size-[22px] place-items-center rounded-full text-paper"
+                style={{ background: 'var(--info-fg)' }}
+              >
+                <Award className="size-3" strokeWidth={2} />
+              </span>
+            ) : null}
+            {profile.role ? <RoleBadge role={profile.role} size="sm" /> : null}
+          </div>
+
+          {/* @handle */}
+          {handle ? (
+            <p className="mt-1 text-[14px] text-ink-3">@{handle}</p>
+          ) : null}
+
+          {/* Bio */}
+          {profile.profileBio ? (
+            <p className="mt-3 max-w-[58ch] whitespace-pre-wrap text-[14px] leading-[1.65] text-ink-2">
+              {profile.profileBio}
+            </p>
+          ) : null}
+
+          {/* Meta row — location · joined · views */}
+          {(profile.location || joinedLabel || profileViewsLabel) ? (
+            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-ink-3">
+              {profile.location ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="size-3" strokeWidth={1.5} />
+                  {profile.location}
+                </span>
+              ) : null}
+              {joinedLabel ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Calendar className="size-3" strokeWidth={1.5} />
+                  Joined {joinedLabel}
+                </span>
+              ) : null}
+              {profileViewsLabel ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Eye className="size-3" strokeWidth={1.5} />
+                  {profileViewsLabel}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Profile links — info-blue chips */}
+          {linkList.length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-1">
+              {linkList.map((link, idx) => (
+                <ProfileLink key={idx} href={link.href} icon={link.icon}>
+                  {link.label}
+                </ProfileLink>
+              ))}
+            </div>
+          ) : null}
+
+          {/* Stats strip — 5 cells in a muted block (spec §09) */}
+          <div className="mt-5 flex items-center rounded-md border-[0.5px] border-border bg-secondary px-2 py-3">
             <Stat label="Followers" value={followerCount} to={`/profile/${profile.username}/followers`} />
             <Stat label="Following" value={followingCount} to={`/profile/${profile.username}/following`} />
+            <Stat label="Posts" value={postsCount} />
+            {showsResearch ? <Stat label="Research" value={researchCount} /> : null}
+            <Stat label="Answers" value={answersCount} />
+            {reelsCount > 0 ? <Stat label="Reels" value={reelsCount} /> : null}
           </div>
-        </CardContent>
-      </Card>
-      </motion.div>
+        </div>
+      </motion.section>
 
-      <Tabs defaultValue="activity">
-        <TabsList>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="posts">Posts</TabsTrigger>
-          {showsResearch ? <TabsTrigger value="research">Research</TabsTrigger> : null}
-          {isMe ? <TabsTrigger value="questions">Questions</TabsTrigger> : null}
+      <Tabs defaultValue={showsResearch ? 'research' : 'activity'}>
+        <TabsList className="flex w-full justify-start gap-0 rounded-none border-0 border-b-[0.5px] border-border bg-transparent p-0">
+          {showsResearch ? (
+            <TabsTrigger
+              value="research"
+              className="rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 py-2.5 mr-6 font-medium text-ink-3 data-[state=active]:border-ink data-[state=active]:text-ink data-[state=active]:shadow-none"
+            >
+              Research <span className="ml-1 font-mono text-[10px] text-ink-4">{researchCount}</span>
+            </TabsTrigger>
+          ) : null}
+          <TabsTrigger
+            value="posts"
+            className="rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 py-2.5 mr-6 font-medium text-ink-3 data-[state=active]:border-ink data-[state=active]:text-ink data-[state=active]:shadow-none"
+          >
+            Posts <span className="ml-1 font-mono text-[10px] text-ink-4">{postsCount}</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="activity"
+            className="rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 py-2.5 mr-6 font-medium text-ink-3 data-[state=active]:border-ink data-[state=active]:text-ink data-[state=active]:shadow-none"
+          >
+            Activity
+          </TabsTrigger>
           {isMe ? (
-            <TabsTrigger value="saved">
-              <Bookmark className="size-3.5" />
+            <TabsTrigger
+              value="questions"
+              className="rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 py-2.5 mr-6 font-medium text-ink-3 data-[state=active]:border-ink data-[state=active]:text-ink data-[state=active]:shadow-none"
+            >
+              Questions
+            </TabsTrigger>
+          ) : null}
+          {isMe ? (
+            <TabsTrigger
+              value="saved"
+              className="rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 py-2.5 mr-6 font-medium text-ink-3 data-[state=active]:border-ink data-[state=active]:text-ink data-[state=active]:shadow-none"
+            >
               Saved
             </TabsTrigger>
           ) : null}
-          <TabsTrigger value="about">About</TabsTrigger>
+          <TabsTrigger
+            value="about"
+            className="rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 py-2.5 mr-6 font-medium text-ink-3 data-[state=active]:border-ink data-[state=active]:text-ink data-[state=active]:shadow-none"
+          >
+            About
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="activity">
           <ProfileActivity userId={profile.id} includeQuestions={isMe} />

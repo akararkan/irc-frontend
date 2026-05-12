@@ -1,8 +1,8 @@
 import { motion } from 'motion/react'
 import {
   Bell,
+  BookOpenText,
   Clapperboard,
-  Compass,
   Sparkles,
   User2,
 } from 'lucide-react'
@@ -15,18 +15,18 @@ import { cn } from '@/lib/utils'
 
 // The five primary destinations for mobile, picked to mirror the
 // platforms users already know:
-//   - Home (Community feed)
-//   - Explore (search-y discovery)
+//   - Home (unified Posts + Research + Q&A feed)
+//   - Research (publications hub)
 //   - Reels (vertical video)
 //   - Notifications (with live unread badge)
 //   - Me (own profile, or Sign in when guest)
 //
 // The hamburger menu in the topbar still surfaces secondary items
-// (Research, Q&A, People, My research, Saved, Settings) via the
-// existing Sheet — keeps the bottom bar focused.
+// (Q&A, People, My research, Saved, Settings) via the existing Sheet
+// — keeps the bottom bar focused.
 const TABS = [
   { to: '/', icon: Sparkles, label: 'Home', end: true },
-  { to: '/explore', icon: Compass, label: 'Explore' },
+  { to: '/research', icon: BookOpenText, label: 'Research' },
   { to: '/reels', icon: Clapperboard, label: 'Reels' },
   { to: '/notifications', icon: Bell, label: 'Alerts', badge: 'notifications' },
   { kind: 'me' },

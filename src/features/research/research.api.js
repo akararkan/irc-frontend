@@ -189,9 +189,13 @@ export async function getMyAllResearch({ page = 0, size = 20 } = {}) {
 }
 
 // ── Reactions ──────────────────────────────────────────────────
+//
+// Single LIKE (Instagram heart). Backend accepts an empty body and
+// defaults it to LIKE; repeat /react calls are idempotent.
 
+// eslint-disable-next-line no-unused-vars
 export async function reactToResearch(researchId, reactionType) {
-  await api.post(`/api/v1/researches/${researchId}/react`, { reactionType })
+  await api.post(`/api/v1/researches/${researchId}/react`)
 }
 
 export async function removeResearchReaction(researchId) {
@@ -215,6 +219,61 @@ export async function getResearchComments(researchId, { page = 0, size = 20 } = 
 export async function addResearchComment(researchId, payload) {
   const response = await api.post(`/api/v1/researches/${researchId}/comments`, payload)
   return response.data
+}
+
+export async function addResearchCommentWithMedia(researchId, { data, media, voice }) {
+  const form = new FormData()
+  form.append('data', new Blob([JSON.stringify(data ?? {})], { type: 'application/json' }))
+  if (media) form.append('media', media)
+  if (voice) form.append('voice', voice)
+  const response = await api.post(
+    `/api/v1/researches/${researchId}/comments/upload`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  )
+  return response.data
+}
+
+export async function editResearchComment(researchId, commentId, payload) {
+  const response = await api.patch(
+    `/api/v1/researches/${researchId}/comments/${commentId}`,
+    payload,
+  )
+  return response.data
+}
+
+export async function deleteResearchComment(researchId, commentId) {
+  await api.delete(`/api/v1/researches/${researchId}/comments/${commentId}`)
+}
+
+/**
+ * Single LIKE (Instagram heart). Backend accepts an empty body and
+ * defaults to LIKE; repeat calls are idempotent.
+ */
+// eslint-disable-next-line no-unused-vars
+export async function reactToResearchComment(researchId, commentId, reactionType) {
+  await api.post(
+    `/api/v1/researches/${researchId}/comments/${commentId}/reactions`,
+  )
+}
+
+export async function removeResearchCommentReaction(researchId, commentId) {
+  await api.delete(
+    `/api/v1/researches/${researchId}/comments/${commentId}/reactions`,
+  )
+}
+
+// Back-compat facades — the backend keeps these idempotent endpoints
+// for callers that haven't migrated yet. Treat as `react(LIKE)` and
+// `removeReaction()` so existing call-sites keep working.
+/** @deprecated use `reactToResearchComment(researchId, commentId, 'LIKE')` */
+export function likeResearchComment(researchId, commentId) {
+  return reactToResearchComment(researchId, commentId, 'LIKE')
+}
+
+/** @deprecated use `removeResearchCommentReaction(researchId, commentId)` */
+export function unlikeResearchComment(researchId, commentId) {
+  return removeResearchCommentReaction(researchId, commentId)
 }
 
 // ── Saves / bookmarks ──────────────────────────────────────────

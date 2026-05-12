@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/app/empty-state'
 import { PageHeader } from '@/components/app/page-header'
+import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
 import {
   blockUser,
@@ -21,7 +22,7 @@ import { searchUsers } from '@/features/users/users.api'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { extractApiMessage } from '@/lib/api-error'
-import { formatNumber, getFullName } from '@/lib/format'
+import { formatNumber, getFullName, getHandle, getRawUsername } from '@/lib/format'
 
 function UserRow({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUserId }) {
   const [working, setWorking] = useState(false)
@@ -39,22 +40,31 @@ function UserRow({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUserId
     }
   }
 
+  const route = getRawUsername(user)
+  const handle = getHandle(user)
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 sm:flex-nowrap">
-      <Link to={`/profile/${user.username}`}>
+      <Link to={`/profile/${route}`}>
         <UserAvatar user={user} className="size-11" />
       </Link>
       <div className="min-w-0 flex-1">
-        <Link to={`/profile/${user.username}`} className="block truncate font-medium hover:underline">
-          {getFullName(user)}
-        </Link>
-        <p className="truncate text-xs text-muted-foreground">{user.username}</p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Link
+            to={`/profile/${route}`}
+            className="truncate font-medium hover:underline"
+          >
+            {getFullName(user) || handle}
+          </Link>
+          <RoleBadge role={user.role} size="xs" />
+        </div>
+        {handle ? (
+          <p className="truncate text-xs text-muted-foreground">@{handle}</p>
+        ) : null}
         {user.profileBio ? (
           <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{user.profileBio}</p>
         ) : null}
         <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
           <span>{formatNumber(user.followerCount ?? 0)} followers</span>
-          {user.role ? <span className="uppercase tracking-wide">{user.role}</span> : null}
         </div>
       </div>
 
@@ -143,7 +153,7 @@ function DirectorySearch() {
     try {
       await followUser(person.id)
       setItems((current) => current.map((item) => (item.id === person.id ? { ...item, _isFollowing: true } : item)))
-      toast.success(`Following ${person.username}`)
+      toast.success(`Following ${getFullName(person) || getHandle(person)}`)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not follow.'))
     }
@@ -162,7 +172,7 @@ function DirectorySearch() {
     try {
       await blockUser(person.id)
       setItems((current) => current.map((item) => (item.id === person.id ? { ...item, _isBlocked: true, _isFollowing: false } : item)))
-      toast.success(`Blocked ${person.username}`)
+      toast.success(`Blocked ${getFullName(person) || getHandle(person)}`)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not block.'))
     }
@@ -258,7 +268,7 @@ function BlockedList() {
     try {
       await unblockUser(person.id)
       setItems((current) => current.filter((item) => item.id !== person.id))
-      toast.success(`Unblocked ${person.username}`)
+      toast.success(`Unblocked ${getFullName(person) || getHandle(person)}`)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not unblock.'))
     }

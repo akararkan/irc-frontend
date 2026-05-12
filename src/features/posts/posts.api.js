@@ -106,9 +106,16 @@ export async function deletePost(postId) {
 
 // ── Reactions on posts ─────────────────────────────────────────
 
-/** POST /api/v1/posts/{postId}/react — body { reactionType } */
+/**
+ * POST /api/v1/posts/{postId}/react — Instagram-style heart toggle.
+ *
+ * Backend only accepts LIKE now and treats an empty body as LIKE, so
+ * we send no payload. The signature still accepts a `reactionType`
+ * argument so legacy call sites compile, but the value is ignored.
+ */
+// eslint-disable-next-line no-unused-vars
 export async function reactToPost(postId, reactionType) {
-  const response = await api.post(`/api/v1/posts/${postId}/react`, { reactionType })
+  const response = await api.post(`/api/v1/posts/${postId}/react`)
   return response.data
 }
 
@@ -165,6 +172,59 @@ export async function copyPostShareLink(postId) {
   return response.data
 }
 
+// ── Saves / bookmarks ──────────────────────────────────────────
+//
+// Instagram-style bookmarks. Backend mirrors the ResearchSave model:
+// composite (post_id, user_id) key, optional `collection` name, an
+// idempotent POST/DELETE pair, and a denormalized `saveCount` on the
+// post that broadcasts SAVE_COUNT_UPDATED on the realtime stream.
+//
+// PostResponse.isSaved / .saveCount are hydrated for the requester on
+// GET /posts/{id} — feed lists rely on the batch endpoint instead, so
+// optimistic UI fills the gap until the next page fetch.
+
+/**
+ * POST /api/v1/posts/{postId}/save — idempotent bookmark.
+ * `collection` is optional; backend defaults to "Default".
+ */
+export async function savePost(postId, collection) {
+  await api.post(
+    `/api/v1/posts/${postId}/save`,
+    null,
+    collection ? { params: { collection } } : undefined,
+  )
+}
+
+export async function unsavePost(postId) {
+  await api.delete(`/api/v1/posts/${postId}/save`)
+}
+
+/** GET /api/v1/posts/me/saved — paged PostResponse. */
+export async function getSavedPosts({ page = 0, size = 20 } = {}) {
+  const response = await api.get('/api/v1/posts/me/saved', {
+    params: { page, size },
+  })
+  return response.data
+}
+
+export async function getSavedPostsByCollection(name, { page = 0, size = 20 } = {}) {
+  const response = await api.get('/api/v1/posts/me/saved/collection', {
+    params: { name, page, size },
+  })
+  return response.data
+}
+
+export async function getMyPostCollections() {
+  const response = await api.get('/api/v1/posts/me/saved/collections')
+  return response.data
+}
+
+export async function renamePostCollection(oldName, newName) {
+  await api.patch('/api/v1/posts/me/saved/collections', null, {
+    params: { oldName, newName },
+  })
+}
+
 // ══════════════════════════════════════════════════════════════
 //  COMMENTS  —  /api/v1/posts/{postId}/comments
 // ══════════════════════════════════════════════════════════════
@@ -219,11 +279,11 @@ export async function deletePostComment(postId, commentId) {
   await api.delete(`/api/v1/posts/${postId}/comments/${commentId}`)
 }
 
-/** POST …/react — body { reactionType } */
+/** POST …/react — empty body; backend defaults to LIKE (heart toggle). */
+// eslint-disable-next-line no-unused-vars
 export async function reactToComment(postId, commentId, reactionType) {
   const response = await api.post(
     `/api/v1/posts/${postId}/comments/${commentId}/react`,
-    { reactionType },
   )
   return response.data
 }

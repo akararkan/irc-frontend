@@ -286,15 +286,16 @@ export async function unvoteBestAnswer(questionId, answerId) {
 
 // ── Reactions on answers / reanswers ─────────────────────────
 //
-// Same 8-type palette as post reactions. The backend rejects the
-// call across any block edge (SocialGuard) and skips the notification
+// Single LIKE (Instagram heart). Backend defaults an empty body to
+// LIKE and treats repeat /react calls as idempotent. SocialGuard
+// still rejects across block edges; notifications are still skipped
 // when the recipient has restricted the reactor.
 
-/** POST .../react — body { reactionType } */
+/** POST .../react — empty body; backend defaults to LIKE. */
+// eslint-disable-next-line no-unused-vars
 export async function reactToAnswer(questionId, answerId, reactionType) {
   const response = await api.post(
     `/api/v1/questions/${questionId}/answers/${answerId}/react`,
-    { reactionType },
   )
   return response.data
 }

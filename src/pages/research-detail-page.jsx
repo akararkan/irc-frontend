@@ -6,6 +6,7 @@ import {
   BookmarkCheck,
   Calendar,
   Check,
+  ChevronDown,
   Copy,
   Download,
   ExternalLink,
@@ -31,7 +32,7 @@ import {
   Users,
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { motion, useScroll, useSpring } from 'motion/react'
+import { AnimatePresence, motion, useScroll, useSpring } from 'motion/react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -49,18 +50,14 @@ import { AudioPlayer } from '@/components/app/audio-player'
 import { EditResearchDialog } from '@/components/app/edit-research-dialog'
 import { EmptyState } from '@/components/app/empty-state'
 import { MentionText } from '@/components/app/mention-text'
-import { MentionTextarea } from '@/components/app/mention-textarea'
-import { ReactionPicker } from '@/components/app/reaction-picker'
-import { ReactionSummary } from '@/components/app/reaction-summary'
+import { ResearchComments } from '@/components/app/research-comments'
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
 import {
-  addResearchComment,
   archiveResearch,
   deleteResearch,
   getResearch,
   getResearchBySlug,
-  getResearchComments,
   publishResearch,
   reactToResearch,
   recordResearchCitation,
@@ -81,7 +78,10 @@ import { extractApiMessage } from '@/lib/api-error'
 import {
   formatNumber,
   getFullName,
+  getHandle,
+  getRawUsername,
   resolveMediaUrl,
+  startsWithRtl,
 } from '@/lib/format'
 import { RelativeTime } from '@/components/app/relative-time'
 const VISIBILITY_META = {
@@ -90,12 +90,29 @@ const VISIBILITY_META = {
   PRIVATE: { label: 'Private', icon: Lock, hint: 'Only you' },
 }
 
+// Status palette per IRC Scholar spec — PUBLISHED success, DRAFT
+// warning amber, ARCHIVED muted, RETRACTED danger, SCHEDULED info.
 const STATUS_META = {
-  PUBLISHED: { label: 'Published', tone: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' },
-  DRAFT: { label: 'Draft', tone: 'bg-amber-500/15 text-amber-700 dark:text-amber-400' },
-  ARCHIVED: { label: 'Archived', tone: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-400' },
-  RETRACTED: { label: 'Retracted', tone: 'bg-rose-500/15 text-rose-700 dark:text-rose-400' },
-  SCHEDULED: { label: 'Scheduled', tone: 'bg-sky-500/15 text-sky-700 dark:text-sky-400' },
+  PUBLISHED: {
+    label: 'Published',
+    tone: 'bg-[color-mix(in_oklch,var(--accent-sage)_14%,transparent)] text-accent-sage',
+  },
+  DRAFT: {
+    label: 'Draft',
+    tone: 'bg-[color-mix(in_oklch,var(--accent-amber)_16%,transparent)] text-accent-amber',
+  },
+  ARCHIVED: {
+    label: 'Archived',
+    tone: 'bg-muted text-ink-3',
+  },
+  RETRACTED: {
+    label: 'Retracted',
+    tone: 'bg-[color-mix(in_oklch,var(--accent-rust)_14%,transparent)] text-accent-rust',
+  },
+  SCHEDULED: {
+    label: 'Scheduled',
+    tone: 'bg-[color-mix(in_oklch,var(--accent-sky)_12%,transparent)] text-accent-sky',
+  },
 }
 
 const SOURCE_TYPE_LABEL = {
@@ -200,116 +217,481 @@ function CopyButton({
   )
 }
 
+// ─── Reading tabs — anchor nav for the main column ─────────────────
+function ReadingTabs({ sourcesCount, citationsCount, commentsCount }) {
+  const tabs = [
+    { id: 'research-abstract', label: 'Abstract' },
+    { id: 'research-references', label: 'References', count: sourcesCount },
+    { id: 'research-citations', label: 'Citations', count: citationsCount },
+    { id: 'research-discussion', label: 'Discussion', count: commentsCount },
+  ]
+  const [active, setActive] = useState('research-abstract')
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return undefined
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting)
+        if (visible.length) {
+          const top = visible.reduce((a, b) =>
+            a.boundingClientRect.top < b.boundingClientRect.top ? a : b,
+          )
+          setActive(top.target.id)
+        }
+      },
+      { rootMargin: '-30% 0px -55% 0px', threshold: [0, 0.3] },
+    )
+    tabs.forEach(({ id }) => {
+      const el = document.getElementById(id)
+      if (el) observer.observe(el)
+    })
+    return () => observer.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function jump(id) {
+    const el = document.getElementById(id)
+    if (!el) return
+    setActive(id)
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  return (
+    <div className="sticky top-14 z-10 -mx-2 mb-2 flex items-center gap-5 overflow-x-auto border-b-[0.5px] border-border bg-background/90 px-2 backdrop-blur scrollbar-none">
+      {tabs.map((tab) => {
+        const isActive = active === tab.id
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => jump(tab.id)}
+            className={cn(
+              'relative inline-flex items-baseline gap-2 py-3 text-[13px] font-medium transition-colors',
+              isActive ? 'text-ink' : 'text-ink-3 hover:text-ink',
+            )}
+          >
+            <span>{tab.label}</span>
+            {typeof tab.count === 'number' && tab.count > 0 ? (
+              <span className="font-mono text-[11px] tabular-nums text-ink-4">
+                {formatNumber(tab.count)}
+              </span>
+            ) : null}
+            {isActive ? (
+              <motion.span
+                layoutId="reading-tab-underline"
+                className="absolute inset-x-0 -bottom-px h-[1.5px] rounded-full bg-ink"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            ) : null}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Abstract block — drop-cap on the first paragraph, optional
+// "Show full abstract" toggle when the text overflows the preview. ──
+function AbstractBlock({ text }) {
+  const [expanded, setExpanded] = useState(false)
+  const paragraphs = useMemo(
+    () =>
+      String(text || '')
+        .split(/\n{2,}/)
+        .map((p) => p.trim())
+        .filter(Boolean),
+    [text],
+  )
+  if (!paragraphs.length) return null
+  const long = paragraphs.length > 1
+  const visible = expanded || !long ? paragraphs : paragraphs.slice(0, 1)
+
+  return (
+    <div>
+      <div className="space-y-4 font-serif text-[17.5px] leading-[1.78] text-ink">
+        {visible.map((paragraph, index) => {
+          // Drop caps are a Latin print convention — Arabic letters
+          // connect to one another so isolating the first letter
+          // looks broken, and the 80-px scale jars next to the
+          // Arabic naskh body type. Skip the flourish entirely on
+          // RTL paragraphs and render straight serif body copy
+          // instead.
+          const isRtl = startsWithRtl(paragraph)
+          if (isRtl) {
+            return (
+              <p
+                key={index}
+                dir="auto"
+                className="whitespace-pre-wrap break-words"
+              >
+                <MentionText text={paragraph} />
+              </p>
+            )
+          }
+          const firstChar = paragraph.charAt(0)
+          const rest = paragraph.slice(1)
+          return (
+            <p
+              key={index}
+              dir="auto"
+              className="whitespace-pre-wrap break-words"
+            >
+              <span
+                aria-hidden
+                className="float-left mr-2 mt-1 font-serif text-[64px] font-semibold leading-[0.85] tracking-[-0.04em] text-ink sm:text-[80px]"
+              >
+                {firstChar}
+              </span>
+              <MentionText text={rest} />
+            </p>
+          )
+        })}
+      </div>
+      {long ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-4 inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-border bg-paper px-3.5 py-1.5 text-[12px] font-medium text-ink-2 transition-colors hover:border-ink/30 hover:text-ink"
+        >
+          {expanded ? 'Hide full abstract' : 'Show full abstract'}
+          <ChevronDown
+            className={cn(
+              'size-3.5 transition-transform',
+              expanded && 'rotate-180',
+            )}
+          />
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 // ─── Editorial hero ─────────────────────────────────────────────────
-function EditorialHero({ research, status, visibility, scheduledDate, readingMinutes }) {
+//
+// Single text-first card per spec § Research:
+//   identifier strip → title → authors row → action bar → metric strip
+//
+// The identifier strip is one horizontal row, in mono uppercase, with
+// hairline dividers between segments — Status pill | IRC sequence id |
+// DOI | publication date (right-aligned).
+function EditorialHero({
+  research,
+  status,
+  visibility,
+  scheduledDate,
+  readingMinutes,
+  working,
+  downloadsEnabled,
+  onPickReaction,
+  onClearReaction,
+  onSave,
+  onShare,
+  onCite,
+  onDownload,
+}) {
   const cover = resolveMediaUrl(research.coverImageUrl)
   const VisibilityIcon = visibility.icon
   const statusMeta = STATUS_META[status] ?? null
 
+  const leadAuthor = {
+    id: research.researcherId,
+    username: research.researcherUsername,
+    fullName: research.researcherFullName,
+    profileImage: research.researcherProfileImage,
+    role: research.researcherRole ?? 'RESEARCHER',
+    verified: research.researcherVerified ?? true,
+  }
+  const coAuthors = Array.isArray(research.coAuthors)
+    ? research.coAuthors
+    : []
+
+  const publishedDate = research.publishedAt
+    ? new Date(research.publishedAt)
+    : null
+  const dateLabel = publishedDate
+    ? publishedDate.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : scheduledDate
+      ? `Scheduled · ${scheduledDate.toLocaleDateString()}`
+      : null
+
+  const reactionActive = Boolean(
+    research.currentUserReacted || research.currentUserReactionType,
+  )
+
+  const metrics = [
+    { value: research.viewCount, label: 'Views' },
+    { value: research.downloadCount, label: 'Downloads' },
+    { value: research.citationCount, label: 'Citations' },
+    { value: research.saveCount, label: 'Saves' },
+    { value: research.commentCount, label: 'Comments' },
+  ]
+
   return (
-    <section className="relative isolate overflow-hidden rounded-[28px] border border-border bg-card shadow-[0_24px_60px_-30px_oklch(0_0_0/0.20)]">
-      {/* Top: cover or generative gradient */}
-      <div className="relative aspect-[16/7] w-full overflow-hidden bg-muted">
-        {cover ? (
-          <img
-            src={cover}
-            alt={research.title}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div
-            aria-hidden
-            className="absolute inset-0"
-            style={{
-              backgroundImage: [
-                'radial-gradient(60% 80% at 18% 20%, oklch(0.62 0.12 285 / 0.42), transparent 60%)',
-                'radial-gradient(50% 70% at 82% 30%, oklch(0.72 0.14 75 / 0.38), transparent 60%)',
-                'radial-gradient(60% 80% at 50% 110%, oklch(0.62 0.13 38 / 0.30), transparent 60%)',
-                'linear-gradient(135deg, oklch(0.97 0.005 250), oklch(0.92 0.008 250))',
-              ].join(','),
-            }}
-          />
-        )}
-        {/* Subtle dot texture over cover */}
-        <span
-          aria-hidden
-          className="absolute inset-0 opacity-[0.07] mix-blend-multiply"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at 1px 1px, oklch(0 0 0) 1px, transparent 0)',
-            backgroundSize: '20px 20px',
-          }}
-        />
-        {cover ? (
+    <section className="relative isolate overflow-hidden rounded-2xl border-[0.5px] border-border bg-paper shadow-[0_24px_60px_-32px_oklch(0_0_0/0.18)]">
+      {/* ── Identifier strip ──────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b-[0.5px] border-border bg-secondary/30 px-6 py-3 sm:px-8">
+        {statusMeta ? (
           <span
-            aria-hidden
-            className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-card via-card/60 to-transparent"
-          />
-        ) : null}
-      </div>
-
-      {/* Title block — sits over the hero bottom */}
-      <div className="-mt-20 space-y-5 px-6 pb-7 sm:-mt-24 sm:px-10 sm:pb-9">
-        {/* Pills */}
-        <div className="flex flex-wrap items-center gap-2">
-          {statusMeta ? (
-            <span
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]',
-                statusMeta.tone,
-              )}
-            >
-              <span className="size-1.5 rounded-full bg-current" />
-              {statusMeta.label}
-            </span>
-          ) : null}
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground backdrop-blur">
-            <VisibilityIcon className="size-3" />
-            {visibility.label}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]',
+              statusMeta.tone,
+            )}
+          >
+            <Check className="size-3" strokeWidth={2.4} />
+            {statusMeta.label}
           </span>
-          {research.ircId ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground backdrop-blur">
-              <Hash className="size-3" />
-              {research.ircId}
-            </span>
-          ) : null}
-          {research.publishedAt ? (
-            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Calendar className="size-3" />
-              <RelativeTime entity={research} />
-            </span>
-          ) : scheduledDate ? (
-            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Calendar className="size-3" />
-              Scheduled · {scheduledDate.toLocaleDateString()}
-            </span>
-          ) : null}
-          {readingMinutes ? (
-            <span className="text-[11px] text-muted-foreground">
-              · {readingMinutes} min read
-            </span>
-          ) : null}
-        </div>
+        ) : null}
 
-        {/* Title */}
-        <h1 className="font-serif text-[34px] font-semibold leading-[1.08] tracking-[-0.015em] text-foreground sm:text-[44px]">
-          {research.title}
-        </h1>
+        {research.ircId ? (
+          <span className="font-mono text-[11px] tabular-nums tracking-[0.04em] text-ink-3">
+            {research.ircId}
+          </span>
+        ) : null}
 
-        {/* DOI */}
+        {research.doi ? (
+          <span className="text-ink-4">·</span>
+        ) : null}
         {research.doi ? (
           <a
             href={`https://doi.org/${research.doi}`}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+            className="font-mono text-[11px] text-ink-3 transition-colors hover:text-ink hover:underline"
+            title="Open DOI in a new tab"
           >
-            <Link2 className="size-3.5" />
-            DOI · {research.doi}
+            DOI: {research.doi}
           </a>
         ) : null}
+
+        <span className="inline-flex items-center gap-1.5 text-[11px] text-ink-3">
+          <VisibilityIcon className="size-3" strokeWidth={1.6} />
+          {visibility.label}
+        </span>
+
+        {dateLabel ? (
+          <span className="ml-auto font-mono text-[11px] tabular-nums text-ink-3">
+            {dateLabel}
+          </span>
+        ) : null}
+      </div>
+
+      {/* ── Optional cover (kept for visual interest when present) ── */}
+      {cover ? (
+        <div className="relative aspect-[16/6] w-full overflow-hidden bg-muted">
+          <img
+            src={cover}
+            alt={research.title}
+            className="h-full w-full object-cover"
+          />
+          <span
+            aria-hidden
+            className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-paper to-transparent"
+          />
+        </div>
+      ) : null}
+
+      {/* ── Title + authors + actions ─────────────────────────────── */}
+      <div className="space-y-7 px-6 py-7 sm:px-8 sm:py-8">
+        {/* Title */}
+        <h1
+          dir="auto"
+          className="font-display text-[28px] font-semibold leading-[1.1] tracking-[-0.012em] text-ink sm:text-[36px]"
+        >
+          {research.title}
+        </h1>
+
+        {readingMinutes ? (
+          <p className="-mt-3 text-[12px] text-ink-3">
+            <span className="font-mono">{readingMinutes}</span> min read
+          </p>
+        ) : null}
+
+        {/* Authors row */}
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <AuthorPill author={leadAuthor} label="Lead researcher" verified />
+            {coAuthors.map((coAuthor) => (
+              <AuthorPill
+                key={coAuthor.id ?? coAuthor.username}
+                author={coAuthor}
+                label="Co-author"
+              />
+            ))}
+          </div>
+          {leadAuthor.username ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              asChild
+            >
+              <Link to={`/profile/${leadAuthor.username}`}>
+                <span className="text-[15px] leading-none">+</span>
+                Follow {coAuthors.length ? 'authors' : 'author'}
+              </Link>
+            </Button>
+          ) : null}
+        </div>
+
+        {/* Action bar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {downloadsEnabled && (research.mediaFiles?.length ?? 0) > 0 ? (
+            <Button
+              type="button"
+              onClick={onDownload}
+              className="h-9 gap-1.5 rounded-full bg-brand px-4 text-[12.5px] font-semibold text-brand-foreground hover:bg-brand/90"
+            >
+              <Download className="size-3.5" strokeWidth={2} />
+              Download PDF
+            </Button>
+          ) : null}
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCite}
+            className="h-9 gap-1.5 rounded-full px-4 text-[12.5px]"
+          >
+            <Quote className="size-3.5" strokeWidth={1.8} />
+            Cite
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onSave}
+            className={cn(
+              'h-9 gap-1.5 rounded-full px-4 text-[12.5px]',
+              research.currentUserSaved && 'border-brand/50 text-brand',
+            )}
+          >
+            {research.currentUserSaved ? (
+              <BookmarkCheck className="size-3.5" strokeWidth={1.8} />
+            ) : (
+              <Bookmark className="size-3.5" strokeWidth={1.8} />
+            )}
+            {research.currentUserSaved ? 'Saved' : 'Save'}
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onShare}
+            className="h-9 gap-1.5 rounded-full px-4 text-[12.5px]"
+          >
+            <Share2 className="size-3.5" strokeWidth={1.8} />
+            Share
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              reactionActive ? onClearReaction() : onPickReaction('LIKE')
+            }
+            disabled={working}
+            aria-pressed={reactionActive}
+            aria-label={reactionActive ? 'Unlike' : 'Like'}
+            className={cn(
+              'h-9 gap-1.5 rounded-full px-4 text-[12.5px]',
+              reactionActive &&
+                'border-transparent bg-rose-500/15 text-rose-600',
+            )}
+          >
+            <Heart
+              className={cn('size-4', reactionActive && 'fill-current')}
+              strokeWidth={1.8}
+            />
+            {reactionActive ? 'Liked' : 'Like'}
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="size-9 rounded-full"
+            aria-label="More"
+            title="More"
+          >
+            <MoreHorizontal className="size-4" />
+          </Button>
+        </div>
+
+        {/* Metric strip — every value ticks live via the page-level
+            useResearchStream subscription (VIEW_COUNT_UPDATED,
+            DOWNLOAD_COUNT_UPDATED, CITATION_COUNT_UPDATED, SAVE_COUNT_UPDATED,
+            and COMMENT_CREATED/DELETED). Keying each motion.span on the
+            current value gives us a soft mount/exit so the change is
+            visible rather than silent. */}
+        <div className="-mx-6 mt-6 grid grid-cols-3 gap-px overflow-hidden border-y-[0.5px] border-border bg-border sm:-mx-8 sm:grid-cols-5">
+          {metrics.map(({ value, label }) => (
+            <div
+              key={label}
+              className="flex flex-col items-center justify-center gap-1 bg-paper px-3 py-5 text-center"
+            >
+              <p className="font-display text-[22px] font-semibold leading-none tracking-[-0.012em] tabular-nums text-ink sm:text-[26px]">
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <motion.span
+                    key={value ?? 0}
+                    initial={{ y: 8, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -8, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 460, damping: 30 }}
+                    className="inline-block"
+                  >
+                    {formatNumber(value ?? 0)}
+                  </motion.span>
+                </AnimatePresence>
+              </p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
+                {label}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
+  )
+}
+
+// ─── Author pill — avatar + name + mono role label ─────────────────
+function AuthorPill({ author, label, verified }) {
+  const showVerified = Boolean(verified ?? author.verified)
+  return (
+    <div className="flex items-center gap-3">
+      <Link
+        to={author.username ? `/profile/${getRawUsername(author)}` : '#'}
+        className="shrink-0"
+      >
+        <UserAvatar user={author} className="size-10" />
+      </Link>
+      <div className="min-w-0 leading-tight">
+        <Link
+          to={author.username ? `/profile/${getRawUsername(author)}` : '#'}
+          className="inline-flex items-center gap-1 text-[14px] font-semibold tracking-tight text-ink hover:underline"
+        >
+          <span className="truncate">
+            {getFullName(author) || getHandle(author) || 'Unknown'}
+          </span>
+          {showVerified ? (
+            <Check
+              className="size-3.5 text-brand"
+              strokeWidth={2.4}
+              aria-label="Verified"
+            />
+          ) : null}
+        </Link>
+        <p className="mt-0.5 font-mono text-[9.5px] uppercase tracking-[0.14em] text-ink-3">
+          {label}
+          {showVerified ? ' · VERIFIED' : ''}
+        </p>
+      </div>
+    </div>
   )
 }
 
@@ -325,43 +707,48 @@ function StickyTitleBar({ visible, research, onReact, onSave, onShare, working }
       initial={false}
       animate={{ y: visible ? 0 : -64, opacity: visible ? 1 : 0 }}
       transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-      className="pointer-events-auto fixed inset-x-0 top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur"
+      className="pointer-events-auto fixed inset-x-0 top-0 z-40 hidden border-b border-border/60 bg-background/85 backdrop-blur lg:block"
     >
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2 sm:px-6">
         <UserAvatar user={author} className="size-7" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold tracking-tight">
+          <p
+            dir="auto"
+            className="truncate text-sm font-semibold tracking-tight"
+          >
             {research.title}
           </p>
           <p className="truncate text-[11px] text-muted-foreground">
-            {research.researcherFullName ?? author.username}
+            {research.researcherFullName ?? getHandle(author)}
           </p>
         </div>
         <div className="hidden items-center gap-1 sm:flex">
-          <ReactionPicker
-            current={research.currentUserReactionType}
-            onSelect={onReact}
-            onClear={() => onReact(null)}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              research.currentUserReactionType ? onReact(null) : onReact('LIKE')
+            }
             disabled={working}
-            reactionSet="research"
-            trigger={({ toggleDefault, current }) => (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={toggleDefault}
-                className={cn(
-                  'h-7 rounded-full gap-1 transition-all duration-200 active:scale-95',
-                  current && cn(current.color, current.bg, current.ring),
-                )}
-              >
-                <span className="text-[14px] leading-none">
-                  {current?.emoji ?? '👍'}
-                </span>
-                <span>{current?.label ?? 'React'}</span>
-              </Button>
+            aria-pressed={Boolean(research.currentUserReactionType)}
+            className={cn(
+              'h-7 rounded-full gap-1 transition-all duration-200 active:scale-95',
+              research.currentUserReactionType &&
+                'bg-rose-500/15 text-rose-600 ring-1 ring-rose-500/30',
             )}
-          />
+          >
+            <Heart
+              className={cn(
+                'size-3.5',
+                research.currentUserReactionType && 'fill-current',
+              )}
+              strokeWidth={1.8}
+            />
+            <span>
+              {research.currentUserReactionType ? 'Liked' : 'Like'}
+            </span>
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -408,7 +795,7 @@ function AuthorCard({ research }) {
     <Card className="overflow-hidden rounded-2xl border border-border bg-card">
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center gap-3">
-          <Link to={`/profile/${author.username ?? ''}`} className="shrink-0">
+          <Link to={`/profile/${getRawUsername(author)}`} className="shrink-0">
             <UserAvatar
               user={author}
               className="size-12 ring-2 ring-background shadow-sm"
@@ -416,14 +803,16 @@ function AuthorCard({ research }) {
           </Link>
           <div className="min-w-0">
             <Link
-              to={`/profile/${author.username ?? ''}`}
+              to={`/profile/${getRawUsername(author)}`}
               className="block truncate text-sm font-semibold hover:underline"
             >
-              {getFullName(author) || author.username}
+              {getFullName(author) || getHandle(author)}
             </Link>
-            <p className="truncate text-xs text-muted-foreground">
-              {author.username}
-            </p>
+            {getHandle(author) ? (
+              <p className="truncate text-xs text-muted-foreground">
+                @{getHandle(author)}
+              </p>
+            ) : null}
           </div>
           <RoleBadge role="RESEARCHER" size="xs" className="ml-auto shrink-0" />
         </div>
@@ -433,7 +822,7 @@ function AuthorCard({ research }) {
           size="sm"
           className="h-8 w-full justify-center rounded-full"
         >
-          <Link to={`/profile/${author.username ?? ''}`}>View profile</Link>
+          <Link to={`/profile/${getRawUsername(author)}`}>View profile</Link>
         </Button>
       </CardContent>
     </Card>
@@ -487,32 +876,34 @@ function ActionRail({
   return (
     <Card className="overflow-hidden rounded-2xl border border-border bg-card">
       <CardContent className="space-y-2 p-3">
-        <ReactionPicker
-          current={research.currentUserReactionType}
-          onSelect={onPick}
-          onClear={onClear}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            research.currentUserReactionType ? onClear() : onPick('LIKE')
+          }
           disabled={working}
-          reactionSet="research"
-          trigger={({ toggleDefault, current }) => (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={toggleDefault}
-              className={cn(
-                'h-10 w-full justify-start gap-2 rounded-xl transition-all duration-200 active:scale-[0.98]',
-                current && cn(current.color, current.bg, current.ring),
-              )}
-            >
-              <span className="text-[16px] leading-none">
-                {current?.emoji ?? '👍'}
-              </span>
-              <span className="font-medium">{current?.label ?? 'React'}</span>
-              <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
-                {formatNumber(research.reactionCount ?? 0)}
-              </span>
-            </Button>
+          aria-pressed={Boolean(research.currentUserReactionType)}
+          className={cn(
+            'h-10 w-full justify-start gap-2 rounded-xl transition-all duration-200 active:scale-[0.98]',
+            research.currentUserReactionType &&
+              'bg-rose-500/15 text-rose-600 ring-1 ring-rose-500/30',
           )}
-        />
+        >
+          <Heart
+            className={cn(
+              'size-4',
+              research.currentUserReactionType && 'fill-current',
+            )}
+            strokeWidth={1.8}
+          />
+          <span className="font-medium">
+            {research.currentUserReactionType ? 'Liked' : 'Like'}
+          </span>
+          <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
+            {formatNumber(research.reactionCount ?? 0)}
+          </span>
+        </Button>
         <Button
           type="button"
           variant="outline"
@@ -627,7 +1018,10 @@ function KeywordCard({ keywords, tags }) {
 function CitationCard({ research }) {
   if (!research.citation && !research.shareUrl) return null
   return (
-    <Card className="overflow-hidden rounded-2xl border border-border bg-card">
+    <Card
+      id="research-citations"
+      className="overflow-hidden rounded-2xl border border-border bg-card scroll-mt-24"
+    >
       <CardContent className="space-y-4 p-4">
         {research.citation ? (
           <div className="space-y-2">
@@ -862,68 +1256,36 @@ function SectionHeading({ icon: Icon, title, count }) {
   )
 }
 
-// ─── Comment item ───────────────────────────────────────────────────
-function ResearchComment({ comment }) {
-  const author = {
-    username: comment.userUsername,
-    profileImage: comment.userProfileImage,
-    fullName: comment.userFullName,
-  }
-  return (
-    <div className="flex items-start gap-3">
-      <Link to={`/profile/${author.username ?? ''}`}>
-        <UserAvatar user={author} className="size-9" />
-      </Link>
-      <div className="min-w-0 flex-1">
-        <div className="rounded-2xl rounded-tl-md bg-muted px-3.5 py-2.5">
-          <Link
-            to={`/profile/${author.username ?? ''}`}
-            className="block truncate text-sm font-semibold hover:underline"
-          >
-            {comment.userFullName ?? author.username}
-          </Link>
-          <p className="mt-0.5 whitespace-pre-wrap text-[14px] leading-[1.45]">
-            <MentionText text={comment.content} />
-          </p>
-        </div>
-        <p className="mt-1 pl-3 text-[11px] text-muted-foreground">
-          <RelativeTime entity={comment} />
-          {comment.isEdited ? ' · (edited)' : ''}
-        </p>
-      </div>
-    </div>
-  )
-}
-
 // ─── Mobile sticky action bar ───────────────────────────────────────
-function MobileStickyActions({ research, working, onPick, onSave, onShare }) {
+function MobileStickyActions({ research, working, onPick, onClear, onSave, onShare }) {
+  const liked = Boolean(research.currentUserReactionType)
   return (
-    <div className="fixed inset-x-0 bottom-3 z-30 mx-3 flex items-center gap-1 rounded-full border border-border bg-background/95 p-1 shadow-[0_18px_40px_-20px_oklch(0_0_0/0.25)] backdrop-blur lg:hidden">
-      <ReactionPicker
-        current={research.currentUserReactionType}
-        onSelect={onPick}
+    <div
+      className="fixed inset-x-0 z-30 mx-3 flex items-center gap-1 rounded-full border border-border bg-background/95 p-1 shadow-[0_18px_40px_-20px_oklch(0_0_0/0.25)] backdrop-blur lg:hidden"
+      style={{
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.5rem)',
+      }}
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => (liked ? onClear() : onPick('LIKE'))}
         disabled={working}
-        reactionSet="research"
-        trigger={({ toggleDefault, current }) => (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={toggleDefault}
-            className={cn(
-              'h-9 flex-1 gap-1.5 rounded-full transition-all duration-200 active:scale-95',
-              current
-                ? cn(current.color, current.bg, 'ring-1', current.ring)
-                : 'text-muted-foreground',
-            )}
-          >
-            <span className="text-[16px] leading-none">
-              {current?.emoji ?? '👍'}
-            </span>
-            <span className="font-medium">{current?.label ?? 'React'}</span>
-          </Button>
+        aria-pressed={liked}
+        className={cn(
+          'h-9 flex-1 gap-1.5 rounded-full transition-all duration-200 active:scale-95',
+          liked
+            ? 'bg-rose-500/15 text-rose-600 ring-1 ring-rose-500/30'
+            : 'text-muted-foreground',
         )}
-      />
+      >
+        <Heart
+          className={cn('size-4', liked && 'fill-current')}
+          strokeWidth={1.8}
+        />
+        <span className="font-medium">{liked ? 'Liked' : 'Like'}</span>
+      </Button>
       <Button
         type="button"
         variant="ghost"
@@ -964,14 +1326,11 @@ export function ResearchDetailPage() {
 
   const articleRef = useRef(null)
   const heroRef = useRef(null)
+  const commentsRef = useRef(null)
   const [showStickyBar, setShowStickyBar] = useState(false)
 
   const [research, setResearch] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [comments, setComments] = useState([])
-  const [commentsLoading, setCommentsLoading] = useState(true)
-  const [commentText, setCommentText] = useState('')
-  const [submittingComment, setSubmittingComment] = useState(false)
   const [working, setWorking] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [lifecycleWorking, setLifecycleWorking] = useState(false)
@@ -1021,27 +1380,6 @@ export function ResearchDetailPage() {
     }
   }, [idOrSlug, toast])
 
-  // Load comments
-  useEffect(() => {
-    if (!research?.id) return undefined
-    let cancelled = false
-    async function loadComments() {
-      setCommentsLoading(true)
-      try {
-        const data = await getResearchComments(research.id, { page: 0, size: 30 })
-        if (!cancelled) setComments(data?.content ?? [])
-      } catch {
-        if (!cancelled) setComments([])
-      } finally {
-        if (!cancelled) setCommentsLoading(false)
-      }
-    }
-    loadComments()
-    return () => {
-      cancelled = true
-    }
-  }, [research?.id])
-
   // ── Realtime ─────────────────────────────────────────────────
   // Subscribe to /api/v1/researches/{id}/stream so every counter and
   // every comment / reply / deletion lands live without a refetch.
@@ -1074,21 +1412,6 @@ export function ResearchDetailPage() {
             ? {
                 ...current,
                 reactionCount: payload.reactionCount ?? current.reactionCount,
-                topReactionTypes:
-                  payload.topReactionTypes ?? current.topReactionTypes,
-              }
-            : current,
-        )
-      },
-      REACTION_CHANGED: (payload) => {
-        if (!payload) return
-        setResearch((current) =>
-          current
-            ? {
-                ...current,
-                reactionCount: payload.reactionCount ?? current.reactionCount,
-                topReactionTypes:
-                  payload.topReactionTypes ?? current.topReactionTypes,
               }
             : current,
         )
@@ -1100,15 +1423,12 @@ export function ResearchDetailPage() {
             ? {
                 ...current,
                 reactionCount: payload.reactionCount ?? current.reactionCount,
-                topReactionTypes:
-                  payload.topReactionTypes ?? current.topReactionTypes,
               }
             : current,
         )
       },
       COMMENT_CREATED: (payload) => {
         if (!payload) return
-        const comment = payload.comment ?? payload
         setResearch((current) =>
           current
             ? {
@@ -1118,18 +1438,10 @@ export function ResearchDetailPage() {
               }
             : current,
         )
-        if (!comment?.id) return
-        setComments((list) =>
-          list.some((item) => item.id === comment.id)
-            ? list.map((item) =>
-                item.id === comment.id ? { ...item, ...comment } : item,
-              )
-            : [comment, ...list],
-        )
+        commentsRef.current?.applyRealtimeEvent('COMMENT_CREATED', payload)
       },
       COMMENT_DELETED: (payload) => {
         if (!payload) return
-        const id = payload.commentId ?? payload.id
         setResearch((current) =>
           current
             ? {
@@ -1140,43 +1452,23 @@ export function ResearchDetailPage() {
               }
             : current,
         )
-        if (!id) return
-        setComments((list) => list.filter((item) => item.id !== id))
+        commentsRef.current?.applyRealtimeEvent('COMMENT_DELETED', payload)
       },
       REPLY_CREATED: (payload) => {
         if (!payload) return
-        const parentId = payload.parentCommentId ?? payload.parentId
-        const reply = payload.reply ?? payload.comment
-        // Bump the parent's replyCount; render falls through to the
-        // existing comment thread which lazy-loads replies on expand.
-        if (parentId) {
-          setComments((list) =>
-            list.map((item) =>
-              item.id === parentId
-                ? {
-                    ...item,
-                    replyCount:
-                      payload.commentReplyCount ??
-                      payload.parentReplyCount ??
-                      (item.replyCount ?? 0) + 1,
-                  }
-                : item,
-            ),
-          )
-        }
-        // The thread itself stays as-is — viewers expanding the parent
-        // will see the new reply on their next replies-page fetch.
-        if (reply?.id && parentId) {
-          setComments((list) =>
-            list.map((item) => {
-              if (item.id !== parentId) return item
-              const existing = Array.isArray(item.replies) ? item.replies : null
-              if (!existing) return item
-              if (existing.some((r) => r.id === reply.id)) return item
-              return { ...item, replies: [...existing, reply] }
-            }),
-          )
-        }
+        commentsRef.current?.applyRealtimeEvent('REPLY_CREATED', payload)
+      },
+      COMMENT_EDITED: (payload) => {
+        if (!payload) return
+        commentsRef.current?.applyRealtimeEvent('COMMENT_EDITED', payload)
+      },
+      COMMENT_REACTION_ADDED: (payload) => {
+        if (!payload) return
+        commentsRef.current?.applyRealtimeEvent('COMMENT_REACTION_ADDED', payload)
+      },
+      COMMENT_REACTION_REMOVED: (payload) => {
+        if (!payload) return
+        commentsRef.current?.applyRealtimeEvent('COMMENT_REACTION_REMOVED', payload)
       },
       VIEW_COUNT_UPDATED: (payload) => {
         if (payload?.viewCount == null) return
@@ -1383,26 +1675,6 @@ export function ResearchDetailPage() {
     }
   }
 
-  async function handleSubmitComment(event) {
-    event.preventDefault()
-    const value = commentText.trim()
-    if (!value || submittingComment) return
-    setSubmittingComment(true)
-    try {
-      const created = await addResearchComment(research.id, { content: value })
-      setComments((current) => [created, ...current])
-      setCommentText('')
-      setResearch((current) => ({
-        ...current,
-        commentCount: (current?.commentCount ?? 0) + 1,
-      }))
-    } catch (error) {
-      toast.error(extractApiMessage(error, 'Could not post comment.'))
-    } finally {
-      setSubmittingComment(false)
-    }
-  }
-
   const keywords = useMemo(
     () => parseKeywords(research?.keywords),
     [research?.keywords],
@@ -1468,8 +1740,15 @@ export function ResearchDetailPage() {
   const downloadsEnabled = research.downloadsEnabled !== false
 
   const description = research.description ?? ''
-  const dropCap = description.trim().charAt(0)
-  const descriptionRest = description.trim().slice(1)
+  // Drop cap is Latin-only. Arabic / Kurdish letters connect to one
+  // another, so isolating the first character renders it in its
+  // standalone form — visually broken and out of place against
+  // naskh body type. Skip the flourish when the article opens in RTL.
+  const descriptionIsRtl = startsWithRtl(description)
+  const dropCap = descriptionIsRtl ? '' : description.trim().charAt(0)
+  const descriptionRest = descriptionIsRtl
+    ? description.trim()
+    : description.trim().slice(1)
 
   return (
     <article ref={articleRef} className="relative space-y-8 pb-20 lg:pb-12">
@@ -1580,6 +1859,14 @@ export function ResearchDetailPage() {
           visibility={visibility}
           scheduledDate={scheduledDate}
           readingMinutes={readingMinutes}
+          working={working}
+          downloadsEnabled={downloadsEnabled}
+          onPickReaction={handlePickReaction}
+          onClearReaction={handleClearReaction}
+          onSave={handleToggleSave}
+          onShare={handleShare}
+          onCite={handleRecordCitation}
+          onDownload={handleDownload}
         />
       </div>
 
@@ -1587,15 +1874,30 @@ export function ResearchDetailPage() {
       <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
         {/* Main column */}
         <main className="space-y-10 lg:col-span-8">
+          {/* Reading tabs — smooth-anchor jump between primary
+              sections. Active section follows scroll. */}
+          <ReadingTabs
+            sourcesCount={sources.length}
+            citationsCount={research.citationCount ?? 0}
+            commentsCount={research.commentCount ?? 0}
+          />
+
           {/* Abstract */}
           {research.abstractText ? (
-            <section className="space-y-3">
-              <SectionHeading icon={FileText} title="Abstract" />
-              <div className="rounded-2xl border border-border bg-muted/30 p-5">
-                <p className="whitespace-pre-wrap font-serif text-[15px] leading-[1.7] text-foreground">
-                  <MentionText text={research.abstractText} />
-                </p>
-              </div>
+            <section id="research-abstract" className="space-y-4 scroll-mt-24">
+              <AbstractBlock text={research.abstractText} />
+              {Array.isArray(research.tags) && research.tags.length ? (
+                <div className="flex flex-wrap gap-1.5 pt-2">
+                  {research.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-muted px-2.5 py-1 font-mono text-[11px] text-ink-2"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </section>
           ) : null}
 
@@ -1603,9 +1905,15 @@ export function ResearchDetailPage() {
           {description ? (
             <section className="space-y-3">
               <SectionHeading icon={Quote} title="Article" />
-              <div className="font-serif text-[18px] leading-[1.78] text-foreground">
+              <div
+                dir="auto"
+                className="font-serif text-[18px] leading-[1.78] text-foreground"
+              >
                 {dropCap ? (
-                  <span className="float-left mr-3 mt-1 font-serif text-[64px] font-semibold leading-none tracking-[-0.04em] text-foreground sm:text-[80px]">
+                  <span
+                    aria-hidden
+                    className="float-left mr-3 mt-1 font-serif text-[64px] font-semibold leading-none tracking-[-0.04em] text-foreground sm:text-[80px]"
+                  >
                     {dropCap}
                   </span>
                 ) : null}
@@ -1654,7 +1962,10 @@ export function ResearchDetailPage() {
 
           {/* Sources */}
           {sources.length ? (
-            <section className="space-y-3">
+            <section
+              id="research-references"
+              className="space-y-3 scroll-mt-24"
+            >
               <SectionHeading
                 icon={Link2}
                 title="Sources & references"
@@ -1668,104 +1979,43 @@ export function ResearchDetailPage() {
             </section>
           ) : null}
 
-          {/* Comments */}
-          <section className="space-y-3">
+          {/* Discussion — rich threaded comments (1-level nest), live
+              via the existing useResearchStream SSE wiring. */}
+          <section
+            id="research-discussion"
+            className="space-y-4 scroll-mt-24"
+          >
             <SectionHeading
               icon={MessageCircle}
-              title="Comments"
-              count={formatNumber(research.commentCount ?? comments.length ?? 0)}
+              title="Discussion"
+              count={formatNumber(research.commentCount ?? 0)}
             />
 
             {!commentsEnabled ? (
               <p className="rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
                 Comments are disabled for this research.
               </p>
-            ) : isAuthenticated ? (
-              <form
-                onSubmit={handleSubmitComment}
-                className="flex items-end gap-2 rounded-2xl border border-border bg-card px-2 py-2"
-              >
-                <MentionTextarea
-                  value={commentText}
-                  onChange={setCommentText}
-                  placeholder="Share your thoughts on this research…"
-                  rows={2}
-                  wrapperClassName="flex-1"
-                  className="min-h-9 resize-none rounded-xl border-0 bg-transparent px-3 py-2 text-sm shadow-none focus-visible:ring-0"
-                />
-                <Button
-                  type="submit"
-                  size="icon-sm"
-                  className="size-9 rounded-full"
-                  disabled={submittingComment || !commentText.trim()}
-                >
-                  {submittingComment ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <Send className="size-3.5" />
-                  )}
-                </Button>
-              </form>
             ) : (
-              <p className="rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                <Link
-                  to="/login"
-                  className="font-medium text-primary hover:underline"
-                >
-                  Sign in
-                </Link>{' '}
-                to leave a comment.
-              </p>
+              <ResearchComments
+                ref={commentsRef}
+                researchId={research.id}
+                researcherId={research.researcherId}
+                initialCount={research.commentCount ?? 0}
+                onCountChange={(next) =>
+                  setResearch((current) =>
+                    current ? { ...current, commentCount: next } : current,
+                  )
+                }
+              />
             )}
-
-            {commentsLoading ? (
-              <div className="flex justify-center py-3 text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-              </div>
-            ) : comments.length === 0 ? (
-              <p className="py-2 text-center text-sm text-muted-foreground">
-                No comments yet. Be the first to share your thoughts.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {comments.map((comment) => (
-                  <ResearchComment key={comment.id} comment={comment} />
-                ))}
-              </div>
-            )}
-
-            {(research.reactionCount ?? 0) > 0 ? (
-              <div className="pt-2">
-                <ReactionSummary
-                  reactionSet="research"
-                  totalCount={research.reactionCount ?? 0}
-                  topTypes={
-                    research.currentUserReactionType
-                      ? [research.currentUserReactionType]
-                      : ['LIKE']
-                  }
-                />
-              </div>
-            ) : null}
           </section>
         </main>
 
-        {/* Right rail */}
+        {/* Right rail — keywords + citation card. Action bar / stats /
+            author have moved into the hero, so the rail stays quiet
+            and contextual. */}
         <aside className="lg:col-span-4">
           <div className="space-y-4 lg:sticky lg:top-20">
-            <ActionRail
-              research={research}
-              working={working}
-              downloadsEnabled={downloadsEnabled}
-              onPick={handlePickReaction}
-              onClear={handleClearReaction}
-              onSave={handleToggleSave}
-              onShare={handleShare}
-              onCite={handleRecordCitation}
-              onDownload={handleDownload}
-            />
-            <AuthorCard research={research} />
-            <StatsRail research={research} />
             <KeywordCard keywords={keywords} tags={research.tags} />
             <CitationCard research={research} />
           </div>
@@ -1777,6 +2027,7 @@ export function ResearchDetailPage() {
         research={research}
         working={working}
         onPick={handlePickReaction}
+        onClear={handleClearReaction}
         onSave={handleToggleSave}
         onShare={handleShare}
       />
@@ -1796,6 +2047,9 @@ export function ResearchDetailPage() {
 }
 
 // ─── Video promo (kept inline, polished) ────────────────────────────
+//
+// Big black 16:9 surface. Centered white play button, single label
+// "📹 Video abstract · {duration}" in the bottom-left in mono.
 function VideoPromo({ url, thumbnail, duration }) {
   const [playing, setPlaying] = useState(false)
   if (!url) return null
@@ -1803,7 +2057,7 @@ function VideoPromo({ url, thumbnail, duration }) {
   const videoUrl = resolveMediaUrl(url)
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-black">
+    <div className="relative overflow-hidden rounded-2xl border-[0.5px] border-border bg-black">
       {playing ? (
         <video
           src={videoUrl}
@@ -1823,24 +2077,26 @@ function VideoPromo({ url, thumbnail, duration }) {
             <img
               src={thumbUrl}
               alt="Video promo"
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover/promo:scale-105"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover/promo:scale-[1.04]"
             />
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-zinc-950" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1a1714] to-[#0c0a08]" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/15" />
           <span className="absolute inset-0 grid place-items-center">
-            <span className="grid size-16 place-items-center rounded-full bg-white/95 text-black shadow-2xl backdrop-blur transition-transform group-hover/promo:scale-110">
-              <Play className="size-7 translate-x-[2px] fill-black" />
-            </span>
+            <motion.span
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 22 }}
+              className="grid size-[88px] place-items-center rounded-full bg-white text-black shadow-[0_18px_48px_-10px_rgba(0,0,0,0.55)]"
+            >
+              <Play className="size-8 translate-x-[3px] fill-black" />
+            </motion.span>
           </span>
-          {duration ? (
-            <span className="absolute bottom-3 right-3 rounded-full bg-black/75 px-2 py-0.5 text-xs font-medium text-white backdrop-blur">
-              {formatDuration(duration)}
-            </span>
-          ) : null}
-          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black">
-            Promo
+          <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 font-mono text-[11px] font-medium tabular-nums text-white backdrop-blur">
+            <Play className="size-3 fill-white" strokeWidth={1.5} />
+            Video abstract
+            {duration ? ` · ${formatDuration(duration)}` : null}
           </span>
         </button>
       )}

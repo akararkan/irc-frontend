@@ -1,5 +1,16 @@
 import { Popover as PopoverPrimitive } from 'radix-ui'
-import { Check, ChevronDown, Moon, Palette, RotateCcw, Sun, Type } from 'lucide-react'
+import {
+  ALargeSmall,
+  Check,
+  ChevronDown,
+  Moon,
+  Palette,
+  RotateCcw,
+  Rows3,
+  Sun,
+  Type,
+  Wind,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -10,7 +21,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   ACCENT_OPTIONS,
+  DENSITY_OPTIONS,
   FONT_OPTIONS,
+  FONT_SCALE_OPTIONS,
   useTweaks,
 } from '@/features/tweaks/tweaks-context'
 import { cn } from '@/lib/utils'
@@ -34,7 +47,7 @@ function PopoverContent({ className, align = 'end', sideOffset = 8, children, ..
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          'z-50 w-[300px] origin-[var(--radix-popover-content-transform-origin)] rounded-2xl border border-border bg-paper p-4 shadow-soft-lg outline-none',
+          'z-50 max-h-[calc(100dvh-5rem)] w-[320px] origin-[var(--radix-popover-content-transform-origin)] overflow-y-auto rounded-2xl border border-border bg-paper p-4 shadow-soft-lg outline-none',
           'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
           className,
@@ -212,9 +225,130 @@ function FontSelect({ value, onChange }) {
   )
 }
 
+// Four-step font-size selector. Each step renders its own preview
+// "Aa" at the actual scale factor so the user reads the choice
+// before applying it. Layout mirrors the theme toggle so the menu
+// reads as one consistent control system.
+function FontScaleSelect({ value, onChange }) {
+  return (
+    <div className="grid grid-cols-4 gap-1 rounded-xl border border-border bg-muted/50 p-1">
+      {FONT_SCALE_OPTIONS.map((opt) => {
+        const active = opt.value === value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            title={`${opt.label} — ${opt.hint}`}
+            className={cn(
+              'group/scale relative inline-flex flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-2 text-[11.5px] font-semibold transition-colors',
+              active
+                ? 'border border-brand/25 bg-paper text-brand shadow-soft'
+                : 'text-ink-3 hover:text-ink',
+            )}
+            aria-pressed={active}
+            aria-label={opt.label}
+          >
+            <span
+              aria-hidden
+              className="font-display font-semibold leading-none text-ink"
+              style={{ fontSize: `${opt.factor * 18}px` }}
+            >
+              {opt.sample}
+            </span>
+            <span className="text-[10.5px]">{opt.label.split(' ')[0]}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function DensityToggle({ value, onChange }) {
+  return (
+    <div className="grid grid-cols-2 gap-1 rounded-xl border border-border bg-muted/50 p-1">
+      {DENSITY_OPTIONS.map((opt) => {
+        const active = opt.value === value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              'inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
+              active
+                ? 'border border-brand/25 bg-paper text-brand shadow-soft'
+                : 'text-ink-3 hover:text-ink',
+            )}
+            title={opt.hint}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// iOS-style switch row. Used for boolean tweaks (reduced motion).
+function SwitchRow({ label, hint, checked, onChange, icon: Icon }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-xl border border-border bg-paper px-3 py-2.5 text-left',
+        'transition-colors hover:border-brand/40',
+      )}
+      aria-pressed={checked}
+    >
+      {Icon ? (
+        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-muted text-ink-2">
+          <Icon className="size-[15px]" strokeWidth={1.7} />
+        </span>
+      ) : null}
+      <div className="min-w-0 flex-1 leading-tight">
+        <p className="truncate text-[13px] font-semibold text-ink">{label}</p>
+        {hint ? (
+          <p className="truncate text-[11.5px] text-ink-3">{hint}</p>
+        ) : null}
+      </div>
+      <span
+        aria-hidden
+        className={cn(
+          'relative inline-flex h-[22px] w-[36px] shrink-0 items-center rounded-full border transition-colors',
+          checked
+            ? 'border-brand/40 bg-brand'
+            : 'border-border bg-muted',
+        )}
+      >
+        <span
+          className={cn(
+            'pointer-events-none absolute left-[2px] top-[2px] grid size-[16px] place-items-center rounded-full bg-paper shadow-soft transition-transform',
+            checked && 'translate-x-[14px]',
+          )}
+        />
+      </span>
+    </button>
+  )
+}
+
 export function TweaksMenu({ trigger }) {
-  const { theme, accent, displayFont, setTheme, setAccent, setDisplayFont, reset } =
-    useTweaks()
+  const {
+    theme,
+    accent,
+    displayFont,
+    fontScale,
+    density,
+    reducedMotion,
+    setTheme,
+    setAccent,
+    setDisplayFont,
+    setFontScale,
+    setDensity,
+    setReducedMotion,
+    reset,
+  } = useTweaks()
 
   return (
     <Popover>
@@ -248,13 +382,34 @@ export function TweaksMenu({ trigger }) {
           </div>
 
           <div>
-            <SectionLabel icon={Palette}>Accent</SectionLabel>
-            <AccentSelect value={accent} onChange={setAccent} />
+            <SectionLabel icon={ALargeSmall}>Font size</SectionLabel>
+            <FontScaleSelect value={fontScale} onChange={setFontScale} />
           </div>
 
           <div>
             <SectionLabel icon={Type}>Display font</SectionLabel>
             <FontSelect value={displayFont} onChange={setDisplayFont} />
+          </div>
+
+          <div>
+            <SectionLabel icon={Palette}>Accent</SectionLabel>
+            <AccentSelect value={accent} onChange={setAccent} />
+          </div>
+
+          <div>
+            <SectionLabel icon={Rows3}>Density</SectionLabel>
+            <DensityToggle value={density} onChange={setDensity} />
+          </div>
+
+          <div>
+            <SectionLabel icon={Wind}>Motion</SectionLabel>
+            <SwitchRow
+              icon={Wind}
+              label="Reduce motion"
+              hint="Calm down transitions and animations"
+              checked={reducedMotion}
+              onChange={setReducedMotion}
+            />
           </div>
 
           {/* Live sample */}

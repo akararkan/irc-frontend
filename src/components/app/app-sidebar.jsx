@@ -3,7 +3,6 @@ import {
   BookMarked,
   BookOpenText,
   Clapperboard,
-  Compass,
   LogOut,
   MessageCircleQuestion,
   Settings,
@@ -14,7 +13,6 @@ import {
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
-import { BrandMark, BrandWordmark } from '@/components/app/brand-mark'
 import { ResearchComposerButton } from '@/components/app/research-composer'
 import { RoleBadge } from '@/components/app/role-badge'
 import { canPublishResearch } from '@/lib/roles'
@@ -24,23 +22,25 @@ import { useNotifications } from '@/features/notifications/notifications-context
 import { cn } from '@/lib/utils'
 import { getFullName, getHandle } from '@/lib/format'
 
-// ─── Navigation groups (Linear/Vercel-style sections) ─────────────
+// IRC Scholar spec §02 — App shell. Sidebar organises by *type of thinking*:
+// Home (the unified Posts + Research + Q&A feed), then Research, Questions,
+// Reels, then a Social cluster.
 const PRIMARY_ITEMS = [
-  { to: '/', icon: Sparkles, label: 'Community', end: true },
-  { to: '/explore', icon: Compass, label: 'Explore' },
+  { to: '/', icon: Sparkles, label: 'Home', end: true },
   { to: '/research', icon: BookOpenText, label: 'Research' },
-  { to: '/questions', icon: MessageCircleQuestion, label: 'Q & A' },
+  { to: '/questions', icon: MessageCircleQuestion, label: 'Questions' },
   { to: '/reels', icon: Clapperboard, label: 'Reels' },
 ]
 
 const SOCIAL_ITEMS = [
-  { to: '/people', icon: Users, label: 'People' },
   { to: '/notifications', icon: Bell, label: 'Notifications', badge: 'notifications' },
+  { to: '/saved', icon: BookMarked, label: 'Saved' },
+  { to: '/people', icon: Users, label: 'People' },
 ]
 
 function SectionLabel({ children }) {
   return (
-    <p className="px-3 pb-1.5 pt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-4">
+    <p className="px-3 pb-1.5 pt-4 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-4">
       {children}
     </p>
   )
@@ -58,35 +58,20 @@ function NavItem({ item, onNavigate }) {
       onClick={onNavigate}
       className={({ isActive }) =>
         cn(
-          'group relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5',
-          'text-[13.5px] transition-colors',
+          'group/nav relative flex items-center gap-[11px] rounded-md px-3 py-2 text-[13px] transition-colors',
           isActive
-            ? 'bg-brand/10 font-semibold text-brand'
-            : 'text-ink-2 hover:bg-brand/[0.07] hover:text-ink',
+            ? 'bg-secondary font-medium text-ink'
+            : 'text-ink-3 hover:bg-secondary hover:text-ink',
         )
       }
     >
-      {({ isActive }) => (
-        <>
-          <span
-            aria-hidden
-            className={cn(
-              'absolute left-0 top-1/2 h-[18px] w-[2.5px] -translate-y-1/2 rounded-full bg-brand transition-opacity',
-              isActive ? 'opacity-100' : 'opacity-0',
-            )}
-          />
-          <Icon
-            className="size-[17px] shrink-0 transition-colors"
-            strokeWidth={isActive ? 2.1 : 1.7}
-          />
-          <span className="flex-1 truncate">{item.label}</span>
-          {count > 0 ? (
-            <span className="ml-auto inline-flex h-[18px] min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 font-mono text-[10px] font-bold leading-none text-brand-foreground tabular-nums">
-              {count > 99 ? '99+' : count}
-            </span>
-          ) : null}
-        </>
-      )}
+      <Icon className="size-[16px] shrink-0" strokeWidth={1.6} />
+      <span className="flex-1 truncate">{item.label}</span>
+      {count > 0 ? (
+        <span className="ml-auto inline-flex items-center justify-center rounded-full pill-danger px-1.5 py-0.5 font-mono text-[10px] tabular-nums">
+          {count > 99 ? '99+' : count}
+        </span>
+      ) : null}
     </NavLink>
   )
 }
@@ -107,45 +92,31 @@ export function AppSidebar({ onNavigate }) {
   return (
     <aside className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
       {/* ── Brand ─────────────────────────────────────────── */}
-      <div className="flex items-center gap-2.5 px-5 pb-4 pt-5">
-        <Link
-          to="/"
-          onClick={onNavigate}
-          className="flex min-w-0 items-center gap-2.5"
-        >
-          <BrandMark />
-          <div className="min-w-0 leading-tight">
-            <p className="truncate">
-              <BrandWordmark size="sm" />
-            </p>
-            <p className="truncate text-[10.5px] text-ink-3">
-              Islamic Research Center
-            </p>
-          </div>
-        </Link>
-      </div>
-
-      {/* Hairline accent under brand */}
-      <span
-        aria-hidden
-        className="mx-5 h-px"
-        style={{
-          background:
-            'linear-gradient(90deg, transparent, color-mix(in oklch, var(--brand) 30%, transparent), transparent)',
-        }}
-      />
+      <Link
+        to="/"
+        onClick={onNavigate}
+        className="flex items-center gap-[10px] px-5 pb-4 pt-[18px]"
+      >
+        <div className="grid size-[30px] place-items-center rounded-md bg-ink font-display text-[12px] font-medium tracking-[0.04em] text-background">
+          IRC
+        </div>
+        <div className="min-w-0 leading-tight">
+          <p className="truncate font-display text-[15px] font-medium tracking-[-0.01em] text-ink">
+            Scholar
+          </p>
+          <p className="truncate text-[11px] text-ink-3">Research network</p>
+        </div>
+      </Link>
 
       {/* ── Nav ───────────────────────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto px-2.5 py-2">
-        <SectionLabel>Discover</SectionLabel>
-        <div className="space-y-0.5">
+      <nav className="flex-1 overflow-y-auto px-3 pb-2">
+        <div className="space-y-[2px]">
           {PRIMARY_ITEMS.map((item) => (
             <NavItem key={item.to} item={item} onNavigate={onNavigate} />
           ))}
         </div>
 
-        <SectionLabel>Social</SectionLabel>
-        <div className="space-y-0.5">
+        <div className="space-y-[2px]">
           {SOCIAL_ITEMS.map((item) => (
             <NavItem key={item.to} item={item} onNavigate={onNavigate} />
           ))}
@@ -154,7 +125,7 @@ export function AppSidebar({ onNavigate }) {
         {isAuthenticated ? (
           <>
             <SectionLabel>Workspace</SectionLabel>
-            <div className="space-y-0.5">
+            <div className="space-y-[2px]">
               {profileHref ? (
                 <NavItem
                   item={{ to: profileHref, icon: User2, label: 'Profile' }}
@@ -179,10 +150,8 @@ export function AppSidebar({ onNavigate }) {
           <div className="px-1 pb-1 pt-4">
             <ResearchComposerButton
               className={cn(
-                'w-full justify-center gap-2',
-                'bg-gradient-to-br from-brand to-brand/85 text-brand-foreground',
-                'shadow-soft hover:from-brand hover:to-brand/90',
-                'transition-transform hover:-translate-y-px',
+                'w-full justify-center gap-2 rounded-md',
+                'bg-brand text-brand-foreground hover:bg-[var(--accent-2,var(--brand))]',
               )}
             />
           </div>
@@ -190,40 +159,44 @@ export function AppSidebar({ onNavigate }) {
       </nav>
 
       {/* ── Footer / account ─────────────────────────────── */}
-      <div className="border-t border-sidebar-border p-2.5">
+      <div className="border-t border-[var(--sidebar-border)] p-3">
         {isAuthenticated && user ? (
-          <div className="group/account flex items-center gap-2.5 rounded-xl border border-border bg-paper px-2.5 py-2 transition-colors hover:bg-brand/5">
+          <div className="flex items-center gap-[10px] rounded-md px-2 py-2 transition-colors hover:bg-secondary">
             <Link
               to={profileHref ?? '#'}
               onClick={onNavigate}
-              className="flex min-w-0 flex-1 items-center gap-2.5"
+              className="flex min-w-0 flex-1 items-center gap-[10px]"
               title="View profile"
             >
-              <UserAvatar
-                user={user}
-                className="size-9 shrink-0 ring-2 ring-paper transition-transform group-hover/account:scale-105"
-              />
+              <UserAvatar user={user} className="size-[34px] shrink-0" />
               <div className="min-w-0 flex-1 leading-tight">
-                <p className="truncate text-[13px] font-semibold text-ink">
+                <p className="truncate text-[13px] font-medium text-ink">
                   {getFullName(user) || getHandle(user) || 'Account'}
                 </p>
-                <div className="mt-0.5 flex items-center gap-1.5">
-                  {getHandle(user) ? (
-                    <p className="truncate font-mono text-[10.5px] text-ink-3">
-                      @{getHandle(user)}
-                    </p>
-                  ) : null}
-                  {user.role ? (
-                    <RoleBadge role={user.role} size="xs" showIcon={false} />
-                  ) : null}
-                </div>
+                {user.role ? (
+                  <p className="mt-0.5 truncate text-[11px] text-info-fg">
+                    {user.role === 'SCHOLAR'
+                      ? 'Scholar'
+                      : user.role === 'RESEARCHER'
+                        ? 'Researcher'
+                        : user.role === 'ADMIN'
+                          ? 'Admin'
+                          : user.role === 'SUPER_ADMIN'
+                            ? 'Super admin'
+                            : 'Member'}
+                  </p>
+                ) : getHandle(user) ? (
+                  <p className="truncate font-mono text-[10.5px] text-ink-3">
+                    @{getHandle(user)}
+                  </p>
+                ) : null}
               </div>
             </Link>
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="rounded-lg text-ink-3 hover:text-ink"
+              className="rounded-md text-ink-3 hover:text-ink"
               onClick={handleSignOut}
               title="Sign out"
             >
@@ -232,19 +205,12 @@ export function AppSidebar({ onNavigate }) {
           </div>
         ) : (
           <div className="grid gap-2 px-1">
-            <Button
-              asChild
-              size="lg"
-              className={cn(
-                'w-full bg-gradient-to-br from-brand to-brand/85 text-brand-foreground',
-                'shadow-soft hover:from-brand hover:to-brand/90',
-              )}
-            >
+            <Button asChild size="lg" className="w-full rounded-md bg-brand text-brand-foreground hover:bg-brand/90">
               <Link to="/login" onClick={onNavigate}>
                 Sign in
               </Link>
             </Button>
-            <Button asChild variant="outline" className="w-full" size="lg">
+            <Button asChild variant="outline" className="w-full rounded-md" size="lg">
               <Link to="/signup" onClick={onNavigate}>
                 Create account
               </Link>

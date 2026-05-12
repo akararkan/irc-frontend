@@ -77,54 +77,46 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
   const [hasMore, setHasMore] = useState({ posts: true, research: true, questions: true })
   const [filter, setFilter] = useState('ALL')
 
-  const fetchPage = useCallback(
-    async (pageIndex) => {
-      const postPromise = (isAuthenticated ? getFollowingFeed : getFeed)({
-        page: pageIndex,
-        size: PAGE_SIZE,
-      })
-        .then((data) => ({ data, ok: true }))
-        .catch((error) => {
-          // Following feed 401/403 when not following anyone — fall back to public
-          if (isAuthenticated) {
-            return getFeed({ page: pageIndex, size: PAGE_SIZE })
-              .then((data) => ({ data, ok: true }))
-              .catch(() => ({ error, ok: false }))
+  // Authenticated viewers see following-first, falling back to the
+  // public feed whenever the following result is empty *or* errors —
+  // a 200 with `content: []` looks identical to a user who follows
+  // nobody, so we can't rely on the catch alone.
+  const fetchWithFallback = useCallback(
+    async (followingFn, publicFn, pageIndex) => {
+      const isEmpty = (data) =>
+        !data || !Array.isArray(data.content) || data.content.length === 0
+      try {
+        if (isAuthenticated) {
+          const followingData = await followingFn({ page: pageIndex, size: PAGE_SIZE })
+          if (!isEmpty(followingData)) {
+            return { data: followingData, ok: true }
           }
-          return { error, ok: false }
-        })
-
-      const researchPromise = (isAuthenticated ? getResearchFollowingFeed : getResearchFeed)({
-        page: pageIndex,
-        size: PAGE_SIZE,
-      })
-        .then((data) => ({ data, ok: true }))
-        .catch(() => {
-          if (isAuthenticated) {
-            return getResearchFeed({ page: pageIndex, size: PAGE_SIZE })
-              .then((data) => ({ data, ok: true }))
-              .catch(() => ({ ok: false }))
+        }
+        const publicData = await publicFn({ page: pageIndex, size: PAGE_SIZE })
+        return { data: publicData, ok: true }
+      } catch (error) {
+        if (isAuthenticated) {
+          try {
+            const publicData = await publicFn({ page: pageIndex, size: PAGE_SIZE })
+            return { data: publicData, ok: true }
+          } catch (innerError) {
+            return { error: innerError, ok: false }
           }
-          return { ok: false }
-        })
-
-      const questionPromise = (isAuthenticated ? getQuestionsFollowing : getQuestions)({
-        page: pageIndex,
-        size: PAGE_SIZE,
-      })
-        .then((data) => ({ data, ok: true }))
-        .catch(() => {
-          if (isAuthenticated) {
-            return getQuestions({ page: pageIndex, size: PAGE_SIZE })
-              .then((data) => ({ data, ok: true }))
-              .catch(() => ({ ok: false }))
-          }
-          return { ok: false }
-        })
-
-      return Promise.all([postPromise, researchPromise, questionPromise])
+        }
+        return { error, ok: false }
+      }
     },
     [isAuthenticated],
+  )
+
+  const fetchPage = useCallback(
+    (pageIndex) =>
+      Promise.all([
+        fetchWithFallback(getFollowingFeed, getFeed, pageIndex),
+        fetchWithFallback(getResearchFollowingFeed, getResearchFeed, pageIndex),
+        fetchWithFallback(getQuestionsFollowing, getQuestions, pageIndex),
+      ]),
+    [fetchWithFallback],
   )
 
   const load = useCallback(

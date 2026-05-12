@@ -6,16 +6,20 @@ import { useSseStream } from '@/hooks/use-sse-stream'
 // (matches Spring's `SseEmitter.event().name(...)`). Append new types
 // here when the backend grows them — handler routing picks them up
 // automatically.
+// Reactions are single-LIKE (Instagram heart). The backend no longer
+// emits *_CHANGED variants; only ADDED / REMOVED.
 export const RESEARCH_REALTIME_EVENTS = [
   'RESEARCH_UPDATED',
   'RESEARCH_DELETED',
   'RESEARCH_PUBLISHED',
   'REACTION_ADDED',
-  'REACTION_CHANGED',
   'REACTION_REMOVED',
   'COMMENT_CREATED',
+  'COMMENT_EDITED',
   'COMMENT_DELETED',
   'REPLY_CREATED',
+  'COMMENT_REACTION_ADDED',
+  'COMMENT_REACTION_REMOVED',
   'VIEW_COUNT_UPDATED',
   'DOWNLOAD_COUNT_UPDATED',
   'SAVE_COUNT_UPDATED',

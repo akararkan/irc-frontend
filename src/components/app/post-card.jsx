@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
+  Bookmark,
   Clapperboard,
   Copy,
   Globe,
@@ -44,8 +45,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { AudioPlayer } from '@/components/app/audio-player'
 import { EditPostDialog } from '@/components/app/edit-post-dialog'
 import { PostComments } from '@/components/app/post-comments'
-import { ReactionPicker } from '@/components/app/reaction-picker'
-import { ReactionSummary } from '@/components/app/reaction-summary'
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
 import {
@@ -54,7 +53,9 @@ import {
   reactToPost,
   removePostReaction,
   repostPost,
+  savePost,
   undoRepost,
+  unsavePost,
 } from '@/features/posts/posts.api'
 import { useInView } from '@/hooks/use-in-view'
 import { usePostStream } from '@/hooks/use-post-stream'
@@ -83,14 +84,12 @@ const TYPE_META = {
   VOICE_POST: {
     label: 'Voice',
     icon: Mic,
-    accent:
-      'bg-[color-mix(in_oklch,var(--accent-violet)_12%,transparent)] text-accent-violet',
+    accent: 'pill-purple',
   },
   REEL: {
     label: 'Reel',
     icon: Clapperboard,
-    accent:
-      'bg-[color-mix(in_oklch,var(--accent-rust)_12%,transparent)] text-accent-rust',
+    accent: 'pill-warn',
   },
 }
 
@@ -250,9 +249,15 @@ function ReelPlayer({ media, audioTrackName, postId }) {
     else el.play().catch(() => setPlaying(false))
   }
 
+  // Spec §06 — vertical canvas, top progress bar, glass right-rail.
+  // Dark gradient backdrop so this is the only surface in the app that
+  // lives in dark mode. Right rail uses `.glass-rail`.
   return (
-    <div className="mx-auto w-full max-w-[320px] sm:max-w-[340px]">
-      <div className="relative isolate aspect-[9/16] overflow-hidden rounded-3xl bg-black ring-1 ring-border">
+    <div className="mx-auto w-full max-w-[260px] sm:max-w-[280px]">
+      <div
+        className="relative isolate aspect-[9/16] overflow-hidden rounded-[14px] border-[0.5px] border-ink"
+        style={{ background: 'linear-gradient(170deg, #2a2520 0%, #14110C 100%)' }}
+      >
         <video
           ref={videoRef}
           src={url}
@@ -267,71 +272,89 @@ function ReelPlayer({ media, audioTrackName, postId }) {
             setProgress(el.currentTime / el.duration)
           }}
           onClick={togglePlay}
-          className="absolute inset-0 h-full w-full cursor-pointer bg-black object-cover"
+          className="absolute inset-0 h-full w-full cursor-pointer object-cover"
         />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/55 to-transparent"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/65 to-transparent"
-        />
-        <span className="pointer-events-none absolute left-2.5 top-2.5 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider text-black">
-          <Clapperboard className="size-2.5" />
-          Reel
-        </span>
-        <div className="absolute right-2.5 top-2.5 flex items-center gap-1.5">
+
+        {/* Top: 5-segment progress bar + mute toggle */}
+        <div className="absolute inset-x-3 top-3 flex items-start gap-3">
+          <div className="flex flex-1 items-center gap-[3px]">
+            {[0, 1, 2, 3, 4].map((i) => {
+              const seg = Math.max(0, Math.min(1, progress * 5 - i))
+              return (
+                <span
+                  key={i}
+                  className="h-[2px] flex-1 overflow-hidden rounded-full bg-white/30"
+                >
+                  <span
+                    className="block h-full bg-white"
+                    style={{ width: `${seg * 100}%` }}
+                  />
+                </span>
+              )
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={() => setMuted((m) => !m)}
+            className="grid size-[26px] shrink-0 place-items-center rounded-full bg-black/45 text-white backdrop-blur hover:bg-black/60"
+            aria-label={muted ? 'Unmute' : 'Mute'}
+          >
+            {muted ? <VolumeX className="size-3" /> : <Volume2 className="size-3" />}
+          </button>
+        </div>
+
+        {/* Right rail — react / comment / repost / save / share. Glass blur. */}
+        <div className="absolute bottom-16 right-2 flex flex-col items-center gap-3 text-white">
           {postId ? (
             <Link
               to={`/reels?id=${postId}`}
               title="Open in Reels"
+              className="glass-rail"
               aria-label="Open in Reels"
-              className="grid size-8 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/75"
             >
-              <Maximize2 className="size-3.5" />
+              <Maximize2 className="size-3.5" strokeWidth={1.6} />
             </Link>
           ) : null}
-          <button
-            type="button"
-            onClick={() => setMuted((m) => !m)}
-            className="grid size-8 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/75"
-            title={muted ? 'Unmute' : 'Mute'}
-            aria-label={muted ? 'Unmute' : 'Mute'}
-          >
-            {muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
-          </button>
-        </div>
-        {audioTrackName ? (
-          <span className="pointer-events-none absolute bottom-3 left-2.5 inline-flex max-w-[calc(100%-1.25rem)] items-center gap-1.5 truncate rounded-full bg-black/55 px-2 py-0.5 text-[10.5px] font-medium text-white backdrop-blur">
-            <span className="size-1.5 animate-pulse rounded-full bg-white" />
-            ♪ {audioTrackName}
+          <span className="glass-rail">
+            <Play className="size-3.5 translate-x-[1px]" />
           </span>
-        ) : null}
-        <div className="pointer-events-none absolute inset-x-2.5 bottom-1.5 h-[3px] overflow-hidden rounded-full bg-white/25">
-          <div
-            className="h-full bg-white transition-[width] duration-150"
-            style={{ width: `${progress * 100}%` }}
-          />
         </div>
+
+        {/* Bottom-left author + caption stack */}
+        <div className="absolute inset-x-3 bottom-3 space-y-2 text-white">
+          {audioTrackName ? (
+            <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full bg-black/35 px-2 py-1 text-[10.5px] font-medium backdrop-blur">
+              <span className="size-1.5 animate-pulse rounded-full bg-white" />
+              ♪ {audioTrackName}
+            </span>
+          ) : null}
+        </div>
+
+        {/* Center Play overlay when paused */}
         <AnimatePresence>
           {!playing ? (
             <motion.button
               key="play"
               type="button"
               onClick={togglePlay}
-              initial={{ opacity: 0, scale: 0.6 }}
+              initial={{ opacity: 0, scale: 0.7 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.6 }}
+              exit={{ opacity: 0, scale: 0.7 }}
               className="absolute inset-0 grid place-items-center"
               aria-label="Play"
             >
-              <span className="grid size-14 place-items-center rounded-full bg-white/95 text-black shadow-2xl backdrop-blur">
-                <Play className="size-6 translate-x-[1px] fill-black" />
+              <span className="grid size-14 place-items-center rounded-full bg-white/95 text-black backdrop-blur">
+                <Play className="size-5 translate-x-[1px] fill-black" />
               </span>
             </motion.button>
           ) : null}
         </AnimatePresence>
+
+        {/* Reel pill — bottom-right */}
+        <span className="absolute right-3 top-9 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2 py-0.5 font-mono text-[9.5px] font-medium uppercase tracking-wider text-black">
+          <Clapperboard className="size-2.5" strokeWidth={1.5} />
+          Reel
+        </span>
       </div>
     </div>
   )
@@ -350,7 +373,10 @@ function PostText({ text, postType }) {
 
   if (isVeryShort) {
     return (
-      <p className="font-display text-pretty text-[19px] font-normal leading-[1.45] tracking-[-0.005em] text-ink sm:text-[21px]">
+      <p
+        dir="auto"
+        className="font-display text-pretty text-[20px] font-normal leading-[1.45] tracking-[-0.005em] text-ink sm:text-[21px]"
+      >
         <MentionText text={text} />
       </p>
     )
@@ -359,11 +385,12 @@ function PostText({ text, postType }) {
   return (
     <div className="space-y-1">
       <p
+        dir="auto"
         className={cn(
           'whitespace-pre-wrap break-words text-pretty text-ink',
           postType === 'TEXT'
-            ? 'font-display text-[17px] font-normal leading-[1.5] tracking-[-0.005em]'
-            : 'text-[14.5px] leading-[1.55]',
+            ? 'font-display text-[17px] font-normal leading-[1.55] tracking-[-0.005em]'
+            : 'text-[15px] leading-[1.65]',
         )}
       >
         <MentionText text={display} />
@@ -489,43 +516,36 @@ function ShareMenu({ post, onShared, onRepostCreated }) {
 
   return (
     <>
-      <div className="inline-flex items-center">
-        <button
-          type="button"
-          onClick={openDialog}
-          disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12.5px] font-semibold text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground active:scale-95 disabled:opacity-50"
-          aria-label="Share post"
-        >
-          <Share2 className="size-[17px]" strokeWidth={1.75} />
-          <span>Share</span>
-        </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="More share options"
-            >
-              <MoreHorizontal className="size-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onSelect={handleUndoShare}
-              disabled={busy}
-              className="text-muted-foreground"
-            >
-              <Repeat2 className="mr-2 size-4 opacity-60" />
-              Undo share
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={handleCopy}>
-              <Copy className="mr-2 size-4" />
-              Copy link
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            disabled={busy}
+            className="rx-bare disabled:opacity-50"
+            aria-label="Share post"
+          >
+            <Share2 className="size-[14px]" strokeWidth={1.5} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onSelect={openDialog} disabled={busy}>
+            <Repeat2 className="mr-2 size-4" />
+            Share post
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={handleUndoShare}
+            disabled={busy}
+            className="text-muted-foreground"
+          >
+            <Repeat2 className="mr-2 size-4 opacity-60" />
+            Undo share
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={handleCopy}>
+            <Copy className="mr-2 size-4" />
+            Copy link
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
@@ -581,29 +601,33 @@ function ShareMenu({ post, onShared, onRepostCreated }) {
 // ─── Shared (quoted) post ───────────────────────────────────────────
 function QuotedPost({ post }) {
   const author = normalizeAuthor(post)
-  const username = getUsername(author)
+  const handle = getHandle(author)
+  const route = getRawUsername(author)
   // Click → original author's profile. The site has no /post/:id route,
   // so linking there 404s; the profile is the canonical destination.
-  const profileHref = username ? `/profile/${username}` : '/'
+  const profileHref = route ? `/profile/${route}` : '/'
   return (
     <Link
       to={profileHref}
-      className="block overflow-hidden rounded-2xl border border-border bg-muted/30 transition-all duration-200 hover:border-foreground/20 hover:bg-muted/60 hover:shadow-soft"
+      className="block overflow-hidden rounded-md border-[0.5px] border-border bg-paper transition-colors hover:border-ink-4/30"
     >
       <div className="flex items-center gap-2 px-3.5 pt-3">
         <UserAvatar user={author} className="size-7" />
         <div className="min-w-0 flex-1 leading-tight">
           <p className="truncate text-xs font-semibold">
-            {getFullName(author) || username}
+            {getFullName(author) || handle}
           </p>
           <p className="truncate text-[11px] text-muted-foreground">
-            {username ? `${username} · ` : ''}
+            {handle ? `@${handle} · ` : ''}
             <RelativeTime entity={post} />
           </p>
         </div>
       </div>
       {post.textContent ? (
-        <p className="line-clamp-3 px-3.5 py-2 text-sm text-foreground">
+        <p
+          dir="auto"
+          className="line-clamp-3 px-3.5 py-2 text-sm text-foreground"
+        >
           {post.textContent}
         </p>
       ) : null}
@@ -641,6 +665,39 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
   // stays current without re-creating the EventSource.
   const [setLiveRef, inView] = useInView({ rootMargin: '300px 0px 300px 0px' })
 
+  // Local node ref so we can reach the post's media elements when the
+  // card leaves the viewport — used below to silence any playing
+  // <video> / <audio> the reader scrolled past. We tee the same node
+  // into `setLiveRef` so the IntersectionObserver still tracks it.
+  const articleRef = useRef(null)
+  const composedRef = useCallback(
+    (node) => {
+      articleRef.current = node
+      setLiveRef(node)
+    },
+    [setLiveRef],
+  )
+
+  // Pause every media element inside this card when it scrolls out of
+  // view. Without this, a reel inside the feed (or a voice-post
+  // AudioPlayer) keeps playing and the reader hears it long after
+  // they've moved on. Triggered only on the in→out transition; the
+  // user can hit play again the next time the card is in view.
+  useEffect(() => {
+    if (inView) return
+    const root = articleRef.current
+    if (!root) return
+    root.querySelectorAll('video, audio').forEach((media) => {
+      if (!media.paused) {
+        try {
+          media.pause()
+        } catch {
+          /* some elements may throw mid-load — non-fatal */
+        }
+      }
+    })
+  }, [inView])
+
   usePostStream(
     post.id,
     {
@@ -652,50 +709,57 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       POST_DELETED: () => {
         onDelete?.(post.id)
       },
-      POST_REACTED: (payload) => {
+      // Single-LIKE reactions — backend emits postReactionCount and the
+      // actor; we just sync the counter.
+      REACTION_ADDED: (payload) => {
         if (!payload) return
         onChange?.({
           ...post,
-          reactionCount: payload.reactionCount ?? post.reactionCount,
-          topReactionTypes: payload.topReactionTypes ?? post.topReactionTypes,
+          reactionCount: payload.postReactionCount ?? post.reactionCount,
         })
       },
-      POST_REACTION_REMOVED: (payload) => {
+      REACTION_REMOVED: (payload) => {
         if (!payload) return
         onChange?.({
           ...post,
-          reactionCount: payload.reactionCount ?? post.reactionCount,
-          topReactionTypes: payload.topReactionTypes ?? post.topReactionTypes,
+          reactionCount: payload.postReactionCount ?? post.reactionCount,
         })
       },
-      POST_SHARED: (payload) => {
-        const next = payload?.shareCount ?? (post.shareCount ?? 0) + 1
+      SHARE_COUNT_UPDATED: (payload) => {
+        const next = payload?.postShareCount ?? (post.shareCount ?? 0) + 1
         onChange?.({ ...post, shareCount: next })
       },
-      POST_VIEWED: (payload) => {
-        if (payload?.viewCount == null) return
-        onChange?.({ ...post, viewCount: payload.viewCount })
+      SAVE_COUNT_UPDATED: (payload) => {
+        if (payload?.postSaveCount == null) return
+        onChange?.({ ...post, saveCount: payload.postSaveCount })
       },
-      POST_COMMENTED: (payload) => {
-        const next = payload?.commentCount ?? (post.commentCount ?? 0) + 1
+      VIEW_COUNT_UPDATED: (payload) => {
+        if (payload?.postViewCount == null) return
+        onChange?.({ ...post, viewCount: payload.postViewCount })
+      },
+      COMMENT_CREATED: (payload) => {
+        const next = payload?.postCommentCount ?? (post.commentCount ?? 0) + 1
         onChange?.({ ...post, commentCount: next })
-        commentsRef.current?.applyRealtimeEvent('POST_COMMENTED', payload)
+        commentsRef.current?.applyRealtimeEvent('COMMENT_CREATED', payload)
       },
-      POST_COMMENT_UPDATED: (payload) => {
-        commentsRef.current?.applyRealtimeEvent('POST_COMMENT_UPDATED', payload)
+      COMMENT_EDITED: (payload) => {
+        commentsRef.current?.applyRealtimeEvent('COMMENT_EDITED', payload)
       },
-      POST_COMMENT_DELETED: (payload) => {
-        commentsRef.current?.applyRealtimeEvent('POST_COMMENT_DELETED', payload)
+      COMMENT_DELETED: (payload) => {
+        commentsRef.current?.applyRealtimeEvent('COMMENT_DELETED', payload)
         const next =
-          payload?.commentCount ?? Math.max(0, (post.commentCount ?? 0) - 1)
+          payload?.postCommentCount ?? Math.max(0, (post.commentCount ?? 0) - 1)
         onChange?.({ ...post, commentCount: next })
       },
-      POST_COMMENT_REACTED: (payload) => {
-        commentsRef.current?.applyRealtimeEvent('POST_COMMENT_REACTED', payload)
+      REPLY_CREATED: (payload) => {
+        commentsRef.current?.applyRealtimeEvent('REPLY_CREATED', payload)
       },
-      POST_COMMENT_REACTION_REMOVED: (payload) => {
+      COMMENT_REACTION_ADDED: (payload) => {
+        commentsRef.current?.applyRealtimeEvent('COMMENT_REACTION_ADDED', payload)
+      },
+      COMMENT_REACTION_REMOVED: (payload) => {
         commentsRef.current?.applyRealtimeEvent(
-          'POST_COMMENT_REACTION_REMOVED',
+          'COMMENT_REACTION_REMOVED',
           payload,
         )
       },
@@ -733,10 +797,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       if (!isAuthenticated) toast.info('Sign in to react.')
       return
     }
-    // Optimistic: paint the reacted state immediately. The backend
-    // currently returns the post without `myReaction` populated (it
-    // calls toResponse(post) instead of toResponse(post, myReaction)),
-    // so we always trust our local intent over the server response.
+    // Optimistic: paint the reacted state immediately.
     const previous = post
     const wasReacting = Boolean(post.myReaction)
     onChange?.({
@@ -748,10 +809,13 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
     })
     setWorking(true)
     try {
-      const updated = await reactToPost(post.id, type)
-      if (updated) {
-        onChange?.({ ...updated, myReaction: type })
-      }
+      // Fire-and-forget on success — we don't merge the response.
+      // PostResponse's `reactionCount` reads through the Hibernate
+      // L1 cache and lags the increment by one, so spreading it back
+      // over our optimistic +1 produces a 0→1→0→1 flicker. The
+      // REACTION_ADDED SSE event arrives a tick later with the
+      // authoritative count and reconciles cleanly.
+      await reactToPost(post.id, type)
     } catch (error) {
       onChange?.(previous)
       toast.error(friendlyApiMessage(error, 'Could not react.'))
@@ -790,55 +854,58 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
     }
   }
 
-  // Only honor real data from the backend. The summary will cap the
-  // stack at `min(types.length, reactionCount)` so two reactions can
-  // never render three emojis. If we don't have a breakdown, fall back
-  // to the user's own reaction (if they reacted) or just the default
-  // Like — no fabricated extras.
-  const topReactions =
-    post.topReactionTypes ?? (post.myReaction ? [post.myReaction] : ['LIKE'])
+  // Instagram-style bookmark — wired to /api/v1/posts/{id}/save. The
+  // optimistic flip lands first; the SSE SAVE_COUNT_UPDATED echo
+  // reconciles the count once the backend commits.
+  const [savingBookmark, setSavingBookmark] = useState(false)
+  const isSaved = Boolean(post.isSaved)
+
+  async function handleToggleSave() {
+    if (savingBookmark) return
+    if (!isAuthenticated) {
+      toast.info('Sign in to save this post.')
+      return
+    }
+    const previous = post
+    onChange?.({
+      ...post,
+      isSaved: !isSaved,
+      saveCount: isSaved
+        ? Math.max(0, (post.saveCount ?? 0) - 1)
+        : (post.saveCount ?? 0) + 1,
+    })
+    setSavingBookmark(true)
+    try {
+      if (isSaved) {
+        await unsavePost(post.id)
+      } else {
+        await savePost(post.id)
+        toast.success('Saved to your library.')
+      }
+    } catch (error) {
+      onChange?.(previous)
+      toast.error(extractApiMessage(error, 'Could not update bookmark.'))
+    } finally {
+      setSavingBookmark(false)
+    }
+  }
 
   const displayName = getFullName(author) || authorHandle || 'Unknown'
 
-  // The expert / scholar / researcher hint paints the avatar ring in
-  // a subtle accent so an authoritative voice reads at a glance — same
-  // pattern the AnswerCard uses for "scholar's answer".
-  const accentRing =
-    author.role === 'SCHOLAR'
-      ? 'ring-amber-400/45'
-      : author.role === 'RESEARCHER'
-        ? 'ring-violet-400/40'
-        : isMine
-          ? 'ring-brand/35'
-          : 'ring-paper'
-
   return (
     <article
-      ref={setLiveRef}
+      ref={composedRef}
       className={cn(
-        'group/post relative isolate overflow-hidden rounded-2xl border border-border bg-paper transition-all duration-200',
-        'hover:-translate-y-px hover:border-brand/25 hover:shadow-soft',
+        'group/post card-hover relative isolate overflow-hidden rounded-xl border-[0.5px] border-border bg-paper',
       )}
     >
-      {/* Left-edge accent rail — fades in on hover. Brand by default;
-          gold when the post is from a scholar. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-y-3 left-0 w-[3px] rounded-full opacity-0 transition-opacity duration-200 group-hover/post:opacity-100"
-        style={{
-          background:
-            author.role === 'SCHOLAR'
-              ? 'linear-gradient(180deg, var(--gold), var(--gold-2))'
-              : 'linear-gradient(180deg, var(--brand), var(--brand-muted))',
-        }}
-      />
       {/* ── Repost banner — when this card IS a repost ─────── */}
       {(post.isRepost || postType === 'REPOST') && post.sharedPost ? (
-        <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-1.5 text-[11.5px] text-ink-3 sm:px-5">
-          <Repeat2 className="size-3.5" />
+        <div className="flex items-center gap-2 border-b border-border bg-secondary px-4 py-2 text-[12px] text-ink-3 sm:px-6">
+          <Repeat2 className="size-[14px] text-brand" strokeWidth={1.5} />
           <Link
             to={`/profile/${authorRoute}`}
-            className="font-semibold text-ink hover:underline"
+            className="font-medium text-ink-2 hover:underline"
           >
             {displayName}
           </Link>
@@ -847,57 +914,60 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       ) : null}
 
       {/* ── Header ───────────────────────────────────────────── */}
-      <header className="flex items-start gap-3 px-4 pt-4 sm:px-5">
+      <header className="flex items-start gap-3 px-4 pt-4 sm:px-6 sm:pt-5">
         <Link
           to={`/profile/${authorRoute}`}
-          className="shrink-0 transition-transform hover:scale-[1.04]"
+          className="shrink-0 transition-opacity hover:opacity-90"
         >
-          <UserAvatar
-            user={author}
-            className={cn(
-              'size-11 ring-2 ring-background transition-shadow',
-              accentRing,
-            )}
-          />
+          <UserAvatar user={author} className="size-10" />
         </Link>
 
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
             <Link
               to={`/profile/${authorRoute}`}
-              className="truncate text-[14.5px] font-semibold tracking-tight hover:underline"
+              className="truncate text-[14px] font-medium tracking-tight text-ink hover:underline"
             >
               {displayName}
             </Link>
+            {authorHandle ? (
+              <span className="text-[13px] text-ink-3">@{authorHandle}</span>
+            ) : null}
             {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
             {typeMeta ? (
               <span
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider',
                   typeMeta.accent,
                 )}
               >
-                {TypeIcon ? <TypeIcon className="size-3" /> : null}
+                {TypeIcon ? <TypeIcon className="size-3" strokeWidth={1.5} /> : null}
                 {typeMeta.label}
               </span>
             ) : null}
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-ink-3">
-            {authorHandle ? (
-              <span className="font-mono text-[11px]">@{authorHandle}</span>
-            ) : null}
-            <span aria-hidden className="text-ink-4">·</span>
+          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[12px] text-ink-3">
             <Link
               to={`/posts/${post.id}`}
-              className="transition-colors hover:text-ink hover:underline"
+              className="transition-colors hover:text-ink"
               title={post.formattedDate || 'Open post'}
             >
               <RelativeTime entity={post} />
             </Link>
-            <span aria-hidden className="text-ink-4">·</span>
+            <span aria-hidden>·</span>
             <span className="inline-flex items-center gap-1" title={visLabel}>
-              <VisIcon className="size-3" />
+              <VisIcon className="size-3" strokeWidth={1.5} />
+              <span>{visLabel}</span>
             </span>
+            {post.locationName ? (
+              <>
+                <span aria-hidden>·</span>
+                <span className="inline-flex items-center gap-1">
+                  <MapPin className="size-3" strokeWidth={1.5} />
+                  <span className="truncate">{post.locationName}</span>
+                </span>
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -939,7 +1009,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       ) : null}
 
       {/* ── Body ─────────────────────────────────────────────── */}
-      <div className="space-y-3 px-4 pt-3 sm:px-5">
+      <div className="space-y-3 px-4 pt-3 sm:px-6">
         <PostText text={post.textContent} postType={postType} />
 
         {postType === 'VOICE_POST' ? (
@@ -972,119 +1042,77 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
         ) : null}
 
         {post.sharedPost ? <QuotedPost post={post.sharedPost} /> : null}
-
-        {post.locationName ? (
-          <p className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium text-ink-3">
-            <MapPin className="size-3" />
-            {post.locationName}
-          </p>
-        ) : null}
       </div>
 
-      {/* ── Top reaction summary (only when there are reactions) ── */}
-      {(post.reactionCount ?? 0) > 0 ? (
-        <div className="mt-3 px-4 sm:px-5">
-          <ReactionSummary totalCount={post.reactionCount} topTypes={topReactions} />
+      {/* ── Action bar — pill reactions on the left, ghost icon
+           counters on the right. Matches the design spec card. ─── */}
+      <div className="mx-4 mt-4 flex flex-wrap items-center gap-1.5 border-t-[0.5px] border-border px-0 py-2.5 sm:mx-6">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* Single-LIKE Instagram heart toggle. One tap likes, another
+              tap unlikes; the count animates up/down on either side. */}
+          <motion.button
+            type="button"
+            onClick={() =>
+              post.myReaction ? handleClearReaction() : handlePickReaction('LIKE')
+            }
+            disabled={working}
+            whileTap={{ scale: 0.94 }}
+            transition={{ type: 'spring', stiffness: 480, damping: 26 }}
+            className={cn('rx', post.myReaction && 'is-on')}
+            aria-pressed={Boolean(post.myReaction)}
+            aria-label={post.myReaction ? 'Unlike' : 'Like'}
+          >
+            <span className="text-[14px] leading-none">
+              {post.myReaction ? '♥' : '♡'}
+            </span>
+            {(post.reactionCount ?? 0) > 0 ? (
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={post.reactionCount}
+                  initial={{ y: 6, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -6, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 460, damping: 30 }}
+                  className="inline-block tabular-nums"
+                >
+                  {formatNumber(post.reactionCount)}
+                </motion.span>
+              </AnimatePresence>
+            ) : (
+              <span>Like</span>
+            )}
+          </motion.button>
         </div>
-      ) : null}
 
-      {/* ── Action bar — Threads / X style with inline counts.
-           Each button gets a subtle motion-press, a colored hover halo
-           that hints at the action's tone (rose for reactions, violet
-           for comments, emerald for shares), and an animated count
-           that pulses in/out on every SSE-driven change. ─── */}
-      <div className="mx-4 mt-2.5 flex items-center gap-1 border-t border-dashed border-border px-0 py-1.5 sm:mx-5">
-        <ReactionPicker
-          current={post.myReaction}
-          onSelect={handlePickReaction}
-          onClear={handleClearReaction}
-          disabled={working}
-          trigger={({ toggleDefault, current }) => (
-            <motion.button
-              type="button"
-              onClick={toggleDefault}
-              whileTap={{ scale: 0.92 }}
-              transition={{ type: 'spring', stiffness: 480, damping: 26 }}
-              className={cn(
-                'group/like inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-semibold transition-colors duration-200',
-                current
-                  ? cn(
-                      current.color,
-                      current.bg,
-                      'ring-1',
-                      current.ring,
-                      'hover:brightness-95',
-                    )
-                  : 'text-ink-3 hover:bg-rose-500/10 hover:text-rose-600',
-              )}
-            >
-              <span
-                className="text-[17px] leading-none transition-transform group-hover/like:-translate-y-0.5 group-hover/like:scale-115"
-                style={{
-                  filter: current
-                    ? 'drop-shadow(0 1px 2px color-mix(in oklch, currentColor 30%, transparent))'
-                    : undefined,
-                }}
-              >
-                {current?.emoji ?? '👍'}
-              </span>
-              {(post.reactionCount ?? 0) > 0 ? (
-                <AnimatePresence mode="popLayout" initial={false}>
-                  <motion.span
-                    key={post.reactionCount}
-                    initial={{ y: 6, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -6, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-                    className="inline-block tabular-nums"
-                  >
-                    {formatNumber(post.reactionCount)}
-                  </motion.span>
-                </AnimatePresence>
-              ) : (
-                <span>{current?.label ?? 'Like'}</span>
-              )}
-            </motion.button>
-          )}
-        />
+        <div className="ml-auto flex items-center gap-0.5">
+          <motion.button
+            type="button"
+            onClick={() => setShowComments((value) => !value)}
+            whileTap={{ scale: 0.94 }}
+            transition={{ type: 'spring', stiffness: 480, damping: 26 }}
+            className={cn('rx-bare', showComments && 'is-on')}
+            aria-label="Comments"
+          >
+            <MessageCircle className="size-[14px]" strokeWidth={1.5} />
+            {commentCount > 0 ? (
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={commentCount}
+                  initial={{ y: 6, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -6, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 460, damping: 30 }}
+                  className="inline-block tabular-nums"
+                >
+                  {formatNumber(commentCount)}
+                </motion.span>
+              </AnimatePresence>
+            ) : null}
+          </motion.button>
 
-        <motion.button
-          type="button"
-          onClick={() => setShowComments((value) => !value)}
-          whileTap={{ scale: 0.92 }}
-          transition={{ type: 'spring', stiffness: 480, damping: 26 }}
-          className={cn(
-            'group/reply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors',
-            showComments
-              ? 'bg-violet-500/12 text-violet-700 ring-1 ring-violet-500/25 dark:text-violet-300'
-              : 'text-ink-3 hover:bg-violet-500/10 hover:text-violet-700 dark:hover:text-violet-300',
-          )}
-        >
-          <MessageCircle
-            className="size-[17px] transition-transform group-hover/reply:-translate-y-0.5"
-            strokeWidth={1.85}
-          />
-          {commentCount > 0 ? (
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.span
-                key={commentCount}
-                initial={{ y: 6, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -6, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-                className="inline-block tabular-nums"
-              >
-                {formatNumber(commentCount)}
-              </motion.span>
-            </AnimatePresence>
-          ) : (
-            <span>Reply</span>
-          )}
-        </motion.button>
-
-        <div className="ml-auto flex items-center">
           {(post.shareCount ?? 0) > 0 ? (
-            <span className="hidden px-2 font-mono text-[11px] tabular-nums text-ink-3 sm:inline">
+            <span className="rx-bare pointer-events-none">
+              <Repeat2 className="size-[14px]" strokeWidth={1.5} />
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.span
                   key={post.shareCount}
@@ -1092,20 +1120,37 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
                   animate={{ y: 0, opacity: 1 }}
                   exit={{ y: -5, opacity: 0 }}
                   transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-                  className="inline-block"
+                  className="inline-block tabular-nums"
                 >
                   {formatNumber(post.shareCount)}
                 </motion.span>
               </AnimatePresence>
-              {' '}
-              {post.shareCount === 1 ? 'share' : 'shares'}
             </span>
           ) : null}
+
           <ShareMenu
             post={post}
             onShared={(updated) => onChange?.(updated)}
             onRepostCreated={onRepostCreated}
           />
+
+          <button
+            type="button"
+            onClick={handleToggleSave}
+            disabled={savingBookmark}
+            className={cn('rx-bare', isSaved && 'is-on')}
+            aria-pressed={isSaved}
+            aria-label={isSaved ? 'Remove bookmark' : 'Bookmark'}
+            title={isSaved ? 'Remove bookmark' : 'Save'}
+          >
+            <Bookmark
+              className={cn('size-[14px]', isSaved && 'fill-current')}
+              strokeWidth={1.5}
+            />
+            {(post.saveCount ?? 0) > 0 ? (
+              <span className="tabular-nums">{formatNumber(post.saveCount)}</span>
+            ) : null}
+          </button>
         </div>
       </div>
 
@@ -1120,10 +1165,12 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
             transition={{ type: 'spring', stiffness: 260, damping: 30 }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border px-4 pb-4 pt-3 sm:px-5">
+            <div className="border-t-[0.5px] border-border px-4 pb-4 pt-3 sm:px-6 sm:pb-5">
               <PostComments
                 ref={commentsRef}
                 postId={post.id}
+                postAuthorId={author?.id}
+                postAuthorUsername={authorUsername}
                 initialCount={commentCount}
                 onCountChange={(next) => {
                   setCommentCount(next)

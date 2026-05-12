@@ -57,12 +57,30 @@ function ReelThumb({ post, index }) {
         )}
       >
         {videoUrl ? (
+          // Browsers paint a blank canvas for `<video>` until a frame
+          // is decoded — `preload="metadata"` alone often shows black.
+          // Seeking to ~0.1 s once metadata lands forces the decoder
+          // to render that frame, which then sits in the element as
+          // the de-facto poster image. Cheaper than generating a
+          // thumbnail server-side and works without any backend
+          // changes. `poster` overrides the seeked frame if the
+          // backend ever ships a real thumbnail URL.
           <video
             src={videoUrl}
+            poster={thumbUrl || undefined}
             muted
-            loop
             playsInline
             preload="metadata"
+            disablePictureInPicture
+            controlsList="nodownload nofullscreen noremoteplayback"
+            onLoadedMetadata={(event) => {
+              const el = event.currentTarget
+              try {
+                if (el.duration > 0.2) el.currentTime = 0.1
+              } catch {
+                /* some browsers throw if seek is too early; non-fatal */
+              }
+            }}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
         ) : thumbUrl ? (

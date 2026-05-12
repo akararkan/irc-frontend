@@ -76,12 +76,45 @@ export function formatFileSize(bytes) {
 }
 
 // ── Backend SourceType (research/enums/SourceType.java) ──────────
+// Per the IRC Scholar design spec, every source row carries a typed
+// monospace pill with a category color so the corpus of evidence reads
+// at a glance. Mapping (backend enum → spec accent):
+//   URL        → purple (violet)  — the web bucket
+//   DOI        → warning amber    — peer-reviewed identifiers
+//   ISBN       → danger rust      — book identifiers (was BOOK in spec)
+//   MEDIA_FILE → muted            — attached files
+//   MANUAL     → success sage     — free-form citations
 export const SOURCE_TYPE_META = {
-  URL:        { label: 'Web link', icon: Globe,    tone: 'text-sky-700 dark:text-sky-300',       bg: 'bg-sky-500/10' },
-  DOI:        { label: 'DOI',      icon: Hash,     tone: 'text-violet-700 dark:text-violet-300', bg: 'bg-violet-500/10' },
-  ISBN:       { label: 'Book',     icon: BookOpen, tone: 'text-amber-700 dark:text-amber-300',   bg: 'bg-amber-500/10' },
-  MEDIA_FILE: { label: 'File',     icon: Library,  tone: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-500/10' },
-  MANUAL:     { label: 'Citation', icon: Quote,    tone: 'text-zinc-700 dark:text-zinc-300',     bg: 'bg-zinc-500/10' },
+  URL: {
+    label: 'Web link',
+    icon: Globe,
+    tone: 'text-accent-violet',
+    bg: 'bg-[color-mix(in_oklch,var(--accent-violet)_14%,transparent)]',
+  },
+  DOI: {
+    label: 'DOI',
+    icon: Hash,
+    tone: 'text-accent-amber',
+    bg: 'bg-[color-mix(in_oklch,var(--accent-amber)_16%,transparent)]',
+  },
+  ISBN: {
+    label: 'Book',
+    icon: BookOpen,
+    tone: 'text-accent-rust',
+    bg: 'bg-[color-mix(in_oklch,var(--accent-rust)_14%,transparent)]',
+  },
+  MEDIA_FILE: {
+    label: 'File',
+    icon: Library,
+    tone: 'text-ink-2',
+    bg: 'bg-muted',
+  },
+  MANUAL: {
+    label: 'Citation',
+    icon: Quote,
+    tone: 'text-accent-sage',
+    bg: 'bg-[color-mix(in_oklch,var(--accent-sage)_14%,transparent)]',
+  },
 }
 
 export const SOURCE_TYPE_OPTIONS = [

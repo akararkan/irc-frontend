@@ -39,6 +39,7 @@ import { EmptyState } from '@/components/app/empty-state'
 import { MentionTextarea } from '@/components/app/mention-textarea'
 import { PageHeader } from '@/components/app/page-header'
 import { QuestionFeedCard } from '@/components/app/question-feed-card'
+import { RoleBadge } from '@/components/app/role-badge'
 import {
   createQuestion,
   getMyQuestions,
@@ -96,6 +97,7 @@ function FeedSkeleton() {
 
 function AskQuestionDialog({ onCreated, trigger }) {
   const toast = useToast()
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
@@ -171,8 +173,9 @@ function AskQuestionDialog({ onCreated, trigger }) {
             />
             New question
           </div>
-          <DialogTitle className="mt-1.5 font-display text-[20px] font-semibold leading-[1.15] tracking-[-0.018em] text-ink">
-            Ask a question
+          <DialogTitle className="mt-1.5 flex flex-wrap items-center gap-2 font-display text-[20px] font-semibold leading-[1.15] tracking-[-0.018em] text-ink">
+            <span>Ask a question</span>
+            {user?.role ? <RoleBadge role={user.role} size="sm" /> : null}
           </DialogTitle>
           <DialogDescription className="text-[13px] text-ink-3">
             Be specific. Add the context, what you tried, and what you expect — answers come faster.

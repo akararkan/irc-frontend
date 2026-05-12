@@ -25,26 +25,14 @@ import {
 } from '@/lib/format'
 import { RelativeTime } from '@/components/app/relative-time'
 
+// Status palette per IRC Scholar spec §07: OPEN → success green,
+// ANSWERED → info blue, CLOSED / ARCHIVED → muted. Drawn from the
+// semantic pill utilities exposed in index.css.
 const STATUS_META = {
-  OPEN: {
-    label: 'Open',
-    className:
-      'bg-[color-mix(in_oklch,var(--accent-sky)_12%,transparent)] text-accent-sky ring-[color-mix(in_oklch,var(--accent-sky)_25%,transparent)]',
-  },
-  ANSWERED: {
-    label: 'Answered',
-    className:
-      'bg-[color-mix(in_oklch,var(--accent-sage)_14%,transparent)] text-accent-sage ring-[color-mix(in_oklch,var(--accent-sage)_25%,transparent)]',
-  },
-  CLOSED: {
-    label: 'Closed',
-    className: 'bg-muted text-ink-3 ring-border',
-  },
-  ARCHIVED: {
-    label: 'Archived',
-    className:
-      'bg-[color-mix(in_oklch,var(--accent-amber)_14%,transparent)] text-accent-amber ring-[color-mix(in_oklch,var(--accent-amber)_25%,transparent)]',
-  },
+  OPEN:     { label: 'Open',     className: 'pill-success' },
+  ANSWERED: { label: 'Answered', className: 'pill-info' },
+  CLOSED:   { label: 'Closed',   className: 'pill-mute' },
+  ARCHIVED: { label: 'Archived', className: 'pill-mute' },
 }
 
 /**
@@ -159,167 +147,97 @@ export function QuestionFeedCard({ question: incoming }) {
       ref={setLiveRef}
       to={`/questions/${question.id}`}
       className={cn(
-        'group/card relative isolate block overflow-hidden rounded-2xl border border-border bg-paper',
-        'p-4 transition-all duration-200 hover:-translate-y-px hover:border-brand/30 hover:shadow-soft sm:p-[18px]',
+        'group/card card-hover block overflow-hidden rounded-xl border-[0.5px] border-border bg-paper p-4 sm:p-5 md:p-6',
       )}
     >
-      {/* Hover-activated accent rail on the left edge */}
-      <span
-        aria-hidden
-        className={cn(
-          'absolute inset-y-3 left-0 w-[3px] rounded-full transition-opacity duration-200',
-          'opacity-0 group-hover/card:opacity-100',
-        )}
-        style={{
-          background: sealed
-            ? 'linear-gradient(180deg, var(--gold), var(--accent-sage))'
-            : 'linear-gradient(180deg, var(--brand), var(--brand-muted))',
-        }}
-      />
-
-      <div className="flex gap-4">
-        {/* Stat rail */}
-        <div className="hidden shrink-0 flex-col items-end gap-2.5 border-r border-border/70 pr-4 text-right sm:flex">
-          <Stat
-            value={answers}
-            label={answers === 1 ? 'answer' : 'answers'}
-            tone={isAnswered ? 'gold' : 'brand'}
-          />
-          {sealed ? (
-            <Stat
-              value={sealVotes}
-              label={sealVotes === 1 ? 'seal' : 'seals'}
-              tone="gold"
-              icon={Award}
-            />
-          ) : null}
-          {question.maxAnswers != null && !sealed ? (
-            <Stat
-              value={question.maxAnswers}
-              label="limit"
-              tone="muted"
-            />
-          ) : null}
-        </div>
-
-        {/* Body */}
-        <div className="min-w-0 flex-1">
-          {/* Title */}
-          <h3 className="font-display text-[18px] font-semibold leading-[1.3] tracking-[-0.012em] text-ink text-balance">
-            <span className="bg-[length:0%_2px] bg-bottom bg-no-repeat transition-[background-size] duration-200 group-hover/card:bg-[length:100%_2px] group-hover/card:text-brand"
-              style={{
-                backgroundImage:
-                  'linear-gradient(transparent, transparent), linear-gradient(var(--brand), var(--brand))',
-              }}
-            >
-              {question.title}
-            </span>
-          </h3>
-
-          {/* Excerpt */}
-          {question.body ? (
-            <p className="mt-1.5 line-clamp-2 text-[13.5px] leading-[1.55] text-ink-3">
-              {question.body}
-            </p>
-          ) : null}
-
-          {/* Author row */}
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-ink-3">
-            <UserAvatar user={author} className="size-7 ring-1 ring-border" />
-            <span className="min-w-0 leading-tight">
-              <span className="block truncate font-semibold text-ink-2">
-                {getFullName(author) || getHandle(author) || 'Unknown'}
-              </span>
-              {getHandle(author) ? (
-                <span className="block truncate font-mono text-[10.5px] text-ink-3">
-                  @{getHandle(author)}{' · '}
-                  <RelativeTime entity={question} />
-                </span>
-              ) : (
-                <span className="block truncate text-[10.5px] text-ink-3">
-                  asked <RelativeTime entity={question} />
-                </span>
-              )}
-            </span>
-            {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
-          </div>
-
-          {/* Footer */}
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-border pt-2.5 text-xs text-ink-3">
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] ring-1',
-                status.className,
-              )}
-            >
-              {isAnswered ? <CheckCircle2 className="size-3" /> : null}
-              {status.label}
-            </span>
-
-            {sealed ? (
-              <span
-                className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em]"
-                style={{
-                  background:
-                    'color-mix(in oklch, var(--gold) 14%, transparent)',
-                  color: 'var(--gold-2)',
-                  boxShadow:
-                    '0 0 0 1px color-mix(in oklch, var(--gold) 28%, transparent) inset',
-                }}
-                title={`${sealVotes} ${
-                  sealVotes === 1 ? 'scholar has' : 'scholars have'
-                } voted a best answer`}
-              >
-                <Award className="size-3" />
-                {sealVotes > 1
-                  ? `${formatNumber(sealVotes)} seals`
-                  : 'Sealed'}
-              </span>
-            ) : null}
-
-            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-3">
-              <MessageCircleQuestion className="size-3" />
-              Question
-            </span>
-
-            {question.answersLocked ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-3">
-                <Lock className="size-3" />
-                Locked
-              </span>
-            ) : null}
-
-            {limitReached ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-[color-mix(in_oklch,var(--accent-amber)_14%,transparent)] px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-accent-amber">
-                <Hash className="size-3" />
-                Limit
-              </span>
-            ) : null}
-
-            <span className="sm:hidden font-mono text-[10.5px]">
-              {formatNumber(answers)} {answers === 1 ? 'answer' : 'answers'}
-            </span>
-
-            <span className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand transition-all group-hover/card:gap-2">
-              {sealed ? (
-                <>
-                  <Sparkles className="size-3.5" />
-                  Read seals
-                </>
-              ) : isAnswered ? (
-                'Read answers'
-              ) : (
-                'Answer this'
-              )}
-              <ArrowRight className="size-3.5" />
-            </span>
-          </div>
-
-          {/* Hidden raw username so deep-link routing keeps working when
-              author profile is opened from elsewhere — never visible. */}
-          <span hidden data-raw-username={getRawUsername(author)} />
-        </div>
+      {/* Status & meta strip — pinned at top per spec §07. */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium leading-none',
+            status.className,
+          )}
+        >
+          {isAnswered ? <CheckCircle2 className="size-3" strokeWidth={1.5} /> : null}
+          {status.label}
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2 py-0.5 text-[11px] font-medium">
+          {formatNumber(answers)} {answers === 1 ? 'answer' : 'answers'}
+        </span>
+        {sealed ? (
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+            style={{ background: 'var(--gold-soft)', color: 'var(--gold-2)' }}
+            title={`${sealVotes} ${sealVotes === 1 ? 'scholar has' : 'scholars have'} voted a best answer`}
+          >
+            <Award className="size-3" strokeWidth={1.5} />
+            {sealVotes > 1 ? `${formatNumber(sealVotes)} seals` : 'Sealed'}
+          </span>
+        ) : null}
+        {question.answersLocked ? (
+          <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2 py-0.5 text-[11px] font-medium">
+            <Lock className="size-3" strokeWidth={1.5} />
+            Locked
+          </span>
+        ) : null}
+        {limitReached ? (
+          <span className="inline-flex items-center gap-1 rounded-full pill-warn px-2 py-0.5 text-[11px] font-medium">
+            <Hash className="size-3" strokeWidth={1.5} />
+            Limit
+          </span>
+        ) : null}
+        <span className="ml-auto font-mono text-[11px] text-ink-3">
+          <RelativeTime entity={question} />
+        </span>
       </div>
+
+      {/* Title — Newsreader serif, spec §07 */}
+      <h3
+        dir="auto"
+        className="font-display text-[20px] font-medium leading-[1.3] tracking-[-0.012em] text-ink text-balance group-hover/card:text-brand transition-colors sm:text-[22px]"
+      >
+        {question.title}
+      </h3>
+
+      {/* Excerpt */}
+      {question.body ? (
+        <p
+          dir="auto"
+          className="mt-2 line-clamp-2 text-[14px] leading-[1.65] text-ink-3"
+        >
+          {question.body}
+        </p>
+      ) : null}
+
+      {/* Asker row + CTA — hairline rule above, matches spec */}
+      <div className="mt-4 flex flex-wrap items-center gap-3 border-t-[0.5px] border-border pt-3">
+        <UserAvatar user={author} className="size-[28px] shrink-0" />
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="truncate text-[13px] font-medium text-ink">
+            {getFullName(author) || getHandle(author) || 'Unknown'}
+          </p>
+          <p className="truncate font-mono text-[10.5px] text-ink-3">
+            {getHandle(author) ? `@${getHandle(author)}` : 'asked'}
+          </p>
+        </div>
+        {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
+
+        <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand">
+          {sealed ? (
+            <>
+              <Sparkles className="size-3.5" strokeWidth={1.5} />
+              Read seals
+            </>
+          ) : isAnswered ? (
+            'Read answers'
+          ) : (
+            'Answer this'
+          )}
+          <ArrowRight className="size-3.5" strokeWidth={1.5} />
+        </span>
+      </div>
+
+      <span hidden data-raw-username={getRawUsername(author)} />
     </Link>
   )
 }

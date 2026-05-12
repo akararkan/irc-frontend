@@ -24,23 +24,12 @@ import {
 } from '@/lib/format'
 import { RelativeTime } from '@/components/app/relative-time'
 
+// Spec §08 ResearchStatus → pill mapping.
 const STATUS_META = {
-  PUBLISHED: {
-    label: 'Published',
-    className:
-      'bg-[color-mix(in_oklch,var(--accent-sage)_14%,transparent)] text-accent-sage ring-[color-mix(in_oklch,var(--accent-sage)_25%,transparent)]',
-  },
-  DRAFT:     { label: 'Draft',     className: 'bg-muted text-ink-3 ring-border' },
-  ARCHIVED:  {
-    label: 'Archived',
-    className:
-      'bg-[color-mix(in_oklch,var(--accent-amber)_14%,transparent)] text-accent-amber ring-[color-mix(in_oklch,var(--accent-amber)_25%,transparent)]',
-  },
-  RETRACTED: {
-    label: 'Retracted',
-    className:
-      'bg-[color-mix(in_oklch,var(--accent-rust)_14%,transparent)] text-accent-rust ring-[color-mix(in_oklch,var(--accent-rust)_25%,transparent)]',
-  },
+  PUBLISHED: { label: 'Published', className: 'pill-success' },
+  DRAFT:     { label: 'Draft',     className: 'pill-warn' },
+  ARCHIVED:  { label: 'Archived',  className: 'pill-mute' },
+  RETRACTED: { label: 'Retracted', className: 'pill-danger' },
 }
 
 /**
@@ -112,24 +101,11 @@ export function ResearchCard({ item: incoming }) {
       },
       REACTION_ADDED: (payload) => {
         if (payload == null) return
-        patch({
-          reactionCount: payload.reactionCount ?? item.reactionCount,
-          topReactionTypes: payload.topReactionTypes ?? item.topReactionTypes,
-        })
-      },
-      REACTION_CHANGED: (payload) => {
-        if (payload == null) return
-        patch({
-          reactionCount: payload.reactionCount ?? item.reactionCount,
-          topReactionTypes: payload.topReactionTypes ?? item.topReactionTypes,
-        })
+        patch({ reactionCount: payload.reactionCount ?? item.reactionCount })
       },
       REACTION_REMOVED: (payload) => {
         if (payload == null) return
-        patch({
-          reactionCount: payload.reactionCount ?? item.reactionCount,
-          topReactionTypes: payload.topReactionTypes ?? item.topReactionTypes,
-        })
+        patch({ reactionCount: payload.reactionCount ?? item.reactionCount })
       },
       COMMENT_CREATED: (payload) => {
         const next = payload?.commentCount ?? (item.commentCount ?? 0) + 1
@@ -170,8 +146,7 @@ export function ResearchCard({ item: incoming }) {
       ref={setLiveRef}
       to={href}
       className={cn(
-        'group block overflow-hidden rounded-2xl border border-border bg-paper',
-        'transition-all hover:-translate-y-px hover:border-brand/25',
+        'group card-hover block overflow-hidden rounded-xl border-[0.5px] border-border bg-paper',
       )}
     >
       {hasMedia ? (
@@ -201,7 +176,7 @@ export function ResearchCard({ item: incoming }) {
               {item.status ? (
                 <span
                   className={cn(
-                    'inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] ring-1 backdrop-blur',
+                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium leading-none backdrop-blur',
                     status.className,
                   )}
                 >
@@ -209,14 +184,14 @@ export function ResearchCard({ item: incoming }) {
                 </span>
               ) : null}
               {item.currentUserSaved ? (
-                <span className="inline-flex items-center gap-1 rounded-md bg-ink/85 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-paper backdrop-blur">
+                <span className="inline-flex items-center gap-1 rounded-full bg-ink/85 px-2 py-0.5 text-[11px] font-medium text-paper backdrop-blur">
                   <Bookmark className="size-2.5 fill-current" />
                   Saved
                 </span>
               ) : null}
             </div>
             {item.ircId ? (
-              <span className="inline-flex items-center rounded-md bg-paper/90 px-2 py-0.5 font-mono text-[10px] font-medium text-ink backdrop-blur">
+              <span className="inline-flex items-center rounded-sm bg-paper/90 px-2 py-0.5 font-mono text-[10px] font-medium text-ink-2 backdrop-blur">
                 {item.ircId}
               </span>
             ) : null}
@@ -277,42 +252,64 @@ export function ResearchCard({ item: incoming }) {
         </div>
       )}
 
-      <div className="space-y-3 p-4 md:p-[18px]">
-        {/* Eyebrow row */}
-        <div className="flex flex-wrap items-center gap-2.5 text-[12px] text-ink-3">
-          {item.category ? (
-            <span className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-gold-2">
-              {item.category}
+      <div className="space-y-3 p-4 sm:p-5 md:p-6">
+        {/* Identifier strip per spec §08 — status pill · IRC sequence ·
+            DOI · date, mono identifiers separated by hairlines. */}
+        <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-3">
+          {!hasMedia && item.status ? (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium leading-none',
+                status.className,
+              )}
+            >
+              {status.label}
             </span>
           ) : null}
-          <RelativeTime entity={item} title={item.formattedDate || undefined} />
+          {!hasMedia && item.ircId ? (
+            <span className="font-mono text-[11px] text-ink-2">{item.ircId}</span>
+          ) : null}
           {item.doi ? (
             <>
               <span aria-hidden className="text-ink-4">·</span>
-              <span className="font-mono text-[11px]">DOI · {item.doi}</span>
+              <span className="font-mono text-[11px]">
+                DOI: <span className="text-ink-2">{item.doi}</span>
+              </span>
             </>
           ) : null}
+          <span aria-hidden className="ml-auto" />
+          <RelativeTime
+            entity={item}
+            title={item.formattedDate || undefined}
+            className="font-mono text-[11px]"
+          />
         </div>
 
-        {/* Title */}
-        <h3 className="font-display text-[19px] font-semibold leading-[1.25] tracking-[-0.012em] text-ink text-balance group-hover:text-brand">
+        {/* Title — Newsreader serif per spec */}
+        <h3
+          dir="auto"
+          className="font-display text-[22px] font-medium leading-[1.15] tracking-[-0.018em] text-ink text-balance group-hover:text-brand transition-colors"
+        >
           {item.title}
         </h3>
 
         {/* Abstract */}
         {item.abstractText || item.description ? (
-          <p className="line-clamp-3 text-[13.5px] leading-[1.55] text-ink-3">
+          <p
+            dir="auto"
+            className="line-clamp-3 text-[14px] leading-[1.65] text-ink-2"
+          >
             {item.abstractText ?? item.description}
           </p>
         ) : null}
 
-        {/* Tags */}
+        {/* Tags — quiet, monospace hashtag chips */}
         {item.tags?.length ? (
           <div className="flex flex-wrap gap-1.5">
             {item.tags.slice(0, 6).map((tag) => (
               <span
                 key={tag}
-                className="rounded-md border border-border bg-muted px-2 py-0.5 font-mono text-[11px] text-ink-2 transition-colors hover:border-brand/40 hover:bg-brand-soft hover:text-brand"
+                className="rounded-sm bg-muted px-2 py-0.5 text-[12px] text-ink-3 transition-colors hover:text-ink"
               >
                 #{tag}
               </span>
@@ -320,12 +317,12 @@ export function ResearchCard({ item: incoming }) {
           </div>
         ) : null}
 
-        {/* Footer */}
-        <div className="flex items-center gap-3 border-t border-dashed border-border pt-3">
-          <UserAvatar user={author} className="size-8" />
+        {/* Footer — author + metric row */}
+        <div className="flex items-center gap-3 border-t-[0.5px] border-border pt-3">
+          <UserAvatar user={author} className="size-[28px]" />
           <div className="min-w-0 flex-1 leading-tight">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="block truncate text-[13px] font-semibold text-ink-2">
+              <span className="block truncate text-[13px] font-medium text-ink">
                 {authorName}
               </span>
               <RoleBadge role="RESEARCHER" size="xs" />

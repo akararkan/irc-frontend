@@ -18,7 +18,7 @@ import {
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { extractApiMessage } from '@/lib/api-error'
-import { getFullName } from '@/lib/format'
+import { getFullName, getHandle, getRawUsername } from '@/lib/format'
 
 function List({ items, onFollow, onUnfollow, currentUserId }) {
   if (items.length === 0) {
@@ -131,7 +131,7 @@ export function ConnectionsPage({ initialTab = 'followers' }) {
           ? current.map((item) => (item.id === person.id ? { ...item, _isFollowing: true } : item))
           : current,
       )
-      toast.success(`Following ${person.username}`)
+      toast.success(`Following ${getFullName(person) || getHandle(person)}`)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not follow.'))
     }
@@ -166,11 +166,11 @@ export function ConnectionsPage({ initialTab = 'followers' }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Connections of ${getFullName(profile)}`}
-        description={profile.username}
+        title={`Connections of ${getFullName(profile) || getHandle(profile)}`}
+        description={getHandle(profile) ? `@${getHandle(profile)}` : null}
         action={
           <Button asChild size="sm" variant="outline" className="rounded-full">
-            <Link to={`/profile/${profile.username}`}>View profile</Link>
+            <Link to={`/profile/${getRawUsername(profile)}`}>View profile</Link>
           </Button>
         }
       />

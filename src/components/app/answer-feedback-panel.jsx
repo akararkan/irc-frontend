@@ -24,51 +24,54 @@ import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
 import { RelativeTime } from '@/components/app/relative-time'
-import { formatNumber, getFullName } from '@/lib/format'
+import { formatNumber, getFullName, getHandle } from '@/lib/format'
 
 // ─── Reaction taxonomy ──────────────────────────────────────────────
-// Maps the backend feedback enum to a Facebook-style reaction.
-// HELPFUL = the default "Like" — what a single click adds.
+// Maps the backend feedback enum (EXCELLENT / HELPFUL /
+// NEEDS_IMPROVEMENT / INCORRECT / OFF_TOPIC — see FeedbackType.java) to
+// a Facebook-style reaction. HELPFUL = the default "Like" — what a
+// single click adds. Color tokens map onto the design system's
+// in-content accents so the chips stay coherent with status pills.
 const REACTION_TYPES = [
   {
     value: 'HELPFUL',
     label: 'Like',
     emoji: '👍',
-    chipBg: 'bg-sky-500/10',
-    chipText: 'text-sky-600 dark:text-sky-400',
-    ringTone: 'ring-sky-500/30',
+    chipBg: 'bg-[color-mix(in_oklch,var(--accent-sky)_12%,transparent)]',
+    chipText: 'text-accent-sky',
+    ringTone: 'ring-[color-mix(in_oklch,var(--accent-sky)_28%,transparent)]',
   },
   {
     value: 'EXCELLENT',
     label: 'Brilliant',
     emoji: '💖',
-    chipBg: 'bg-rose-500/10',
-    chipText: 'text-rose-600 dark:text-rose-400',
-    ringTone: 'ring-rose-500/30',
+    chipBg: 'bg-[color-mix(in_oklch,var(--accent-rust)_12%,transparent)]',
+    chipText: 'text-accent-rust',
+    ringTone: 'ring-[color-mix(in_oklch,var(--accent-rust)_28%,transparent)]',
   },
   {
     value: 'NEEDS_IMPROVEMENT',
     label: 'Improve',
     emoji: '🤔',
-    chipBg: 'bg-amber-500/10',
-    chipText: 'text-amber-600 dark:text-amber-400',
-    ringTone: 'ring-amber-500/30',
+    chipBg: 'bg-[color-mix(in_oklch,var(--accent-amber)_14%,transparent)]',
+    chipText: 'text-accent-amber',
+    ringTone: 'ring-[color-mix(in_oklch,var(--accent-amber)_28%,transparent)]',
   },
   {
     value: 'INCORRECT',
     label: 'Incorrect',
     emoji: '❌',
-    chipBg: 'bg-red-500/10',
-    chipText: 'text-red-600 dark:text-red-400',
-    ringTone: 'ring-red-500/30',
+    chipBg: 'bg-destructive/12',
+    chipText: 'text-destructive',
+    ringTone: 'ring-destructive/30',
   },
   {
     value: 'OFF_TOPIC',
     label: 'Off-topic',
     emoji: '🌀',
-    chipBg: 'bg-zinc-500/10',
-    chipText: 'text-zinc-600 dark:text-zinc-400',
-    ringTone: 'ring-zinc-500/30',
+    chipBg: 'bg-muted',
+    chipText: 'text-ink-2',
+    ringTone: 'ring-border',
   },
 ]
 
@@ -414,7 +417,7 @@ function FeedbackItem({ feedback, isMine, onDelete, onSave }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
           <span className="font-semibold">
-            {getFullName(author) || author.username}
+            {getFullName(author) || getHandle(author)}
           </span>
           <span className={cn('text-[11px] font-medium', meta.chipText)}>
             · {meta.label}
@@ -449,7 +452,10 @@ function FeedbackItem({ feedback, isMine, onDelete, onSave }) {
           ) : null}
         </div>
         {feedback.body ? (
-          <p className="mt-1 whitespace-pre-wrap text-[13px] leading-snug text-foreground/90">
+          <p
+            dir="auto"
+            className="mt-1 whitespace-pre-wrap text-[13px] leading-snug text-foreground/90"
+          >
             {feedback.body}
           </p>
         ) : null}

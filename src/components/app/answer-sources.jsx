@@ -18,21 +18,39 @@ import {
   getSourceTypeMeta,
 } from '@/lib/qna-media'
 
+// SOURCE_TYPE_LABEL — short uppercase code (matches backend enum names)
+// used in the leading monospace pill, per the IRC Scholar spec where
+// every citation row carries a typed identifier (URL · DOI · ISBN · FILE
+// · MANUAL). This is the most consequential row pattern in the product
+// — it tells readers where the knowledge comes from at a glance.
+const SOURCE_TYPE_CODE = {
+  URL: 'URL',
+  DOI: 'DOI',
+  ISBN: 'ISBN',
+  MEDIA_FILE: 'FILE',
+  MANUAL: 'MANUAL',
+}
+
 function SourceRow({ source, canManage, onDelete }) {
   const meta = getSourceTypeMeta(source.sourceType)
   const Icon = meta.icon
   const link = getSourceLink(source)
+  const code = SOURCE_TYPE_CODE[source.sourceType] ?? 'SOURCE'
 
   return (
     <li className="flex items-start gap-2.5 rounded-xl border border-border bg-card p-2.5">
+      {/* Typed pill — uppercase monospace, category-colored. This is
+          the visual anchor of the citation primitive across answers
+          and research references. */}
       <span
         className={cn(
-          'mt-0.5 grid size-7 shrink-0 place-items-center rounded-full',
+          'mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.06em]',
           meta.bg,
           meta.tone,
         )}
       >
-        <Icon className="size-3.5" />
+        <Icon className="size-3" />
+        {code}
       </span>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -41,32 +59,23 @@ function SourceRow({ source, canManage, onDelete }) {
               href={link}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 truncate text-[13px] font-semibold text-foreground hover:underline"
+              className="inline-flex items-center gap-1 truncate text-[13px] font-semibold text-ink hover:underline"
             >
               <span className="truncate">{source.title}</span>
-              <ExternalLink className="size-3 shrink-0 text-muted-foreground" />
+              <ExternalLink className="size-3 shrink-0 text-ink-3" />
             </a>
           ) : (
-            <span className="truncate text-[13px] font-semibold">{source.title}</span>
+            <span className="truncate text-[13px] font-semibold text-ink">{source.title}</span>
           )}
-          <span
-            className={cn(
-              'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
-              meta.bg,
-              meta.tone,
-            )}
-          >
-            {meta.label}
-          </span>
         </div>
         {source.citationText ? (
-          <p className="whitespace-pre-wrap text-[12px] leading-snug text-muted-foreground">
+          <p className="whitespace-pre-wrap text-[12px] leading-snug text-ink-3">
             {source.citationText}
           </p>
         ) : null}
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-          {source.doi ? <span>DOI: {source.doi}</span> : null}
-          {source.isbn ? <span>ISBN: {source.isbn}</span> : null}
+        <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-ink-3">
+          {source.doi ? <span>DOI · {source.doi}</span> : null}
+          {source.isbn ? <span>ISBN · {source.isbn}</span> : null}
           {source.originalFileName ? <span>{source.originalFileName}</span> : null}
         </div>
       </div>
@@ -74,7 +83,7 @@ function SourceRow({ source, canManage, onDelete }) {
         <button
           type="button"
           onClick={() => onDelete?.(source.id)}
-          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-destructive/10 hover:text-destructive"
           aria-label="Remove source"
         >
           <Trash2 className="size-3.5" />
@@ -253,15 +262,20 @@ export function AnswerSources({
     }
   }
 
+  // Spec: sources live in a muted-background box with a "SOURCES CITED"
+  // eyebrow. The wrapper anchors the citation block visually so the
+  // reader's eye reads "this answer is sourced" before reading the
+  // detail. We keep the inner rows on card surface so the typed pill
+  // colors stay legible.
   return (
-    <section className="space-y-2.5">
+    <section className="space-y-2.5 rounded-xl border border-border bg-muted/40 p-3">
       <div className="flex items-center gap-2">
-        <Library className="size-3 text-muted-foreground" />
-        <h4 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Sources & references
+        <Library className="size-3 text-ink-3" />
+        <h4 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-3">
+          Sources cited
         </h4>
         {hasSources ? (
-          <span className="text-[11px] text-muted-foreground">· {sources.length}</span>
+          <span className="font-mono text-[10.5px] text-ink-3">· {sources.length}</span>
         ) : null}
         <span className="ml-auto h-px flex-1 bg-border" aria-hidden />
         {canManage && !adding ? (
@@ -287,7 +301,7 @@ export function AnswerSources({
       ) : null}
 
       {hasSources ? (
-        <ul className="space-y-2">
+        <ul className="space-y-1.5">
           {sources.map((source) => (
             <SourceRow
               key={source.id}
@@ -298,7 +312,7 @@ export function AnswerSources({
           ))}
         </ul>
       ) : !adding ? (
-        <p className="text-[12px] text-muted-foreground">No sources yet.</p>
+        <p className="text-[12px] text-ink-3">No sources yet.</p>
       ) : null}
     </section>
   )

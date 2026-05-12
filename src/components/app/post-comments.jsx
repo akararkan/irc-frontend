@@ -7,9 +7,12 @@ import {
 } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
+  AtSign,
   ChevronDown,
+  Heart,
   Image as ImageIcon,
   Loader2,
+  MessageCircle,
   MoreHorizontal,
   Pencil,
   Send,
@@ -28,8 +31,8 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { MentionText } from '@/components/app/mention-text'
 import { MentionTextarea } from '@/components/app/mention-textarea'
+import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
-import { ReactionPicker } from '@/components/app/reaction-picker'
 import { useAuth } from '@/features/auth/auth-context'
 import {
   createPostComment,
@@ -44,9 +47,14 @@ import {
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
-import { getFullName, getHandle, getRawUsername, resolveMediaUrl } from '@/lib/format'
+import {
+  formatNumber,
+  getFullName,
+  getHandle,
+  getRawUsername,
+  resolveMediaUrl,
+} from '@/lib/format'
 import { RelativeTime } from '@/components/app/relative-time'
-import { getPostReaction } from '@/lib/reactions'
 
 function normalizeAuthor(comment) {
   if (comment.author) {
@@ -142,33 +150,41 @@ function CommentComposer({
     }
   }
 
+  function insertMention() {
+    setText((current) => (current.endsWith(' ') || !current ? `${current}@` : `${current} @`))
+    requestAnimationFrame(() => textareaRef.current?.focus())
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="flex items-start gap-2">
-      <UserAvatar user={user} className={cn('shrink-0', compact ? 'size-7' : 'size-8')} />
+    <form onSubmit={handleSubmit} className="flex items-start gap-3">
+      <UserAvatar
+        user={user}
+        className={cn('shrink-0', compact ? 'size-7' : 'size-[34px]')}
+      />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div
           className={cn(
-            'flex items-end gap-1 rounded-full bg-muted px-1 py-1 ring-1 ring-transparent transition-all focus-within:bg-background focus-within:ring-border focus-within:shadow-sm',
+            'flex items-center gap-1 rounded-2xl border-[0.5px] border-border bg-paper px-2 py-1.5 transition-colors focus-within:border-brand/40',
           )}
         >
           <MentionTextarea
             ref={textareaRef}
             value={text}
             onChange={setText}
-            placeholder={parentId ? 'Write a reply…' : 'Write a comment…'}
+            placeholder={parentId ? 'Write a reply…' : 'Add to the conversation…'}
             rows={1}
             autoFocus={autoFocus}
             wrapperClassName="flex-1"
-            className="min-h-8 flex-1 resize-none rounded-full border-0 bg-transparent px-3 py-1.5 text-sm shadow-none focus-visible:ring-0"
+            className="min-h-8 flex-1 resize-none rounded-md border-0 bg-transparent px-2 py-1.5 text-[14px] shadow-none focus-visible:ring-0"
           />
           <label
             className={cn(
-              'grid size-8 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
-              file && 'bg-accent text-foreground',
+              'grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink',
+              file && 'bg-secondary text-ink',
             )}
             title="Attach image or video"
           >
-            <ImageIcon className="size-4" />
+            <ImageIcon className="size-4" strokeWidth={1.5} />
             <input
               type="file"
               accept="image/*,video/*"
@@ -180,16 +196,23 @@ function CommentComposer({
               }}
             />
           </label>
+          <button
+            type="button"
+            onClick={insertMention}
+            className="grid size-8 shrink-0 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+            title="Mention someone"
+          >
+            <AtSign className="size-4" strokeWidth={1.5} />
+          </button>
           <Button
             type="submit"
-            size="icon-sm"
             disabled={(!text.trim() && !file) || submitting}
-            className="size-8 rounded-full"
+            className="h-8 rounded-full bg-brand px-3.5 text-[12.5px] font-semibold text-brand-foreground hover:bg-brand/90"
           >
             {submitting ? (
               <Loader2 className="size-3.5 animate-spin" />
             ) : (
-              <Send className="size-3.5" />
+              <span>{parentId ? 'Reply' : 'Comment'}</span>
             )}
           </Button>
         </div>
@@ -234,7 +257,19 @@ function CommentMedia({ comment }) {
   )
 }
 
-function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
+function CommentItem({
+  postId,
+  comment,
+  onChange,
+  onRemove,
+  depth = 0,
+  postAuthorId,
+  postAuthorUsername,
+  /** Depth-1 only: callback to append a sibling re-reply to the
+   *  top-level parent's loaded replies list. Lets nested replies
+   *  host their own "Reply" button without spawning a depth-2 tree. */
+  onSiblingReplyAdded,
+}) {
   const { user: currentUser, isAuthenticated } = useAuth()
   const toast = useToast()
   const [working, setWorking] = useState(false)
@@ -248,20 +283,27 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
   const [loadingReplies, setLoadingReplies] = useState(false)
 
   const author = normalizeAuthor(comment)
+  const commentAuthorId = comment.author?.id ?? comment.authorId
   const isMine =
     currentUser &&
-    (comment.author?.id === currentUser.id ||
+    (commentAuthorId === currentUser.id ||
       (author.username && currentUser.username && author.username === currentUser.username))
-
-  const reactionInfo = comment.myReaction ? getPostReaction(comment.myReaction) : null
+  const isPostAuthor = Boolean(
+    (postAuthorId && commentAuthorId && postAuthorId === commentAuthorId) ||
+      (postAuthorUsername &&
+        author.username &&
+        postAuthorUsername === author.username),
+  )
 
   async function handleReact(type) {
     if (working || !isAuthenticated) {
       if (!isAuthenticated) toast.info('Sign in to react.')
       return
     }
-    // Optimistic + always trust local intent for myReaction (backend
-    // returns CommentResponse without populating myReaction on react).
+    // Optimistic + always trust local intent. Don't merge the API
+    // response — CommentResponse echoes a stale reactionCount
+    // (Hibernate L1 cache shadow) which would clobber our optimistic
+    // +1 and produce a 0→1→0→1 flicker until the SSE event lands.
     const previous = comment
     const wasReacting = Boolean(comment.myReaction)
     onChange?.({
@@ -273,10 +315,7 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
     })
     setWorking(true)
     try {
-      const updated = await reactToComment(postId, comment.id, type)
-      if (updated) {
-        onChange?.({ ...updated, myReaction: type })
-      }
+      await reactToComment(postId, comment.id, type)
     } catch (error) {
       onChange?.(previous)
       toast.error(friendlyApiMessage(error, 'Could not react.'))
@@ -358,11 +397,17 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
   }
 
   function handleReplyAdded(newReply) {
-    setReplies((current) => [...current, newReply])
-    setRepliesLoaded(true)
-    setRepliesOpen(true)
+    if (depth === 0) {
+      setReplies((current) => [...current, newReply])
+      setRepliesLoaded(true)
+      setRepliesOpen(true)
+      onChange?.({ ...comment, replyCount: (comment.replyCount ?? 0) + 1 })
+    } else {
+      // Depth-1 re-reply — bubble up to the top-level parent which
+      // appends the sibling under itself (kept flat at 1 level deep).
+      onSiblingReplyAdded?.(newReply)
+    }
     setShowReplyBox(false)
-    onChange?.({ ...comment, replyCount: (comment.replyCount ?? 0) + 1 })
   }
 
   function handleReplyChange(updated) {
@@ -403,44 +448,48 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6, scale: 0.96 }}
       transition={{ type: 'spring', stiffness: 360, damping: 28 }}
-      className="group/comment flex items-start gap-2"
+      className="group/comment flex items-start gap-3"
     >
       <Link
         to={`/profile/${getRawUsername(author)}`}
-        className="shrink-0 transition-transform hover:scale-105"
+        className="shrink-0 transition-opacity hover:opacity-90"
       >
-        <UserAvatar user={author} className={depth === 0 ? 'size-8' : 'size-7'} />
+        <UserAvatar user={author} className={depth === 0 ? 'size-[34px]' : 'size-[28px]'} />
       </Link>
       <div className="min-w-0 flex-1">
-        <div className="relative inline-flex max-w-full flex-col">
-          <div className="rounded-[18px] rounded-tl-[6px] bg-muted px-3.5 py-2 shadow-sm transition-colors group-hover/comment:bg-muted/80">
+        <div className="relative w-full">
+          <div className="px-0 py-0 transition-colors">
             <div className="flex items-start justify-between gap-2">
               <Link
                 to={`/profile/${getRawUsername(author)}`}
-                className="group/author block min-w-0 flex-1"
+                className="group/author flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0"
               >
-                <span className="block truncate text-[13px] font-semibold text-ink group-hover/author:underline">
+                <span className="text-[13px] font-medium text-ink group-hover/author:underline">
                   {getFullName(author) || getHandle(author) || 'Unknown user'}
                 </span>
-                {(() => {
-                  const handle = getHandle(author)
-                  const fullName = getFullName(author)
-                  if (!handle) return null
-                  if (fullName && fullName.toLowerCase() === handle.toLowerCase())
-                    return null
-                  return (
-                    <span className="block truncate font-mono text-[10.5px] text-ink-3">
-                      @{handle}
-                    </span>
-                  )
-                })()}
+                {author.role ? (
+                  <RoleBadge role={author.role} size="xs" />
+                ) : null}
+                {isPostAuthor ? (
+                  <span
+                    title="Original post author"
+                    className="inline-flex items-center rounded-full bg-brand-soft px-1.5 py-[1px] font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-brand"
+                  >
+                    Author
+                  </span>
+                ) : null}
+                <span className="font-mono text-[10px] text-ink-4">
+                  <RelativeTime entity={comment} title={comment.formattedDate || undefined} />
+                  {comment.edited ? ' · edited' : ''}
+                </span>
               </Link>
               {isMine && !editing ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="-mr-1 -mt-1 rounded-full p-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover/comment:opacity-100"
+                      className="-mr-1 -mt-1 rounded-full p-1 text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+                      aria-label="More"
                     >
                       <MoreHorizontal className="size-3.5" />
                     </button>
@@ -504,7 +553,10 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
             ) : (
               <>
                 {comment.textContent ? (
-                  <p className="mt-0.5 whitespace-pre-wrap break-words text-[14px] leading-[1.45]">
+                  <p
+                    dir="auto"
+                    className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.6] text-ink-2"
+                  >
                     <MentionText text={comment.textContent} />
                   </p>
                 ) : null}
@@ -512,73 +564,54 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
               </>
             )}
           </div>
-
-          <AnimatePresence>
-            {(comment.reactionCount ?? 0) > 0 ? (
-              <motion.span
-                key={`reaction-${comment.reactionCount}`}
-                initial={{ opacity: 0, scale: 0.5, y: 4 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.5 }}
-                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                className="absolute -bottom-2 right-2 inline-flex items-center gap-0.5 rounded-full border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium shadow-sm"
-              >
-                <span className="text-[12px] leading-none">
-                  {reactionInfo?.emoji ?? '👍'}
-                </span>
-                <span className="text-muted-foreground">{comment.reactionCount}</span>
-              </motion.span>
-            ) : null}
-          </AnimatePresence>
         </div>
 
-        <div className="mt-2 flex items-center gap-4 pl-3 text-[11px] font-medium text-muted-foreground">
+        <div className="mt-2 flex items-start gap-5 text-[11.5px] text-ink-3">
           {isAuthenticated ? (
-            <ReactionPicker
-              current={comment.myReaction}
-              onSelect={handleReact}
-              onClear={handleClearReaction}
-              disabled={working}
-              trigger={({ toggleDefault, current }) => (
-                <button
-                  type="button"
-                  onClick={toggleDefault}
-                  disabled={working}
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition-all duration-200 active:scale-95',
-                    current
-                      ? cn(current.color, current.bg, 'ring-1', current.ring)
-                      : 'hover:text-foreground',
-                  )}
-                >
-                  {current ? (
-                    <span className="text-[12px] leading-none">{current.emoji}</span>
-                  ) : null}
-                  <span>{current?.label ?? 'Like'}</span>
-                </button>
-              )}
-            />
-          ) : null}
-
-          {depth === 0 && isAuthenticated ? (
             <button
               type="button"
-              onClick={() => setShowReplyBox((v) => !v)}
-              className="transition-colors hover:text-foreground"
+              onClick={() =>
+                comment.myReaction ? handleClearReaction() : handleReact('LIKE')
+              }
+              disabled={working}
+              aria-pressed={Boolean(comment.myReaction)}
+              aria-label={comment.myReaction ? 'Unlike' : 'Like'}
+              className={cn(
+                'group/heart inline-flex flex-col items-center gap-0.5 transition-colors active:scale-95',
+                comment.myReaction ? 'text-rose-600' : 'hover:text-ink',
+              )}
             >
-              Reply
+              {comment.myReaction ? (
+                <Heart className="size-[14px] fill-current" strokeWidth={1.6} />
+              ) : (
+                <Heart className="size-[14px]" strokeWidth={1.6} />
+              )}
+              <span className="tabular-nums">
+                {comment.reactionCount > 0
+                  ? formatNumber(comment.reactionCount)
+                  : 'Like'}
+              </span>
             </button>
           ) : null}
 
-          <RelativeTime entity={comment} title={comment.formattedDate || undefined} />
-          {comment.edited ? <span className="italic">(edited)</span> : null}
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={() => setShowReplyBox((v) => !v)}
+              className="inline-flex flex-col items-center gap-0.5 transition-colors hover:text-ink"
+            >
+              <MessageCircle className="size-[14px]" strokeWidth={1.6} />
+              <span>Reply</span>
+            </button>
+          ) : null}
+
         </div>
 
-        {depth === 0 && showReplyBox ? (
+        {showReplyBox ? (
           <div className="mt-2">
             <CommentComposer
               postId={postId}
-              parentId={comment.id}
+              parentId={depth === 0 ? comment.id : comment.parentId ?? comment.parent?.id}
               replyToUsername={author.username}
               onAdded={handleReplyAdded}
               autoFocus
@@ -618,11 +651,8 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
               transition={{ type: 'spring', stiffness: 260, damping: 30 }}
               className="overflow-hidden"
             >
-              <div className="relative mt-3 space-y-3 pl-5">
-                <span
-                  aria-hidden
-                  className="absolute bottom-2 left-[10px] top-0 w-px bg-border"
-                />
+              <div className="relative ml-2 mt-3 space-y-4 border-l-2 border-muted pl-4">
+                <span aria-hidden className="hidden" />
                 <AnimatePresence initial={false}>
                   {replies.map((reply) => (
                     <CommentItem
@@ -632,6 +662,17 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
                       onChange={handleReplyChange}
                       onRemove={handleReplyRemove}
                       depth={1}
+                      postAuthorId={postAuthorId}
+                      postAuthorUsername={postAuthorUsername}
+                      onSiblingReplyAdded={(newReply) => {
+                        // Flat-at-1 nesting: the re-reply slots in as
+                        // another sibling under the top-level comment.
+                        setReplies((current) => [...current, newReply])
+                        onChange?.({
+                          ...comment,
+                          replyCount: (comment.replyCount ?? 0) + 1,
+                        })
+                      }}
                     />
                   ))}
                 </AnimatePresence>
@@ -645,7 +686,7 @@ function CommentItem({ postId, comment, onChange, onRemove, depth = 0 }) {
 }
 
 export const PostComments = forwardRef(function PostComments(
-  { postId, initialCount = 0, onCountChange },
+  { postId, initialCount = 0, onCountChange, postAuthorId, postAuthorUsername },
   ref,
 ) {
   const { isAuthenticated } = useAuth()
@@ -680,7 +721,17 @@ export const PostComments = forwardRef(function PostComments(
   }
 
   function handleAdded(created) {
-    setComments((current) => [...current, created])
+    // Upsert, don't blind-append. The SSE stream may have synthesised
+    // the same comment ahead of the API response — in that case we
+    // merge the authoritative server payload into the existing row
+    // instead of leaving two side-by-side duplicates in the thread.
+    setComments((current) => {
+      const idx = current.findIndex((item) => item.id === created.id)
+      if (idx === -1) return [...current, created]
+      const next = current.slice()
+      next[idx] = { ...current[idx], ...created }
+      return next
+    })
     const next = count + 1
     setCount(next)
     onCountChange?.(next)
@@ -693,57 +744,117 @@ export const PostComments = forwardRef(function PostComments(
     onCountChange?.(next)
   }
 
-  // Imperative API used by PostCard to forward per-post SSE events
-  // (POST_COMMENTED / POST_COMMENT_UPDATED / POST_COMMENT_DELETED /
-  // POST_COMMENT_REACTED). Keeping a single SSE connection at the
-  // post-card level avoids opening one EventSource per child.
+  // Imperative API used by PostCard to forward per-post SSE events.
+  // Event names match the backend PostRealtimeEventType enum exactly
+  // (COMMENT_CREATED / COMMENT_EDITED / COMMENT_DELETED / REPLY_CREATED
+  // / COMMENT_REACTION_*). Payload fields follow PostRealtimeEvent:
+  // commentId, parentCommentId, textContent, actor*, mediaUrl,
+  // commentReactionCount, commentReplyCount.
   useImperativeHandle(
     ref,
     () => ({
       applyRealtimeEvent(type, payload) {
         if (!payload) return
-        const commentId = payload.id ?? payload.commentId
+        const commentId = payload.commentId ?? payload.id
+        const parentCommentId =
+          payload.parentCommentId ?? payload.parentId ?? null
         switch (type) {
-          case 'POST_COMMENTED': {
-            if (!commentId) return
-            // The reply belongs to a parent thread — let CommentItem
-            // handle it lazily on expand. Top-level comments slot in.
-            if (payload.parentId) return
+          case 'COMMENT_CREATED': {
+            if (!commentId || parentCommentId) return
+            // Synthesise a CommentResponse-shaped object from the SSE
+            // payload so the list paints immediately. Real backend
+            // fields land on the next paginated fetch.
+            const synthetic = {
+              id: commentId,
+              postId: payload.postId,
+              parentId: null,
+              author: {
+                id: payload.actorId,
+                username: payload.actorUsername,
+                // Don't fake `fullName` from the username — for legacy
+                // accounts the username IS the email address, and
+                // mirroring it here would render the email as the
+                // commenter's display name. Leaving it null lets
+                // `getFullName` fall back to the email-stripped handle.
+                fullName: payload.actorFullName ?? null,
+                avatarUrl: payload.actorAvatarUrl,
+              },
+              authorId: payload.actorId,
+              authorUsername: payload.actorUsername,
+              authorFullName: payload.actorFullName ?? null,
+              authorProfileImage: payload.actorAvatarUrl,
+              textContent: payload.textContent ?? '',
+              mediaUrl: payload.mediaUrl,
+              mediaType: payload.mediaType,
+              mediaThumbnailUrl: payload.mediaThumbnailUrl,
+              reactionCount: 0,
+              replyCount: 0,
+              edited: false,
+              createdAt: payload.timestamp ?? new Date().toISOString(),
+            }
             setComments((current) =>
               current.some((item) => item.id === commentId)
-                ? current.map((item) =>
-                    item.id === commentId ? { ...item, ...payload } : item,
-                  )
-                : [...current, payload],
+                ? current
+                : [...current, synthetic],
             )
             setCount((value) => {
-              const next = value + 1
+              const next = payload.postCommentCount ?? value + 1
               onCountChange?.(next)
               return next
             })
             break
           }
-          case 'POST_COMMENT_UPDATED': {
+          case 'COMMENT_EDITED': {
             if (!commentId) return
             setComments((current) =>
               current.map((item) =>
-                item.id === commentId ? { ...item, ...payload } : item,
+                item.id === commentId
+                  ? {
+                      ...item,
+                      textContent: payload.textContent ?? item.textContent,
+                      mediaUrl: payload.mediaUrl ?? item.mediaUrl,
+                      mediaType: payload.mediaType ?? item.mediaType,
+                      mediaThumbnailUrl:
+                        payload.mediaThumbnailUrl ?? item.mediaThumbnailUrl,
+                      edited: true,
+                    }
+                  : item,
               ),
             )
             break
           }
-          case 'POST_COMMENT_DELETED': {
+          case 'COMMENT_DELETED': {
             if (!commentId) return
             setComments((current) => current.filter((item) => item.id !== commentId))
             setCount((value) => {
-              const next = Math.max(0, value - 1)
+              const next =
+                payload.postCommentCount ?? Math.max(0, value - 1)
               onCountChange?.(next)
               return next
             })
             break
           }
-          case 'POST_COMMENT_REACTED':
-          case 'POST_COMMENT_REACTION_REMOVED': {
+          case 'REPLY_CREATED': {
+            if (!commentId || !parentCommentId) return
+            // Bump the parent's reply count so the "View N replies"
+            // affordance updates. The thread itself lazy-loads its
+            // children, so we don't need to inline-attach the reply.
+            setComments((current) =>
+              current.map((item) =>
+                item.id === parentCommentId
+                  ? {
+                      ...item,
+                      replyCount:
+                        payload.commentReplyCount ??
+                        (item.replyCount ?? 0) + 1,
+                    }
+                  : item,
+              ),
+            )
+            break
+          }
+          case 'COMMENT_REACTION_ADDED':
+          case 'COMMENT_REACTION_REMOVED': {
             if (!commentId) return
             setComments((current) =>
               current.map((item) =>
@@ -751,9 +862,7 @@ export const PostComments = forwardRef(function PostComments(
                   ? {
                       ...item,
                       reactionCount:
-                        payload.reactionCount ?? item.reactionCount,
-                      topReactionTypes:
-                        payload.topReactionTypes ?? item.topReactionTypes,
+                        payload.commentReactionCount ?? item.reactionCount,
                     }
                   : item,
               ),
@@ -787,6 +896,8 @@ export const PostComments = forwardRef(function PostComments(
                 comment={comment}
                 onChange={updateComment}
                 onRemove={handleRemove}
+                postAuthorId={postAuthorId}
+                postAuthorUsername={postAuthorUsername}
               />
             ))}
           </AnimatePresence>

@@ -1,187 +1,48 @@
-import {
-  Angry,
-  Check,
-  Frown,
-  HandHeart,
-  HeartHandshake,
-  Heart,
-  HelpCircle,
-  Laugh,
-  Lightbulb,
-  PartyPopper,
-  ScrollText,
-  Smile,
-  Sparkles,
-  ThumbsDown,
-  ThumbsUp,
-  X,
-} from 'lucide-react'
+import { Heart } from 'lucide-react'
 
-const POST_REACTION_MAP = {
-  LIKE: {
-    label: 'Like',
-    icon: ThumbsUp,
-    color: 'text-sky-500',
-    bg: 'bg-sky-500/15',
-    ring: 'ring-sky-500/30',
-    emoji: '👍',
-  },
-  LOVE: {
-    label: 'Love',
-    icon: Heart,
-    color: 'text-rose-500',
-    bg: 'bg-rose-500/15',
-    ring: 'ring-rose-500/30',
-    emoji: '❤️',
-  },
-  HAHA: {
-    label: 'Haha',
-    icon: Laugh,
-    color: 'text-amber-500',
-    bg: 'bg-amber-500/15',
-    ring: 'ring-amber-500/30',
-    emoji: '😂',
-  },
-  WOW: {
-    label: 'Wow',
-    icon: Smile,
-    color: 'text-orange-500',
-    bg: 'bg-orange-500/15',
-    ring: 'ring-orange-500/30',
-    emoji: '😮',
-  },
-  SAD: {
-    label: 'Sad',
-    icon: Frown,
-    color: 'text-indigo-500',
-    bg: 'bg-indigo-500/15',
-    ring: 'ring-indigo-500/30',
-    emoji: '😢',
-  },
-  ANGRY: {
-    label: 'Angry',
-    icon: Angry,
-    color: 'text-red-600',
-    bg: 'bg-red-600/15',
-    ring: 'ring-red-600/30',
-    emoji: '😠',
-  },
-  CARE: {
-    label: 'Care',
-    icon: HeartHandshake,
-    color: 'text-pink-500',
-    bg: 'bg-pink-500/15',
-    ring: 'ring-pink-500/30',
-    emoji: '🤗',
-  },
-  INSIGHTFUL: {
-    label: 'Insightful',
-    icon: Lightbulb,
-    color: 'text-emerald-500',
-    bg: 'bg-emerald-500/15',
-    ring: 'ring-emerald-500/30',
-    emoji: '💡',
-  },
+// Backend was collapsed to a single LIKE reaction per entity
+// (Instagram-style heart): posts, post comments, QnA answers,
+// research, research comments all accept only LIKE and treat repeat
+// /react calls as idempotent toggles. The frontend mirrors that — one
+// heart, no palette, no emoji breakdowns.
+//
+// The resolver helpers (`getPostReaction`, `getQnaReaction`,
+// `getResearchReaction`) and list helpers are kept so existing call
+// sites keep compiling; they all return the same heart record.
+const LIKE = {
+  type: 'LIKE',
+  label: 'Like',
+  icon: Heart,
+  color: 'text-rose-600',
+  bg: 'bg-rose-500/15',
+  ring: 'ring-rose-500/30',
+  emoji: '♥',
 }
 
-// Q&A answers + reanswers use a *scholarship-tone* palette — agree /
-// disagree are first-class so an answer can be debated, and the rest
-// reads like a scholar's marginalia rather than social-feed emoji.
-// MUST match the backend's QnaReactionType enum exactly:
-//   LIKE, INSIGHTFUL, BENEFICIAL, AGREE, DISAGREE, THANKS.
-// A new value here without a matching backend update will be rejected
-// on POST .../react.
-const QNA_REACTION_MAP = {
-  LIKE: POST_REACTION_MAP.LIKE,
-  INSIGHTFUL: POST_REACTION_MAP.INSIGHTFUL,
-  BENEFICIAL: {
-    label: 'Beneficial',
-    icon: ScrollText,
-    color: 'text-amber-600',
-    bg: 'bg-amber-500/15',
-    ring: 'ring-amber-500/30',
-    emoji: '📚',
-  },
-  AGREE: {
-    label: 'Agree',
-    icon: Check,
-    color: 'text-emerald-600',
-    bg: 'bg-emerald-500/15',
-    ring: 'ring-emerald-500/30',
-    emoji: '✅',
-  },
-  DISAGREE: {
-    label: 'Disagree',
-    icon: ThumbsDown,
-    color: 'text-rose-600',
-    bg: 'bg-rose-500/15',
-    ring: 'ring-rose-500/30',
-    emoji: '❌',
-  },
-  THANKS: {
-    label: 'Thanks',
-    icon: Sparkles,
-    color: 'text-fuchsia-600',
-    bg: 'bg-fuchsia-500/15',
-    ring: 'ring-fuchsia-500/30',
-    emoji: '🙏',
-  },
+export const POST_REACTIONS = ['LIKE']
+export const QNA_REACTIONS = ['LIKE']
+export const RESEARCH_REACTIONS = ['LIKE']
+
+export function getPostReaction() {
+  return LIKE
 }
 
-const RESEARCH_REACTION_MAP = {
-  LIKE: POST_REACTION_MAP.LIKE,
-  LOVE: POST_REACTION_MAP.LOVE,
-  INSIGHTFUL: POST_REACTION_MAP.INSIGHTFUL,
-  CELEBRATE: {
-    label: 'Celebrate',
-    icon: PartyPopper,
-    color: 'text-fuchsia-500',
-    bg: 'bg-fuchsia-500/15',
-    ring: 'ring-fuchsia-500/30',
-    emoji: '🎉',
-  },
-  CURIOUS: {
-    label: 'Curious',
-    icon: HelpCircle,
-    color: 'text-amber-500',
-    bg: 'bg-amber-500/15',
-    ring: 'ring-amber-500/30',
-    emoji: '🤔',
-  },
-  SUPPORT: {
-    label: 'Support',
-    icon: HandHeart,
-    color: 'text-violet-500',
-    bg: 'bg-violet-500/15',
-    ring: 'ring-violet-500/30',
-    emoji: '🙌',
-  },
+export function getResearchReaction() {
+  return LIKE
 }
 
-export const POST_REACTIONS = Object.keys(POST_REACTION_MAP)
-export const QNA_REACTIONS = Object.keys(QNA_REACTION_MAP)
-export const RESEARCH_REACTIONS = Object.keys(RESEARCH_REACTION_MAP)
-
-export function getPostReaction(type) {
-  return POST_REACTION_MAP[type] ?? POST_REACTION_MAP.LIKE
-}
-
-export function getResearchReaction(type) {
-  return RESEARCH_REACTION_MAP[type] ?? RESEARCH_REACTION_MAP.LIKE
-}
-
-export function getQnaReaction(type) {
-  return QNA_REACTION_MAP[type] ?? QNA_REACTION_MAP.LIKE
+export function getQnaReaction() {
+  return LIKE
 }
 
 export function getPostReactionList() {
-  return POST_REACTIONS.map((type) => ({ type, ...POST_REACTION_MAP[type] }))
+  return [LIKE]
 }
 
 export function getResearchReactionList() {
-  return RESEARCH_REACTIONS.map((type) => ({ type, ...RESEARCH_REACTION_MAP[type] }))
+  return [LIKE]
 }
 
 export function getQnaReactionList() {
-  return QNA_REACTIONS.map((type) => ({ type, ...QNA_REACTION_MAP[type] }))
+  return [LIKE]
 }

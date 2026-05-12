@@ -773,13 +773,18 @@ function VoiceRecorder({ value, previewUrl, onCapture, onClear, onError }) {
 }
 
 // ─── PostComposer ───────────────────────────────────────────────────
-export function PostComposer({ onPosted, bare = false, initialType = 'TEXT' }) {
+export function PostComposer({
+  onPosted,
+  bare = false,
+  initialType = 'TEXT',
+  initialVisibility = 'PUBLIC',
+}) {
   const { user } = useAuth()
   const toast = useToast()
 
   const [postType, setPostType] = useState(initialType)
   const [text, setText] = useState('')
-  const [visibility, setVisibility] = useState('PUBLIC')
+  const [visibility, setVisibility] = useState(initialVisibility)
   const [files, setFiles] = useState([])
 
   const [voiceFile, setVoiceFile] = useState(null)

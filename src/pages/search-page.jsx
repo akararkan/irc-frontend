@@ -24,6 +24,7 @@ import {
   unifiedSearch,
 } from '@/features/search/search.api'
 import { cn } from '@/lib/utils'
+import { getHandle } from '@/lib/format'
 import { getSearchTypeMeta, searchHitHref } from '@/lib/search'
 
 // Tab order: All on the far left, then a flat list of corpora.
@@ -103,7 +104,7 @@ function SearchHitCard({ hit }) {
           </span>
           {hit.authorUsername && !isUser ? (
             <span className="text-[11.5px] text-muted-foreground">
-              {hit.authorUsername}
+              @{getHandle({ username: hit.authorUsername })}
             </span>
           ) : null}
           {hit.createdAt ? (

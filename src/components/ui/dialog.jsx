@@ -29,7 +29,12 @@ function DialogContent({ className, children, showClose = true, ...props }) {
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          'fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-background p-6 shadow-xl duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95',
+          // Mobile: `calc(100% - 1.5rem)` gives a 0.75 rem gutter on
+          // either side so the dialog doesn't kiss the screen edges.
+          // `max-h-[92dvh]` + `overflow-y-auto` keeps tall forms
+          // scrollable on short viewports. Inner padding tightens on
+          // phones (`p-5`) and opens back up on `sm` (`sm:p-6`).
+          'fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-1.5rem)] max-w-lg max-h-[92dvh] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl border bg-background p-5 shadow-xl duration-200 sm:p-6 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95',
           className,
         )}
         {...props}

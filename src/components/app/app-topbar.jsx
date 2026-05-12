@@ -218,7 +218,7 @@ function SearchBar() {
 
   return (
     <form ref={containerRef} onSubmit={handleSubmit} className="relative w-full max-w-md">
-      <Search className="pointer-events-none absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-ink-4" />
+      <Search className="pointer-events-none absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-ink-3" strokeWidth={1.5} />
       <Input
         ref={inputRef}
         type="search"
@@ -228,15 +228,15 @@ function SearchBar() {
           setIsOpen(true)
         }}
         onFocus={() => setIsOpen(true)}
-        placeholder="Search posts, reels, research, scholars…"
+        placeholder="Search scholars, research, questions, #tags…"
         className={cn(
-          'h-10 rounded-lg border border-border bg-paper pl-9 pr-16 text-[13px] text-ink placeholder:text-ink-4',
-          'transition focus:border-brand/50 focus-visible:bg-paper focus-visible:ring-[3px] focus-visible:ring-brand/15',
+          'h-9 rounded-md border border-border bg-secondary pl-9 pr-14 text-[13px] text-ink placeholder:text-ink-4',
+          'transition focus-visible:border-brand/40 focus-visible:bg-paper focus-visible:ring-[3px] focus-visible:ring-brand/15',
         )}
         aria-label="Search"
       />
       <kbd
-        className="pointer-events-none absolute right-2 top-1/2 inline-flex h-5 -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-ink-3"
+        className="pointer-events-none absolute right-2 top-1/2 inline-flex h-[18px] -translate-y-1/2 items-center gap-0.5 rounded-[5px] border-[0.5px] border-border bg-paper px-1.5 font-mono text-[10px] text-ink-3"
         aria-hidden
       >
         {isMac ? '⌘' : 'Ctrl'}K
@@ -367,12 +367,12 @@ export function AppTopbar({ onMenuClick, title, className }) {
   return (
     <header
       className={cn(
-        'glass-panel sticky top-0 z-20 flex h-14 items-center gap-3 border-b px-4 transition-shadow sm:px-6',
-        scrolled
-          ? 'border-border/80 shadow-soft'
-          : 'border-transparent',
+        'glass-panel sticky top-0 z-20 flex h-14 items-center gap-2 px-3 transition-colors sm:gap-3 sm:px-6',
+        'border-b-[0.5px] border-[var(--sidebar-border)]',
+        scrolled ? 'shadow-[0_1px_0_0_var(--sidebar-border)]' : '',
         className,
       )}
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
     >
       <Button
         type="button"
@@ -390,7 +390,7 @@ export function AppTopbar({ onMenuClick, title, className }) {
       </Link>
 
       {title ? (
-        <h1 className="font-display truncate text-[18px] font-semibold leading-none tracking-[-0.012em] text-ink md:text-[20px]">
+        <h1 className="font-display truncate text-[18px] font-medium leading-none tracking-[-0.012em] text-ink md:text-[20px]">
           {title}
         </h1>
       ) : null}
@@ -399,7 +399,19 @@ export function AppTopbar({ onMenuClick, title, className }) {
         <SearchBar />
       </div>
 
-      <div className="ml-auto flex items-center gap-1 md:gap-2">
+      {/* Mobile search trigger — desktop has the inline SearchBar, but
+          on phones we route to the full /search page so the user gets a
+          proper input + on-screen-keyboard experience without cramping
+          the topbar. */}
+      <Link
+        to="/search"
+        aria-label="Search"
+        className="ml-auto grid size-9 place-items-center rounded-full text-ink-2 transition-colors hover:bg-accent hover:text-ink md:hidden"
+      >
+        <Search className="size-[18px]" strokeWidth={1.6} />
+      </Link>
+
+      <div className="flex items-center gap-1 md:ml-auto md:gap-2">
         {isAuthenticated ? (
           <>
             <NotificationBell />

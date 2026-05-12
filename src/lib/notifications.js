@@ -19,6 +19,8 @@ import {
   Users,
 } from 'lucide-react'
 
+import { getHandle } from '@/lib/format'
+
 const KNOWN_FRONTEND_PREFIXES = [
   '/posts/',
   '/questions/',
@@ -96,12 +98,15 @@ export function pickPrimaryActor(notification) {
 }
 
 /**
- * "{firstName}" — falls back to `username`, then "Someone".
+ * "{firstName}" — falls back to a display-safe handle (email-shaped
+ * usernames are reduced to their local-part so we never leak an
+ * address in a notification), then "Someone".
  */
 export function actorDisplayName(actor) {
   if (!actor) return 'Someone'
   if (actor.fullName) return actor.fullName.split(/\s+/)[0]
-  if (actor.username) return actor.username
+  const handle = getHandle(actor)
+  if (handle) return handle
   return 'Someone'
 }
 

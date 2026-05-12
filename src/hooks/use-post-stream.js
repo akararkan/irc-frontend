@@ -8,19 +8,26 @@ import { useSseStream } from '@/hooks/use-sse-stream'
 //
 // Adding a new server-side event type? Append it here and any handler
 // passed to `usePostStream` will start receiving it.
+// Backend's PostRealtimeEventType — names MUST match the enum exactly
+// since Spring's SSE emitter uses `event().name(eventType.name())`. A
+// mismatch silently drops every event, which is what bit us before.
+// Reactions are single-LIKE (Instagram heart). The backend no longer
+// emits *_CHANGED variants; only ADDED / REMOVED. SAVE_COUNT_UPDATED
+// fires when a viewer bookmarks / unbookmarks the post.
 export const POST_REALTIME_EVENTS = [
   'POST_UPDATED',
   'POST_DELETED',
-  'POST_REACTED',
-  'POST_REACTION_REMOVED',
-  'POST_COMMENTED',
-  'POST_COMMENT_UPDATED',
-  'POST_COMMENT_DELETED',
-  'POST_COMMENT_REACTED',
-  'POST_COMMENT_REACTION_REMOVED',
-  'POST_SHARED',
-  'POST_VIEWED',
-  'POST_MENTIONED',
+  'REACTION_ADDED',
+  'REACTION_REMOVED',
+  'COMMENT_CREATED',
+  'COMMENT_EDITED',
+  'COMMENT_DELETED',
+  'REPLY_CREATED',
+  'COMMENT_REACTION_ADDED',
+  'COMMENT_REACTION_REMOVED',
+  'VIEW_COUNT_UPDATED',
+  'SHARE_COUNT_UPDATED',
+  'SAVE_COUNT_UPDATED',
 ]
 
 /**

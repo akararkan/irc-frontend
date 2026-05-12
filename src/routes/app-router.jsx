@@ -8,7 +8,6 @@ import { AppLayout } from '@/layouts/app-layout'
 import { AuthLayout } from '@/layouts/auth-layout'
 import { ActivityPage } from '@/pages/activity-page'
 import { ConnectionsPage } from '@/pages/connections-page'
-import { ExplorePage } from '@/pages/explore-page'
 import { HomePage } from '@/pages/home-page'
 import { MyResearchPage } from '@/pages/my-research-page'
 import { NotFoundPage } from '@/pages/not-found-page'
@@ -38,7 +37,6 @@ export function AppRouter() {
             <Routes>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<HomePage />} />
-                <Route path="/explore" element={<ExplorePage />} />
                 <Route path="/people" element={<PeoplePage />} />
                 <Route path="/reels" element={<ReelsPage />} />
                 <Route path="/research" element={<ResearchPage />} />

@@ -11,7 +11,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { getFollowing } from '@/features/social/social.api'
 import { searchUsers } from '@/features/users/users.api'
 import { cn } from '@/lib/utils'
-import { getFullName } from '@/lib/format'
+import { getFullName, getHandle, getRawUsername } from '@/lib/format'
 
 /**
  * Right-rail "Companions" panel: the people the current user follows,
@@ -39,7 +39,11 @@ export function ContactsRail() {
         if (!cancelled) setFollowing(followingItems)
 
         if (followingItems.length < 6) {
-          const discover = await searchUsers({ q: '', page: 0, size: 12 }).catch(() => null)
+          // Pull a larger discover pool so the panel has enough rows
+          // to scroll through. The inner container caps height and
+          // owns its own scrollbar, so a long list doesn't push the
+          // sticky rail past the viewport.
+          const discover = await searchUsers({ q: '', page: 0, size: 30 }).catch(() => null)
           const discoverItems = (discover?.content ?? []).filter(
             (candidate) =>
               candidate.id !== user.id &&
@@ -128,15 +132,28 @@ export function ContactsRail() {
       {suggestions.length > 0 ? (
         <div className="space-y-3">
           <SectionEyebrow icon={Compass} title="Discover" />
-          <div className="space-y-0.5">
-            {suggestions.map((person, index) => (
-              <CompanionRow
-                key={person.id}
-                person={person}
-                index={index}
-                muted
+          {/* Discover list owns its own scroll — caps at ~5.5 rows on
+              the desktop rail so the user can browse the full
+              suggestion pool without the parent sticky rail growing
+              past the viewport. Hairline mask at the bottom hints
+              there's more to scroll. */}
+          <div className="relative">
+            <div className="scrollbar-none max-h-[360px] space-y-0.5 overflow-y-auto pr-1">
+              {suggestions.map((person, index) => (
+                <CompanionRow
+                  key={person.id}
+                  person={person}
+                  index={index}
+                  muted
+                />
+              ))}
+            </div>
+            {suggestions.length > 6 ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-8 rounded-b bg-gradient-to-t from-background to-transparent"
               />
-            ))}
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -159,7 +176,8 @@ function SectionEyebrow({ icon: Icon, title }) {
 
 // ─── Companion row ────────────────────────────────────────────────
 function CompanionRow({ person, index, muted = false }) {
-  const username = person.username ?? ''
+  const handle = getHandle(person)
+  const route = getRawUsername(person)
   return (
     <motion.div
       initial={{ opacity: 0, x: 8 }}
@@ -172,7 +190,7 @@ function CompanionRow({ person, index, muted = false }) {
       }}
     >
       <Link
-        to={`/profile/${username}`}
+        to={`/profile/${route}`}
         className={cn(
           'group/row flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-muted/60',
         )}
@@ -184,13 +202,15 @@ function CompanionRow({ person, index, muted = false }) {
         <div className="min-w-0 flex-1 leading-tight">
           <div className="flex items-center gap-1.5">
             <p className="truncate text-sm font-medium">
-              {getFullName(person) || username}
+              {getFullName(person) || handle}
             </p>
             {person.role ? <RoleBadge role={person.role} size="xs" /> : null}
           </div>
-          <p className="truncate text-[11px] text-muted-foreground">
-            {username}
-          </p>
+          {handle ? (
+            <p className="truncate text-[11px] text-muted-foreground">
+              @{handle}
+            </p>
+          ) : null}
         </div>
         {muted ? (
           <Sparkles className="size-3 shrink-0 text-muted-foreground/60 transition-colors group-hover/row:text-foreground" />

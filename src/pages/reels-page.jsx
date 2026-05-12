@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Clapperboard,
   Copy,
+  Heart,
   Link as LinkIcon,
   Loader2,
   MessageCircle,
@@ -21,7 +22,6 @@ import {
   Repeat2,
   Send,
   Share2,
-  Sparkles,
   Volume2,
   VolumeX,
   X,
@@ -46,13 +46,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { EmptyState } from '@/components/app/empty-state'
 import { PageHeader } from '@/components/app/page-header'
 import { PostComments } from '@/components/app/post-comments'
-import { ReactionPicker } from '@/components/app/reaction-picker'
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
 import {
   copyPostShareLink,
   getReels,
-  getFollowingReels,
   reactToPost,
   removePostReaction,
   repostPost,
@@ -71,7 +69,6 @@ import {
   getRawUsername,
   resolveMediaUrl,
 } from '@/lib/format'
-import { getPostReaction } from '@/lib/reactions'
 
 // ─── Helpers ────────────────────────────────────────────────────────
 function normalizeAuthor(post) {
@@ -121,44 +118,6 @@ function stripeBackground(id) {
   }
 }
 
-const FILTERS = [
-  { value: 'foryou', label: 'For you' },
-  { value: 'following', label: 'Following', authOnly: true },
-]
-
-// ─── Filter pill row (stacked on top of feed) ──────────────────────
-function FilterRow({ filter, onFilter, isAuthenticated, total }) {
-  const visible = FILTERS.filter((f) => !f.authOnly || isAuthenticated)
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/45 p-1 backdrop-blur-md">
-        {visible.map((f) => {
-          const active = f.value === filter
-          return (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => onFilter(f.value)}
-              className={cn(
-                'rounded-full px-3 py-1 font-display text-[12.5px] font-semibold tracking-[-0.005em] transition-all',
-                active
-                  ? 'bg-white text-ink shadow-soft'
-                  : 'text-white/85 hover:text-white',
-              )}
-            >
-              {f.label}
-            </button>
-          )
-        })}
-      </div>
-      {total ? (
-        <span className="rounded-full border border-white/15 bg-black/45 px-2.5 py-1 font-mono text-[10.5px] font-semibold tabular-nums text-white/90 backdrop-blur-md">
-          {formatNumber(total)} reels
-        </span>
-      ) : null}
-    </div>
-  )
-}
 
 // ─── Follow chip — wired to backend social API ──────────────────────
 function FollowChip({ author }) {
@@ -227,38 +186,8 @@ function FollowChip({ author }) {
   )
 }
 
-// ─── Reaction breakdown — small stacked emoji chip ─────────────────
-function ReactionBreakdown({ topTypes = [], total = 0, onClick }) {
-  if (!total) return null
-  const types = (topTypes?.length ? topTypes : ['LIKE']).slice(0, 3)
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-1 rounded-full border border-white/15 bg-black/45 px-1.5 py-1 backdrop-blur-md transition-colors hover:bg-black/65"
-    >
-      <div className="flex -space-x-1.5">
-        {types.map((type, idx) => {
-          const info = getPostReaction(type)
-          return (
-            <span
-              key={`${type}-${idx}`}
-              style={{ zIndex: 5 - idx }}
-              className="grid size-[18px] place-items-center rounded-full border border-white/30 bg-paper"
-            >
-              <span className="text-[11px] leading-none">{info.emoji}</span>
-            </span>
-          )
-        })}
-      </div>
-      <span className="pr-1 font-mono text-[10.5px] font-semibold tabular-nums text-white">
-        {formatNumber(total)}
-      </span>
-    </button>
-  )
-}
-
 // ─── Action rail icon (vertical TikTok-style stack) ────────────────
+// Spec §06 — glass-blur side rail. Single circle, mono count beneath.
 function RailButton({
   icon: Icon,
   emoji,
@@ -266,35 +195,50 @@ function RailButton({
   label,
   onClick,
   active,
-  activeColorClass,
-  glyphSize = 'size-[26px]',
+  activeTone = 'reaction',
   iconClass,
 }) {
+  const activeBg =
+    activeTone === 'reaction'
+      ? 'linear-gradient(135deg, rgba(244, 63, 94, 0.92) 0%, rgba(225, 29, 72, 0.92) 100%)'
+      : undefined
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group/rail flex flex-col items-center gap-1 text-white"
-      style={{ textShadow: '0 1px 4px oklch(0 0 0 / 0.55)' }}
+      className="group/rail flex flex-col items-center gap-1.5 text-white"
       aria-label={label}
       title={label}
     >
       <motion.span
-        whileTap={{ scale: 0.84 }}
-        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.88 }}
+        whileHover={{ scale: 1.06, y: -1 }}
         transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-        className={cn(
-          'grid place-items-center rounded-full border border-white/20 bg-black/45 text-white backdrop-blur-md transition-colors group-hover/rail:bg-black/65',
-          glyphSize,
-          active && activeColorClass,
-        )}
+        className="size-[54px] lg:size-[50px]"
+        style={{
+          borderRadius: 9999,
+          display: 'grid',
+          placeItems: 'center',
+          background: active && activeBg ? activeBg : 'rgba(0, 0, 0, 0.42)',
+          border: active && activeBg
+            ? '0.5px solid rgba(255, 200, 215, 0.55)'
+            : '0.5px solid rgba(255, 255, 255, 0.18)',
+          backdropFilter: 'blur(10px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(10px) saturate(180%)',
+          boxShadow: active && activeBg
+            ? '0 6px 20px -10px rgba(244, 63, 94, 0.65)'
+            : '0 6px 14px -10px rgba(0, 0, 0, 0.5)',
+          transition: 'background 240ms ease, border-color 240ms ease, box-shadow 240ms ease',
+        }}
       >
         {emoji ? (
-          <span className="text-[22px] leading-none">{emoji}</span>
+          <span className="text-[22px] leading-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
+            {emoji}
+          </span>
         ) : Icon ? (
           <Icon
-            className={cn('size-[22px]', iconClass)}
-            strokeWidth={1.9}
+            className={cn('size-[20px] drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)]', iconClass)}
+            strokeWidth={1.6}
           />
         ) : null}
       </motion.span>
@@ -304,7 +248,8 @@ function RailButton({
           initial={{ scale: 0.85, opacity: 0.4 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 480, damping: 26 }}
-          className="font-mono text-[11.5px] font-bold tabular-nums"
+          className="font-mono text-[11px] font-semibold tabular-nums"
+          style={{ textShadow: '0 1px 4px rgba(0, 0, 0, 0.6)' }}
         >
           {typeof count === 'number' ? formatNumber(count) : count}
         </motion.span>
@@ -365,6 +310,10 @@ const ReelCard = forwardRef(function ReelCard(
   const [duration, setDuration] = useState(0)
   const [working, setWorking] = useState(false)
   const [bursts, setBursts] = useState([])
+  // Network buffering — `true` while the video is stalled fetching
+  // more data. Drives the inline spinner so the user knows playback
+  // hasn't frozen, just the bytes haven't arrived yet.
+  const [buffering, setBuffering] = useState(false)
 
   const author = normalizeAuthor(reel)
   const media = reel?.mediaList?.[0]
@@ -500,8 +449,14 @@ const ReelCard = forwardRef(function ReelCard(
     })
     setWorking(true)
     try {
-      const updated = await reactToPost(reel.id, type)
-      if (updated) onChange?.({ ...updated, myReaction: type })
+      // Fire the write — we deliberately ignore the response body.
+      // The backend's PostResponse echoes a stale `reactionCount`
+      // (Hibernate L1 cache shadows the just-applied bump), so
+      // spreading it would clobber our optimistic +1 with the old
+      // value and produce a visible flicker until the SSE event
+      // reconciles. The authoritative count arrives over
+      // REACTION_ADDED on the per-post stream a moment later.
+      await reactToPost(reel.id, type)
     } catch (error) {
       onChange?.(previous)
       if (!silent) toast.error(extractApiMessage(error, 'Could not react.'))
@@ -529,75 +484,148 @@ const ReelCard = forwardRef(function ReelCard(
     }
   }
 
-  const currentReactionInfo = reel?.myReaction ? getPostReaction(reel.myReaction) : null
-
   return (
     <article
       ref={containerRef}
       data-reel-id={reel?.id}
       className="relative grid h-full place-items-center snap-start snap-always"
     >
-      <div className="relative isolate flex h-full w-full max-w-[440px] items-center justify-center px-2 sm:px-3">
+      {/* Mobile: edge-to-edge fill, no border, no max-width.
+          Desktop: max-w-[440px] centered with breathing room. */}
+      <div className="relative isolate flex h-full w-full items-center justify-center lg:max-w-[440px] lg:px-3">
         <div
-          className="relative isolate aspect-[9/16] max-h-full w-full overflow-hidden rounded-[28px] bg-paper shadow-soft-lg ring-1 ring-border/60"
-          style={!url ? stripe : undefined}
+          className={cn(
+            'relative isolate h-full w-full overflow-hidden bg-[oklch(0.08_0.012_270)]',
+            // Phones: full-bleed; desktop: aspect-locked card.
+            'lg:aspect-[9/16] lg:max-h-full lg:rounded-[14px] lg:border-[0.5px] lg:border-ink',
+          )}
+          style={
+            url
+              ? { background: 'linear-gradient(170deg, #2a2520 0%, #14110C 100%)' }
+              : stripe
+          }
         >
           {(eager || active) && url ? (
-            <video
-              ref={videoRef}
-              src={url}
-              playsInline
-              muted={isMuted}
-              loop
-              preload={active ? 'auto' : 'metadata'}
-              onPlay={() => {
-                setPlaying(true)
-                lastTickRef.current = null
-              }}
-              onPause={() => setPlaying(false)}
-              onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
-              onTimeUpdate={(event) => {
-                const el = event.currentTarget
-                if (!el.duration) return
-                setProgress(el.currentTime / el.duration)
-                const t = el.currentTime
-                const last = lastTickRef.current
-                if (last != null && t > last) {
-                  const delta = t - last
-                  if (delta < 1.5) watchedSecondsRef.current += delta
-                  if (watchedSecondsRef.current >= 2 && !recordedRef.current) flushWatch()
-                }
-                lastTickRef.current = t
-              }}
-              onClick={handleTap}
-              className="absolute inset-0 h-full w-full cursor-pointer object-cover"
-            />
+            <>
+              {/* TikTok-style blurred backdrop — same video mirrored
+                  behind, blown up and blurred to fill the canvas when
+                  the source isn't a perfect 9:16. Keeps the main video
+                  at its natural aspect ratio (object-contain) so no
+                  cropping ever happens, while the void around it reads
+                  as a soft echo of the frame instead of black bars. */}
+              <video
+                src={url}
+                playsInline
+                muted
+                loop
+                preload="metadata"
+                aria-hidden
+                tabIndex={-1}
+                className="pointer-events-none absolute inset-0 h-full w-full scale-[1.25] object-cover opacity-70 blur-2xl"
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 bg-black/30"
+              />
+              <video
+                ref={videoRef}
+                src={url}
+                playsInline
+                muted={isMuted}
+                loop
+                preload={active ? 'auto' : 'metadata'}
+                onPlay={() => {
+                  setPlaying(true)
+                  setBuffering(false)
+                  lastTickRef.current = null
+                }}
+                onPause={() => setPlaying(false)}
+                onWaiting={() => setBuffering(true)}
+                onPlaying={() => setBuffering(false)}
+                onCanPlay={() => setBuffering(false)}
+                onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
+                onTimeUpdate={(event) => {
+                  const el = event.currentTarget
+                  if (!el.duration) return
+                  setProgress(el.currentTime / el.duration)
+                  const t = el.currentTime
+                  const last = lastTickRef.current
+                  if (last != null && t > last) {
+                    const delta = t - last
+                    if (delta < 1.5) watchedSecondsRef.current += delta
+                    if (watchedSecondsRef.current >= 2 && !recordedRef.current) flushWatch()
+                  }
+                  lastTickRef.current = t
+                }}
+                onClick={handleTap}
+                className="relative z-[1] h-full w-full cursor-pointer object-contain"
+              />
+            </>
           ) : null}
+
+          {/* Islamic-pattern diagonal cross-hatch overlay — there if
+              you look, never loud. Sits above the video gradient. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.07] mix-blend-screen"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(60deg, transparent 0 14px, rgba(255,255,255,0.5) 14px 14.5px), repeating-linear-gradient(-60deg, transparent 0 14px, rgba(255,255,255,0.5) 14px 14.5px)',
+            }}
+          />
 
           {/* Floor/ceiling vignettes for legibility */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/30"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/35"
           />
 
           <FloatingHearts bursts={bursts} />
 
-          {/* Top-right mute pill */}
+          {/* Buffering spinner — TikTok-style. Shows only while playback
+              is stalled fetching more data; auto-hides when canplay /
+              playing fires. Sits center-screen above the video. */}
+          <AnimatePresence>
+            {buffering && url && playing ? (
+              <motion.div
+                key="buffer"
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.85 }}
+                transition={{ duration: 0.16 }}
+                className="pointer-events-none absolute inset-0 z-[6] grid place-items-center"
+              >
+                <span
+                  className="grid size-12 place-items-center rounded-full bg-black/45 text-white backdrop-blur"
+                  aria-label="Buffering"
+                >
+                  <Loader2 className="size-5 animate-spin" strokeWidth={1.8} />
+                </span>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          {/* Top-right mute toggle — glass blur. Pushed down from the
+              top edge on mobile to clear iOS notch / dynamic island,
+              and sized larger for a comfortable tap target on phones. */}
           <button
             type="button"
             onClick={onToggleMuted}
-            className="absolute right-3 top-3 z-[5] grid size-9 place-items-center rounded-full border border-white/20 bg-black/55 text-white backdrop-blur-md transition-colors hover:bg-black/75"
+            className="absolute right-3 z-[5] grid size-9 place-items-center rounded-full bg-black/40 text-white backdrop-blur transition-colors hover:bg-black/60 lg:size-[30px]"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
             aria-label={isMuted ? 'Unmute' : 'Mute'}
             title={isMuted ? 'Unmute' : 'Mute'}
           >
             {isMuted ? (
-              <VolumeX className="size-[18px]" strokeWidth={2} />
+              <VolumeX className="size-[16px] lg:size-[14px]" strokeWidth={1.6} />
             ) : (
-              <Volume2 className="size-[18px]" strokeWidth={2} />
+              <Volume2 className="size-[16px] lg:size-[14px]" strokeWidth={1.6} />
             )}
           </button>
 
-          {/* Big play overlay (paused state) */}
+          {/* Big play overlay (paused state) — glass-blur disc per
+              the reel mockup. Lives over a dim wash so the underlying
+              frame stays partially visible while paused. */}
           <AnimatePresence>
             {!playing && url ? (
               <motion.button
@@ -608,18 +636,42 @@ const ReelCard = forwardRef(function ReelCard(
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.6 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 26 }}
-                className="absolute inset-0 z-[6] grid place-items-center bg-black/25 backdrop-blur-[1px]"
+                className="absolute inset-0 z-[6] grid place-items-center bg-black/30 backdrop-blur-[2px]"
                 aria-label="Play"
               >
-                <span className="grid size-[80px] place-items-center rounded-full bg-paper/95 text-ink shadow-soft-lg">
-                  <Play className="size-7 translate-x-[2px] fill-current" />
-                </span>
+                <motion.span
+                  whileHover={{ scale: 1.06 }}
+                  whileTap={{ scale: 0.94 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 22 }}
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 9999,
+                    display: 'grid',
+                    placeItems: 'center',
+                    background: 'rgba(255, 255, 255, 0.18)',
+                    backdropFilter: 'blur(12px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(12px) saturate(180%)',
+                    border: '1px solid rgba(255, 255, 255, 0.28)',
+                    color: 'white',
+                    boxShadow: '0 12px 32px -12px rgba(0, 0, 0, 0.6)',
+                  }}
+                >
+                  <Play className="size-7 translate-x-[2px] fill-white" strokeWidth={0} />
+                </motion.span>
               </motion.button>
             ) : null}
           </AnimatePresence>
 
-          {/* Bottom — caption + author */}
-          <div className="absolute inset-x-0 bottom-0 z-[5] flex items-end gap-3 px-4 pb-12 pr-[88px] sm:pr-[92px]">
+          {/* Bottom — caption + author. Honours iOS safe-area inset so
+              the text never hides behind the home indicator. Right
+              gutter leaves room for the action rail. */}
+          <div
+            className="absolute inset-x-0 bottom-0 z-[5] flex items-end gap-3 px-4 pr-[80px] sm:pr-[92px]"
+            style={{
+              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
+            }}
+          >
             <div className="min-w-0 flex-1 text-white">
               <Link
                 to={authorRoute ? `/profile/${authorRoute}` : '#'}
@@ -647,62 +699,69 @@ const ReelCard = forwardRef(function ReelCard(
               </Link>
               {reel?.textContent ? (
                 <p
+                  dir="auto"
                   className="mt-2 line-clamp-3 text-[13.5px] leading-[1.4] text-white/95"
                   style={{ textShadow: '0 1px 6px oklch(0 0 0 / 0.6)' }}
                 >
                   {reel.textContent}
                 </p>
               ) : null}
-              <div className="mt-2 flex items-center gap-2">
-                <ReactionBreakdown
-                  topTypes={reel?.topReactionTypes}
-                  total={reel?.reactionCount ?? 0}
-                  onClick={onOpenComments}
-                />
-                {reel?.viewCount ? (
+              {reel?.viewCount ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span
                     className="font-mono text-[10.5px] font-semibold tabular-nums text-white/85"
                     style={{ textShadow: '0 1px 4px oklch(0 0 0 / 0.55)' }}
                   >
                     {formatNumber(reel.viewCount)} views
                   </span>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
+              {reel?.audioTrackName ? (
+                <div className="mt-2 inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-white/15 bg-black/45 px-2.5 py-1 backdrop-blur-md">
+                  <span className="size-1.5 animate-pulse rounded-full bg-white" />
+                  <span
+                    className="truncate font-mono text-[10.5px] font-semibold tabular-nums text-white"
+                    style={{ textShadow: '0 1px 4px oklch(0 0 0 / 0.55)' }}
+                  >
+                    ♪ {reel.audioTrackName}
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
 
-          {/* Right — action rail (TikTok-style) */}
-          <div className="absolute bottom-14 right-2 z-[6] flex flex-col items-center gap-4">
+          {/* Right — action rail (TikTok-style). Lifted above the
+              caption block and the safe-area inset on phones. */}
+          <div
+            className="absolute right-2.5 z-[6] flex flex-col items-center gap-3.5"
+            style={{
+              bottom: 'calc(env(safe-area-inset-bottom, 0px) + 5.5rem)',
+            }}
+          >
             {/* Avatar with follow chip */}
             <Link
               to={authorRoute ? `/profile/${authorRoute}` : '#'}
-              className="relative"
+              className="relative mb-1"
               aria-label={`Open ${authorDisplayName}'s profile`}
             >
-              <span className="block rounded-full ring-2 ring-white/85">
+              <span className="block rounded-full ring-[1.5px] ring-white/90 shadow-[0_4px_14px_-4px_rgba(0,0,0,0.4)]">
                 <UserAvatar user={author} className="size-12 ring-2 ring-paper" />
               </span>
               <FollowChip author={author} />
             </Link>
 
-            {/* Reactions — full Facebook-style picker via long-press / hover */}
-            <ReactionPicker
-              current={reel?.myReaction ?? null}
-              onSelect={pickReaction}
-              onClear={clearReaction}
-              disabled={working}
-              align="right"
-              trigger={({ toggleDefault, current }) => (
-                <RailButton
-                  emoji={current?.emoji ?? currentReactionInfo?.emoji ?? '👍'}
-                  count={reel?.reactionCount ?? 0}
-                  label="React"
-                  onClick={toggleDefault}
-                  active={Boolean(current)}
-                  activeColorClass="bg-gradient-to-br from-rose-500/85 to-rose-600/85 border-rose-300/60"
-                  glyphSize="size-[50px]"
-                />
-              )}
+            {/* Single-LIKE Instagram heart toggle. Tap likes, tap again
+                unlikes; the rail button fills + the count animates. */}
+            <RailButton
+              icon={Heart}
+              count={reel?.reactionCount ?? 0}
+              label={reel?.myReaction ? 'Unlike' : 'Like'}
+              onClick={() =>
+                reel?.myReaction ? clearReaction() : pickReaction('LIKE')
+              }
+              active={Boolean(reel?.myReaction)}
+              activeTone="reaction"
+              iconClass={reel?.myReaction ? 'fill-current' : undefined}
             />
 
             <RailButton
@@ -710,7 +769,6 @@ const ReelCard = forwardRef(function ReelCard(
               count={reel?.commentCount ?? 0}
               label="Comments"
               onClick={onOpenComments}
-              glyphSize="size-[50px]"
             />
 
             <RailButton
@@ -718,26 +776,37 @@ const ReelCard = forwardRef(function ReelCard(
               count={reel?.shareCount ?? 0}
               label="Repost"
               onClick={onOpenShare}
-              glyphSize="size-[50px]"
             />
 
             <RailButton
               icon={Share2}
               label="Share"
               onClick={onOpenShare}
-              glyphSize="size-[50px]"
             />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
+                <motion.button
                   type="button"
-                  className="grid size-[42px] place-items-center rounded-full border border-white/20 bg-black/45 text-white backdrop-blur-md transition-colors hover:bg-black/65"
+                  whileTap={{ scale: 0.88 }}
+                  whileHover={{ scale: 1.06, y: -1 }}
+                  transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                  className="size-11 lg:size-[42px]"
+                  style={{
+                    borderRadius: 9999,
+                    display: 'grid',
+                    placeItems: 'center',
+                    background: 'rgba(0, 0, 0, 0.42)',
+                    border: '0.5px solid rgba(255, 255, 255, 0.18)',
+                    backdropFilter: 'blur(10px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(10px) saturate(180%)',
+                    color: 'white',
+                  }}
                   aria-label="More"
                   title="More"
                 >
-                  <MoreHorizontal className="size-5" />
-                </button>
+                  <MoreHorizontal className="size-[20px] lg:size-[18px]" strokeWidth={1.6} />
+                </motion.button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={6} className="w-44 rounded-xl">
                 <DropdownMenuItem onSelect={onOpenShare}>
@@ -750,29 +819,65 @@ const ReelCard = forwardRef(function ReelCard(
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Spinning audio disc — appears when the reel has an
+                audioTrackName. Matches the TikTok / Instagram "currently
+                playing audio" affordance from the mockup. */}
+            {reel?.audioTrackName ? (
+              <Link
+                to={authorRoute ? `/profile/${authorRoute}` : '#'}
+                aria-label={`Audio: ${reel.audioTrackName}`}
+                title={reel.audioTrackName}
+                className={cn(
+                  'mt-1 grid size-[34px] place-items-center rounded-full border-2 border-white/25 text-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.6)]',
+                  playing && 'animate-[spin_4s_linear_infinite]',
+                )}
+                style={{
+                  background:
+                    'linear-gradient(135deg, #1A1714 30%, #3A352C 100%)',
+                }}
+              >
+                <span
+                  className="block size-[9px] rounded-full bg-white/45"
+                  aria-hidden
+                />
+              </Link>
+            ) : null}
           </div>
 
-          {/* Bottom — slim progress bar */}
+          {/* Top — 5-segment progress bar (spec §06). Click anywhere on
+              the strip to seek. Honours iOS safe-area inset so it
+              never hides behind the notch / dynamic island. */}
           {url ? (
             <div
-              className="absolute inset-x-0 bottom-0 z-[7] h-2.5 cursor-pointer bg-transparent"
+              className="absolute inset-x-3 z-[7] flex h-3 cursor-pointer items-start gap-[3px]"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
               onClick={seek}
             >
-              <div className="absolute inset-x-3 bottom-1 h-[3px] overflow-hidden rounded-full bg-white/20">
-                <div
-                  className="h-full rounded-full transition-[width] duration-150"
-                  style={{
-                    width: `${progress * 100}%`,
-                    background: 'linear-gradient(90deg, var(--brand-muted), var(--gold))',
-                  }}
-                />
-              </div>
+              {[0, 1, 2, 3, 4].map((i) => {
+                const seg = Math.max(0, Math.min(1, progress * 5 - i))
+                return (
+                  <span
+                    key={i}
+                    className="h-[2px] flex-1 overflow-hidden rounded-full bg-white/30"
+                  >
+                    <span
+                      className="block h-full bg-white transition-[width] duration-150"
+                      style={{ width: `${seg * 100}%` }}
+                    />
+                  </span>
+                )
+              })}
             </div>
           ) : null}
 
-          {/* Time pill (bottom-left) */}
+          {/* Time pill (bottom-left, mono) — lifts above safe-area on
+              mobile so it never disappears under the home indicator. */}
           {duration ? (
-            <span className="pointer-events-none absolute bottom-3 left-3 z-[6] rounded-md bg-black/55 px-1.5 py-[2px] font-mono text-[10px] font-semibold tabular-nums text-white backdrop-blur-md">
+            <span
+              className="pointer-events-none absolute left-3 z-[6] rounded-sm bg-black/55 px-1.5 py-[2px] font-mono text-[10px] tabular-nums text-white backdrop-blur"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
+            >
               {fmtTime(duration * progress)} / {fmtTime(duration)}
             </span>
           ) : null}
@@ -1071,6 +1176,8 @@ function CommentsSheet({ open, onOpenChange, reel, onChange }) {
           {reel ? (
             <PostComments
               postId={reel.id}
+              postAuthorId={reel.author?.id ?? reel.authorId}
+              postAuthorUsername={reel.author?.username ?? reel.authorUsername}
               initialCount={reel.commentCount ?? 0}
               onCountChange={(next) => onChange?.({ ...reel, commentCount: next })}
             />
@@ -1078,6 +1185,101 @@ function CommentsSheet({ open, onOpenChange, reel, onChange }) {
         </div>
       </SheetContent>
     </Sheet>
+  )
+}
+
+// ─── Loading skeleton ──────────────────────────────────────────────
+//
+// TikTok-style first-paint state. We mirror the live chrome — top
+// progress bar, right-side action rail, avatar + caption block — so
+// the reel slot doesn't visibly reflow when the real data arrives.
+// Every shimmer surface uses the same shimmer-mask keyframe so the
+// rhythm reads as one breath across the whole frame.
+function Shimmer({ className, style }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'block overflow-hidden bg-white/[0.07]',
+        className,
+      )}
+      style={{
+        backgroundImage:
+          'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.10) 50%, transparent 100%)',
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: '200% 100%',
+        animation: 'reel-shimmer 1.4s ease-in-out infinite',
+        ...style,
+      }}
+    />
+  )
+}
+
+function ReelsLoadingSkeleton() {
+  return (
+    <div className="relative h-full w-full overflow-hidden">
+      {/* Reel canvas */}
+      <div
+        className="relative h-full w-full"
+        style={{
+          background:
+            'linear-gradient(170deg, oklch(0.16 0.012 270) 0%, oklch(0.08 0.012 270) 100%)',
+        }}
+      >
+        <Shimmer className="absolute inset-0" />
+
+        {/* Top — 5-segment progress strip (matches live chrome) */}
+        <div
+          className="absolute inset-x-3 z-[5] flex h-3 items-start gap-[3px]"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
+        >
+          {[0, 1, 2, 3, 4].map((i) => (
+            <span
+              key={i}
+              className="h-[2px] flex-1 overflow-hidden rounded-full bg-white/15"
+            >
+              {i === 0 ? (
+                <span className="block h-full w-1/3 animate-pulse bg-white/60" />
+              ) : null}
+            </span>
+          ))}
+        </div>
+
+        {/* Right — action rail placeholders */}
+        <div
+          className="absolute right-2.5 z-[6] flex flex-col items-center gap-3.5"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 5.5rem)' }}
+        >
+          <Shimmer className="size-12 rounded-full" />
+          <Shimmer className="size-[54px] rounded-full lg:size-[50px]" />
+          <Shimmer className="size-[54px] rounded-full lg:size-[50px]" />
+          <Shimmer className="size-[54px] rounded-full lg:size-[50px]" />
+          <Shimmer className="size-[54px] rounded-full lg:size-[50px]" />
+        </div>
+
+        {/* Bottom — author + caption placeholders */}
+        <div
+          className="absolute inset-x-0 bottom-0 z-[5] flex items-end gap-3 px-4 pr-[80px] sm:pr-[92px]"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
+        >
+          <div className="min-w-0 flex-1 space-y-2">
+            <Shimmer className="h-4 w-32 rounded-md" />
+            <Shimmer className="h-3 w-20 rounded-md" />
+            <Shimmer className="mt-1 h-3 w-full max-w-[260px] rounded-md" />
+            <Shimmer className="h-3 w-2/3 max-w-[200px] rounded-md" />
+          </div>
+        </div>
+
+        {/* Center — soft loading pulse so the user knows something's
+            in flight beyond the static shimmer. */}
+        <div className="absolute inset-0 grid place-items-center">
+          <div className="flex items-center gap-2 rounded-full border border-white/15 bg-black/45 px-3.5 py-1.5 font-display text-[12px] font-medium text-white/80 backdrop-blur-md">
+            <Loader2 className="size-3.5 animate-spin" />
+            Curating reels…
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1091,7 +1293,6 @@ export function ReelsPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [activeId, setActiveId] = useState(null)
   const [muted, setMuted] = useState(true)
-  const [filter, setFilter] = useState('foryou')
   const [searchParams] = useSearchParams()
   const focusReelId = searchParams.get('id')
   const [shareOpen, setShareOpen] = useState(false)
@@ -1100,15 +1301,13 @@ export function ReelsPage() {
   const scrollerRef = useRef(null)
   const itemRefs = useRef(new Map())
 
-  // Load page (resets when filter changes)
+  // Load the first page on mount.
   useEffect(() => {
     let cancelled = false
     async function load() {
       setLoading(true)
       try {
-        const fetcher =
-          filter === 'following' && isAuthenticated ? getFollowingReels : getReels
-        const data = await fetcher({ page: 0, size: 12 })
+        const data = await getReels({ page: 0, size: 12 })
         if (!cancelled) {
           setReels(data?.content ?? [])
           setPage(data)
@@ -1124,7 +1323,7 @@ export function ReelsPage() {
     return () => {
       cancelled = true
     }
-  }, [toast, filter, isAuthenticated])
+  }, [toast])
 
   // Infinite-scroll: when activeId is within 3 of the end, fetch next page.
   useEffect(() => {
@@ -1134,9 +1333,7 @@ export function ReelsPage() {
     if (idx < reels.length - 3) return
     let cancelled = false
     setLoadingMore(true)
-    const fetcher =
-      filter === 'following' && isAuthenticated ? getFollowingReels : getReels
-    fetcher({ page: (page.number ?? 0) + 1, size: 12 })
+    getReels({ page: (page.number ?? 0) + 1, size: 12 })
       .then((data) => {
         if (cancelled) return
         const next = data?.content ?? []
@@ -1153,7 +1350,7 @@ export function ReelsPage() {
     return () => {
       cancelled = true
     }
-  }, [activeId, reels, page, loadingMore, filter, isAuthenticated])
+  }, [activeId, reels, page, loadingMore])
 
   // Default active = focused / first reel; scroll to it on first load.
   useEffect(() => {
@@ -1277,53 +1474,77 @@ export function ReelsPage() {
       })
       toast.info('This reel was removed by its author.')
     },
-    POST_REACTED: (payload) => {
-      if (!payload?.id) return
+    // Event names + payload fields mirror the canonical post realtime
+    // contract (PostRealtimeEventType) — POST_REACTED / POST_SHARED /
+    // POST_VIEWED were legacy aliases the backend no longer emits.
+    REACTION_ADDED: (payload) => {
+      const id = payload?.postId ?? payload?.id ?? activeReel?.id
+      if (!id) return
       setReels((current) =>
         current.map((item) =>
-          item.id === payload.id
+          item.id === id
             ? {
                 ...item,
-                reactionCount: payload.reactionCount ?? item.reactionCount,
-                topReactionTypes: payload.topReactionTypes ?? item.topReactionTypes,
+                reactionCount:
+                  payload.postReactionCount ?? payload.reactionCount ?? item.reactionCount,
               }
             : item,
         ),
       )
     },
-    POST_REACTION_REMOVED: (payload) => {
-      if (!payload?.id) return
+    REACTION_REMOVED: (payload) => {
+      const id = payload?.postId ?? payload?.id ?? activeReel?.id
+      if (!id) return
       setReels((current) =>
         current.map((item) =>
-          item.id === payload.id
+          item.id === id
             ? {
                 ...item,
-                reactionCount: payload.reactionCount ?? item.reactionCount,
-                topReactionTypes: payload.topReactionTypes ?? item.topReactionTypes,
+                reactionCount:
+                  payload.postReactionCount ?? payload.reactionCount ?? item.reactionCount,
               }
             : item,
         ),
       )
     },
-    POST_SHARED: (payload) => {
-      if (!payload?.id) return
+    SHARE_COUNT_UPDATED: (payload) => {
+      const id = payload?.postId ?? payload?.id ?? activeReel?.id
+      if (!id) return
       setReels((current) =>
         current.map((item) =>
-          item.id === payload.id
-            ? { ...item, shareCount: payload.shareCount ?? (item.shareCount ?? 0) + 1 }
+          item.id === id
+            ? {
+                ...item,
+                shareCount:
+                  payload.postShareCount ??
+                  payload.shareCount ??
+                  (item.shareCount ?? 0) + 1,
+              }
             : item,
         ),
       )
     },
-    POST_VIEWED: (payload) => {
-      if (!payload?.id || payload?.viewCount == null) return
+    VIEW_COUNT_UPDATED: (payload) => {
+      const id = payload?.postId ?? payload?.id ?? activeReel?.id
+      const next = payload?.postViewCount ?? payload?.viewCount
+      if (!id || next == null) return
       setReels((current) =>
         current.map((item) =>
-          item.id === payload.id ? { ...item, viewCount: payload.viewCount } : item,
+          item.id === id ? { ...item, viewCount: next } : item,
         ),
       )
     },
-    POST_COMMENTED: (payload) => {
+    SAVE_COUNT_UPDATED: (payload) => {
+      const id = payload?.postId ?? payload?.id ?? activeReel?.id
+      const next = payload?.postSaveCount ?? payload?.saveCount
+      if (!id || next == null) return
+      setReels((current) =>
+        current.map((item) =>
+          item.id === id ? { ...item, saveCount: next } : item,
+        ),
+      )
+    },
+    COMMENT_CREATED: (payload) => {
       const targetId = payload?.postId ?? payload?.id ?? activeReel?.id
       if (!targetId) return
       setReels((current) =>
@@ -1331,13 +1552,16 @@ export function ReelsPage() {
           item.id === targetId
             ? {
                 ...item,
-                commentCount: payload?.commentCount ?? (item.commentCount ?? 0) + 1,
+                commentCount:
+                  payload?.postCommentCount ??
+                  payload?.commentCount ??
+                  (item.commentCount ?? 0) + 1,
               }
             : item,
         ),
       )
     },
-    POST_COMMENT_DELETED: (payload) => {
+    COMMENT_DELETED: (payload) => {
       const targetId = payload?.postId ?? activeReel?.id
       if (!targetId) return
       setReels((current) =>
@@ -1346,7 +1570,9 @@ export function ReelsPage() {
             ? {
                 ...item,
                 commentCount:
-                  payload?.commentCount ?? Math.max(0, (item.commentCount ?? 0) - 1),
+                  payload?.postCommentCount ??
+                  payload?.commentCount ??
+                  Math.max(0, (item.commentCount ?? 0) - 1),
               }
             : item,
         ),
@@ -1354,61 +1580,26 @@ export function ReelsPage() {
     },
   })
 
-  const totalReels = page?.totalElements ?? reels.length
-
   if (loading) {
     return (
       <ReelsShell>
-        <div className="grid h-full place-items-center">
-          <div className="grid place-items-center gap-4 text-center">
-            <Skeleton className="aspect-[9/16] w-full max-w-[420px] rounded-[28px]" />
-            <span className="font-display text-[12.5px] text-white/70">
-              Curating reels…
-            </span>
-          </div>
-        </div>
+        <ReelsLoadingSkeleton />
       </ReelsShell>
     )
   }
 
   if (reels.length === 0) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-5 p-4 sm:p-6">
         <PageHeader
           eyebrow="Reels — short-form scholarship"
           title="Lectures, manuscripts, and field notes — in 90 seconds"
           description="A vertical-video stage curated for serious learners."
         />
-        <div className="flex flex-wrap items-center gap-2">
-          {FILTERS.filter((f) => !f.authOnly || isAuthenticated).map((f) => {
-            const active = f.value === filter
-            return (
-              <button
-                key={f.value}
-                type="button"
-                onClick={() => setFilter(f.value)}
-                className={cn(
-                  'inline-flex items-center rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
-                  active
-                    ? 'border-brand bg-ink text-paper shadow-soft'
-                    : 'border-border bg-paper text-ink-2 hover:border-brand/40 hover:bg-brand-soft/40 hover:text-brand',
-                )}
-              >
-                {f.label}
-              </button>
-            )
-          })}
-        </div>
         <EmptyState
           icon={Clapperboard}
-          title={
-            filter === 'following' ? 'No reels from people you follow' : 'No reels yet'
-          }
-          description={
-            filter === 'following'
-              ? 'Follow scholars and creators to see their reels here, or switch to For you.'
-              : 'Be the first to post a short video. Reels appear here and at the top of Home.'
-          }
+          title="No reels yet"
+          description="Be the first to post a short video. Reels appear here and at the top of Home."
         />
       </div>
     )
@@ -1416,20 +1607,21 @@ export function ReelsPage() {
 
   return (
     <ReelsShell>
-      {/* Top floating chrome */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 px-4 pt-3 sm:px-5">
-        <div className="pointer-events-auto">
-          <FilterRow
-            filter={filter}
-            onFilter={setFilter}
-            isAuthenticated={isAuthenticated}
-            total={totalReels}
-          />
-        </div>
-        <div className="pointer-events-auto hidden items-center gap-1.5 rounded-full border border-white/15 bg-black/45 px-3 py-1.5 font-mono text-[10.5px] font-semibold tabular-nums text-white/85 backdrop-blur-md sm:inline-flex">
-          <Sparkles className="size-3 text-gold" />
-          {activeIndex >= 0 ? `${activeIndex + 1} / ${reels.length}` : '—'}
-        </div>
+      {/* Top floating chrome — mobile-only close (←) button so the
+          user can leave the immersive reels viewport. Desktop drops it
+          because the sidebar already covers navigation. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 px-3 sm:px-5"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+      >
+        <Link
+          to="/"
+          aria-label="Back to home"
+          title="Back"
+          className="pointer-events-auto grid size-9 place-items-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur-md transition-colors hover:bg-black/65 lg:hidden"
+        >
+          <X className="size-[18px]" strokeWidth={1.8} />
+        </Link>
       </div>
 
       {/* Side desktop nav arrows */}
@@ -1502,20 +1694,11 @@ export function ReelsPage() {
         ) : null}
       </div>
 
-      {/* Bottom hint strip — keyboard / swipe affordance */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-2 z-20 mx-auto hidden w-fit max-w-[90%] items-center gap-2 rounded-full border border-white/15 bg-black/45 px-3 py-1.5 font-mono text-[10.5px] text-white/80 backdrop-blur-md sm:flex">
-        <kbd className="rounded border border-white/20 bg-white/10 px-1 py-[1px] text-[9.5px]">Space</kbd>
-        play / pause
-        <span className="text-white/40">·</span>
-        <kbd className="rounded border border-white/20 bg-white/10 px-1 py-[1px] text-[9.5px]">↑↓</kbd>
-        scroll reels
-        <span className="text-white/40">·</span>
-        <kbd className="rounded border border-white/20 bg-white/10 px-1 py-[1px] text-[9.5px]">M</kbd>
-        mute
-        <span className="text-white/40">·</span>
-        <kbd className="rounded border border-white/20 bg-white/10 px-1 py-[1px] text-[9.5px]">C</kbd>
-        comments
-      </div>
+      {/* The bottom keyboard-hint strip used to live here — it
+          collided with the caption block on the centred reel card,
+          so it's been removed. The keyboard shortcuts (Space, ↑↓, M,
+          C) still work; the up/down arrow buttons on the right rail
+          remain as the discoverable affordance. */}
 
       <ShareSheet
         open={shareOpen}
@@ -1533,11 +1716,27 @@ export function ReelsPage() {
   )
 }
 
-// ─── Shell — full-bleed black canvas that breaks out of the page padding
+// ─── Shell — full-bleed black canvas
+//
+// Mobile / tablet: position fixed, covers the entire viewport (the
+// AppLayout already hides the topbar + bottom tab bar on /reels for
+// us). The reel itself fills the screen edge-to-edge — TikTok /
+// Instagram convention.
+//
+// Desktop (lg+): in-flow inside <main> at full viewport height minus
+// the topbar — the sidebar stays visible so the user keeps their
+// orientation.
 function ReelsShell({ children }) {
   return (
     <div
-      className="relative -mx-4 -my-6 h-[calc(100dvh-4rem)] overflow-hidden bg-[oklch(0.08_0.012_270)] sm:-mx-8 sm:-my-8 lg:-my-10 lg:h-[calc(100dvh-4.5rem)]"
+      className={cn(
+        'overflow-hidden bg-[oklch(0.08_0.012_270)]',
+        // Mobile: full viewport overlay (topbar + bottom tabs are
+        // hidden by AppLayout on /reels).
+        'fixed inset-0 z-30',
+        // Desktop: in-flow inside the main column; sidebar stays put.
+        'lg:static lg:z-0 lg:h-[calc(100dvh-4.5rem)] lg:rounded-2xl',
+      )}
       style={{
         backgroundImage:
           'radial-gradient(120% 80% at 50% -10%, color-mix(in oklch, var(--brand) 18%, transparent), transparent 60%), radial-gradient(80% 50% at 50% 110%, color-mix(in oklch, var(--gold) 10%, transparent), transparent 70%)',

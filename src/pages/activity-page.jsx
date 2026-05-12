@@ -34,7 +34,6 @@ import {
   getRawUsername,
   resolveMediaUrl,
 } from '@/lib/format'
-import { getPostReaction, getQnaReaction } from '@/lib/reactions'
 import {
   clearAllActivity,
   deleteActivity,
@@ -64,10 +63,7 @@ const TYPE_META = {
   POST_REACTION: {
     icon: ThumbsUp,
     tone: 'text-sky-600 bg-sky-500/10 ring-sky-500/30',
-    verb: (item) => {
-      const r = item.reactionType ? getPostReaction(item.reactionType) : null
-      return r ? `Reacted ${r.emoji} ${r.label}` : 'Reacted'
-    },
+    verb: () => 'Liked a post',
   },
   POST_COMMENT: {
     icon: MessageCircle,
@@ -77,10 +73,7 @@ const TYPE_META = {
   POST_COMMENT_REACTION: {
     icon: Sparkles,
     tone: 'text-amber-600 bg-amber-500/10 ring-amber-500/30',
-    verb: (item) => {
-      const r = item.reactionType ? getPostReaction(item.reactionType) : null
-      return r ? `Reacted ${r.emoji} on a comment` : 'Reacted on a comment'
-    },
+    verb: () => 'Liked a comment',
   },
   POST_SHARE: {
     icon: Repeat2,
@@ -118,16 +111,7 @@ const TYPE_META = {
   QNA_ANSWER_REACTION: {
     icon: Sparkles,
     tone: 'text-amber-600 bg-amber-500/10 ring-amber-500/30',
-    verb: (item) => {
-      // Q&A reactions live in their own palette (LIKE, INSIGHTFUL,
-      // BENEFICIAL, AGREE, DISAGREE, THANKS) — not the post one. Resolve
-      // via `getQnaReaction` so the activity row shows ✅ "Agree" / 📚
-      // "Beneficial" instead of falling back to a 👍.
-      const r = item.qnaReactionType
-        ? getQnaReaction(item.qnaReactionType)
-        : null
-      return r ? `Reacted ${r.emoji} ${r.label} on an answer` : 'Reacted on an answer'
-    },
+    verb: () => 'Liked an answer',
   },
   QNA_BEST_ANSWER_VOTE: {
     icon: Award,

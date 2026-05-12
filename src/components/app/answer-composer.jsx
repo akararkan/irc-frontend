@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { MentionTextarea } from '@/components/app/mention-textarea'
+import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { useAuth } from '@/features/auth/auth-context'
 import {
@@ -205,6 +206,15 @@ export function AnswerComposer({ questionId, disabled, onCreated }) {
         <UserAvatar user={user} className="hidden size-10 shrink-0 sm:block" />
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">
+          {/* Posting-as banner — the role badge sits front and centre
+              so the user is reminded which standing their answer
+              carries onto the thread (Scholar / Researcher). */}
+          {user?.role ? (
+            <div className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+              <span>Answering as</span>
+              <RoleBadge role={user.role} size="sm" />
+            </div>
+          ) : null}
           <div className="relative">
             <MentionTextarea
               value={body}

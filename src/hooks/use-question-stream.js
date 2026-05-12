@@ -17,8 +17,9 @@ export const QUESTION_REALTIME_EVENTS = [
   'ANSWER_DELETED',
   'ANSWER_ACCEPTED',
   'ANSWER_UNACCEPTED',
+  // Reactions are single-LIKE (Instagram heart). Backend no longer
+  // emits ANSWER_REACTION_CHANGED — only ADDED / REMOVED.
   'ANSWER_REACTION_ADDED',
-  'ANSWER_REACTION_CHANGED',
   'ANSWER_REACTION_REMOVED',
   'ANSWER_FEEDBACK_ADDED',
   'ANSWER_FEEDBACK_EDITED',
@@ -28,6 +29,11 @@ export const QUESTION_REALTIME_EVENTS = [
   // plus `answerId` and `voterId` for granular UI updates.
   'BEST_ANSWER_VOTED',
   'BEST_ANSWER_UNVOTED',
+  // Live view counter — payload carries `questionViewCount` (matches
+  // QnaRealtimeEvent#questionViewCount). Fires once per dedupe window
+  // per viewer (Redis SET NX EX, 1h) so the count moves at the same
+  // rate as the post / research view broadcasts.
+  'VIEW_COUNT_UPDATED',
 ]
 
 /**

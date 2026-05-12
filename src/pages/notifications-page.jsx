@@ -35,6 +35,7 @@ import { useNotifications } from '@/features/notifications/notifications-context
 import { useAuth } from '@/features/auth/auth-context'
 import { cn } from '@/lib/utils'
 import { RelativeTime } from '@/components/app/relative-time'
+import { getHandle, getRawUsername } from '@/lib/format'
 import {
   NOTIFICATION_CATEGORIES,
   actorDisplayName,
@@ -64,7 +65,9 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
   const Icon = meta.icon
   const actor = pickPrimaryActor(notification)
   const aggregate = aggregateLabel(notification, actor)
-  const actorLink = actor?.username ? `/profile/${actor.username}` : null
+  const actorRoute = getRawUsername(actor)
+  const actorHandle = getHandle(actor)
+  const actorLink = actorRoute ? `/profile/${actorRoute}` : null
   const unread = !notification.isRead
   const href = notificationHref(notification)
 
@@ -72,38 +75,38 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
     if (unread) onMarkRead(notification.id)
   }
 
+  // Spec §10 — Notifications. Flat row, hairline-divided, unread dot
+  // floating in the left gutter, snippet in serif italic, actions inline.
   const containerClass = cn(
-    'group/notif relative flex items-start gap-3 rounded-xl border p-4 transition-all',
-    unread
-      ? 'border-brand/20 bg-brand/[0.04]'
-      : 'border-border bg-card',
-    href ? 'hover:border-brand/40 hover:bg-brand/[0.06] hover:shadow-soft' : '',
+    'group/notif relative flex items-start gap-3 py-3.5 pl-5 pr-2 transition-colors border-b-[0.5px] border-border',
+    'hover:bg-secondary/60',
   )
 
   const inner = (
     <>
+      {/* Unread dot — gutter left, info-blue (spec) */}
+      {unread ? (
+        <span
+          aria-hidden
+          className="absolute left-1.5 top-[26px] size-[6px] rounded-full"
+          style={{ background: 'var(--info-fg)' }}
+          title="Unread"
+        />
+      ) : null}
+
+      {/* Actor avatar (with optional aggregate badge) */}
       <div className="relative shrink-0">
         {actor ? (
-          <UserAvatar user={actor} className="size-10" />
+          <UserAvatar user={actor} className="size-[34px]" />
         ) : (
-          <div className="grid size-10 place-items-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+          <div className="grid size-[34px] place-items-center rounded-full pill-mute text-[11px] font-medium">
             {(notification.type ?? 'N').slice(0, 1)}
           </div>
         )}
-        <span
-          aria-hidden
-          className={cn(
-            'absolute -bottom-0.5 -right-0.5 grid size-[20px] place-items-center rounded-full border-2 border-background',
-            meta.accent,
-          )}
-          title={meta.verb}
-        >
-          <Icon className="size-3" strokeWidth={2.4} />
-        </span>
         {notification.aggregateCount > 1 ? (
           <span
             aria-hidden
-            className="absolute -left-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-bold text-background ring-2 ring-background"
+            className="absolute -bottom-1 -right-1 inline-flex h-[18px] min-w-[20px] items-center justify-center rounded-full pill-info px-1 font-mono text-[10px] tabular-nums ring-2 ring-paper"
             title={`${notification.aggregateCount} contributors`}
           >
             {notification.aggregateCount > 99 ? '99+' : notification.aggregateCount}
@@ -111,77 +114,73 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
         ) : null}
       </div>
 
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+      <div className="min-w-0 flex-1">
+        {/* Bold actor + verb composed by the meta map */}
+        <p
+          className={cn(
+            'text-[13px] leading-[1.5] text-ink-2',
+          )}
+        >
           {aggregate ? (
-            <p
-              className={cn(
-                'text-sm leading-snug',
-                unread ? 'font-semibold' : 'font-medium',
-              )}
-            >
-              {aggregate}
-            </p>
+            <b className="font-medium text-ink">{aggregate}</b>
           ) : notification.title ? (
-            <p
-              className={cn(
-                'text-sm leading-snug',
-                unread ? 'font-semibold' : 'font-medium',
-              )}
-            >
-              {notification.title}
-            </p>
+            <b className="font-medium text-ink">{notification.title}</b>
           ) : null}
-          {notification.category ? (
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]',
-                categoryMeta.accent,
-              )}
-              title={`${categoryMeta.label} category`}
-            >
-              {categoryMeta.label}
-            </span>
-          ) : null}
-        </div>
+        </p>
+
+        {/* Snippet in serif italic — spec's "quoted content" treatment */}
         {notification.body ? (
-          <p className="text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-1 font-display text-[12px] italic leading-[1.55] text-ink-3">
             <MentionText text={notification.body} />
           </p>
         ) : null}
-        <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
+
+        <div className="mt-1.5 flex items-center gap-2 font-mono text-[10px] text-ink-4">
           <RelativeTime value={notification.createdAt} />
-          {actorLink && actor?.username ? (
+          {actorLink && actorHandle ? (
             <>
               <span aria-hidden>·</span>
               <Link
                 to={actorLink}
                 onClick={(event) => event.stopPropagation()}
-                className="font-medium text-foreground hover:underline"
+                className="hover:text-ink"
               >
-                {actor.username}
+                @{actorHandle}
               </Link>
             </>
           ) : null}
-          {unread ? (
-            <span
-              className="inline-flex size-1.5 rounded-full bg-brand"
-              aria-label="Unread"
-            />
+          {notification.category ? (
+            <>
+              <span aria-hidden>·</span>
+              <span className="uppercase tracking-[0.12em]">
+                {categoryMeta.label}
+              </span>
+            </>
           ) : null}
         </div>
       </div>
 
+      {/* Inline actions */}
       <div
         className="flex shrink-0 items-center gap-1"
         onClick={(event) => event.stopPropagation()}
       >
+        <span
+          aria-hidden
+          className={cn(
+            'mr-1 hidden size-[22px] place-items-center rounded-full opacity-70 sm:grid',
+            meta.accent,
+          )}
+          title={meta.verb}
+        >
+          <Icon className="size-3" strokeWidth={1.6} />
+        </span>
         {unread ? (
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="rounded-full text-muted-foreground"
+            className="rounded-md text-ink-3 hover:text-ink"
             onClick={(event) => {
               event.preventDefault()
               event.stopPropagation()
@@ -190,14 +189,14 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
             title="Mark as read"
             aria-label="Mark as read"
           >
-            <Check className="size-4" />
+            <Check className="size-3.5" />
           </Button>
         ) : null}
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="rounded-full text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover/notif:opacity-100 focus-visible:opacity-100"
+          className="rounded-md text-ink-3 opacity-0 transition-opacity hover:text-destructive group-hover/notif:opacity-100 focus-visible:opacity-100"
           onClick={(event) => {
             event.preventDefault()
             event.stopPropagation()
@@ -206,7 +205,7 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
           title="Delete notification"
           aria-label="Delete notification"
         >
-          <X className="size-4" />
+          <X className="size-3.5" />
         </Button>
       </div>
     </>
@@ -291,7 +290,7 @@ function SoundToggle() {
       className={cn(
         'gap-1.5 rounded-full',
         enabled
-          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+          ? 'border-[color-mix(in_oklch,var(--accent-sage)_36%,transparent)] bg-[color-mix(in_oklch,var(--accent-sage)_12%,transparent)] text-accent-sage'
           : 'text-muted-foreground',
       )}
       onClick={() => setEnabled(!enabled)}
@@ -400,7 +399,7 @@ export function NotificationsPage() {
               className={cn(
                 'gap-1.5 text-xs',
                 isConnected
-                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  ? 'border-[color-mix(in_oklch,var(--accent-sage)_36%,transparent)] bg-[color-mix(in_oklch,var(--accent-sage)_12%,transparent)] text-accent-sage'
                   : 'border-border text-muted-foreground',
               )}
             >
@@ -460,30 +459,24 @@ export function NotificationsPage() {
 
       <PushPermissionBanner />
 
-      {/* Category rail — primary filter */}
-      <div className="-mx-1 flex flex-wrap items-center gap-1.5 overflow-x-auto px-1 pb-1">
-        <CategoryPill
-          value={ALL_TAB.value}
+      {/* Inbox tabs — spec's flat pill row inside a soft container */}
+      <div className="flex flex-wrap items-center gap-1 overflow-x-auto rounded-md bg-secondary p-1.5">
+        <InboxTab
           label={ALL_TAB.label}
-          Icon={ALL_TAB.icon}
           count={counts.all}
           active={category === 'ALL'}
           onSelect={() => setCategory('ALL')}
         />
         {NOTIFICATION_CATEGORIES.map((entry) => (
-          <CategoryPill
+          <InboxTab
             key={entry.value}
-            value={entry.value}
             label={entry.label}
-            Icon={entry.icon}
             count={counts.byCategory[entry.value] ?? 0}
             active={category === entry.value}
             onSelect={() => setCategory(entry.value)}
           />
         ))}
-        <span aria-hidden className="mx-1 hidden h-5 w-px bg-border md:inline-block" />
-        <CategoryPill
-          value={MENTIONS_TAB.value}
+        <InboxTab
           label={MENTIONS_TAB.label}
           count={counts.mentions}
           active={category === 'MENTIONS'}
@@ -558,7 +551,7 @@ export function NotificationsPage() {
           }
         />
       ) : (
-        <div className="space-y-2.5">
+        <div className="rounded-xl border-[0.5px] border-border bg-paper">
           <AnimatePresence initial={false}>
             {visible.map((notification) => (
               <motion.div
@@ -568,6 +561,7 @@ export function NotificationsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4, scale: 0.98 }}
                 transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                className="last:[&>div]:border-b-0 last:[&>a]:border-b-0"
               >
                 <NotificationRow
                   notification={notification}
@@ -583,31 +577,22 @@ export function NotificationsPage() {
   )
 }
 
-function CategoryPill({ value, label, Icon, count, active, onSelect }) {
+function InboxTab({ label, count, active, onSelect }) {
   return (
     <button
-      key={value}
       type="button"
       onClick={onSelect}
       className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
+        'inline-flex shrink-0 items-center gap-1.5 rounded-[5px] px-3 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap',
         active
-          ? 'border-foreground bg-foreground text-background shadow-soft'
-          : 'border-border bg-card text-muted-foreground hover:border-foreground/40 hover:text-foreground',
+          ? 'bg-paper text-ink shadow-[0_0_0_0.5px_var(--border)]'
+          : 'text-ink-3 hover:text-ink',
       )}
       aria-pressed={active}
     >
-      {Icon ? <Icon className="size-3.5" /> : null}
       <span>{label}</span>
       {count > 0 ? (
-        <span
-          className={cn(
-            'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
-            active
-              ? 'bg-background/20 text-background'
-              : 'bg-muted-foreground/15 text-muted-foreground',
-          )}
-        >
+        <span className="font-mono text-[10px] tabular-nums text-ink-4">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
