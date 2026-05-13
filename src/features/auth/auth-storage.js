@@ -36,20 +36,32 @@ export function mapAuthResponseToSession(authResponse, fallbackUser = null) {
   }
 }
 
+// localStorage can throw on Safari private mode, in iframes with
+// blocked storage, and when the quota is exceeded. Wrapping every
+// access keeps the app from crashing in those environments — at worst
+// the session reverts to in-memory only.
+
 export function readStoredSession() {
   if (typeof window === 'undefined') {
     return null
   }
-
-  return parseJson(window.localStorage.getItem(AUTH_STORAGE_KEY))
+  try {
+    return parseJson(window.localStorage.getItem(AUTH_STORAGE_KEY))
+  } catch {
+    return null
+  }
 }
 
 export function saveStoredSession(session) {
   if (typeof window === 'undefined') {
     return session
   }
-
-  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session))
+  try {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session))
+  } catch {
+    // storage unavailable / quota exceeded — fall through so the rest
+    // of the app still notices the new session via the change event.
+  }
   emitSessionChange(session)
   return session
 }
@@ -58,7 +70,11 @@ export function clearStoredSession() {
   if (typeof window === 'undefined') {
     return
   }
-
-  window.localStorage.removeItem(AUTH_STORAGE_KEY)
+  try {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY)
+  } catch {
+    // ignore — caller's intent is "log me out"; if storage is read-only
+    // we still emit the change event so listeners react.
+  }
   emitSessionChange(null)
 }

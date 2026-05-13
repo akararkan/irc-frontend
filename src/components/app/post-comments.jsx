@@ -41,12 +41,14 @@ import {
   editPostComment,
   getPostCommentReplies,
   getPostComments,
+  getPostCommentsCursor,
   reactToComment,
   removeCommentReaction,
 } from '@/features/posts/posts.api'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
+import { useCooldown } from '@/lib/rate-limit-cooldown'
 import {
   formatNumber,
   getFullName,
@@ -91,6 +93,9 @@ function CommentComposer({
   const { user, isAuthenticated } = useAuth()
   const toast = useToast()
   const textareaRef = useRef(null)
+  // Backend caps comments at 10 / 30 s per user across post / research
+  // / qna endpoints. Park the submit button while the window is open.
+  const commentCooldown = useCooldown('comment')
   const isSelfReply =
     Boolean(replyToUsername) &&
     Boolean(user?.username) &&
@@ -125,7 +130,7 @@ function CommentComposer({
     return () => cancelAnimationFrame(id)
     // initialText is stable (computed from props at mount); intentionally
     // run-once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [])
 
   if (!isAuthenticated) return null
@@ -206,11 +211,18 @@ function CommentComposer({
           </button>
           <Button
             type="submit"
-            disabled={(!text.trim() && !file) || submitting}
+            disabled={(!text.trim() && !file) || submitting || commentCooldown > 0}
+            title={
+              commentCooldown > 0
+                ? `Rate limit — try again in ${commentCooldown}s`
+                : undefined
+            }
             className="h-8 rounded-full bg-brand px-3.5 text-[12.5px] font-semibold text-brand-foreground hover:bg-brand/90"
           >
             {submitting ? (
               <Loader2 className="size-3.5 animate-spin" />
+            ) : commentCooldown > 0 ? (
+              <span>Wait {commentCooldown}s</span>
             ) : (
               <span>{parentId ? 'Reply' : 'Comment'}</span>
             )}
@@ -700,8 +712,20 @@ export const PostComments = forwardRef(function PostComments(
     async function load() {
       setLoading(true)
       try {
-        const data = await getPostComments(postId, { page: 0, size: 20 })
-        if (!cancelled) setComments(data?.content ?? [])
+        // Cursor pagination is stable when new comments land mid-scroll.
+        // The page-based fallback stays in `getPostComments` for any
+        // caller that still wants offset semantics. Falls back through
+        // a try/catch on the off-chance the cursor endpoint is missing
+        // in an older backend deploy.
+        let items = null
+        try {
+          const data = await getPostCommentsCursor(postId, { limit: 20 })
+          items = data?.items ?? []
+        } catch {
+          const legacy = await getPostComments(postId, { page: 0, size: 20 })
+          items = legacy?.content ?? []
+        }
+        if (!cancelled) setComments(items)
       } catch (error) {
         if (!cancelled) toast.error(extractApiMessage(error, 'Could not load comments.'))
       } finally {

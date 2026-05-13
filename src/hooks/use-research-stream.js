@@ -19,6 +19,11 @@ export const RESEARCH_REALTIME_EVENTS = [
   'COMMENT_DELETED',
   'REPLY_CREATED',
   'COMMENT_REACTION_ADDED',
+  // Backend's ResearchRealtimeEventType also includes COMMENT_REACTION_CHANGED
+  // — emitted when a viewer switches reaction type on a research comment. The
+  // research-comment surface is single-LIKE today but we keep the listener
+  // open so a future multi-reaction rollout doesn't silently drop events.
+  'COMMENT_REACTION_CHANGED',
   'COMMENT_REACTION_REMOVED',
   'VIEW_COUNT_UPDATED',
   'DOWNLOAD_COUNT_UPDATED',

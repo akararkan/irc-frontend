@@ -6,6 +6,7 @@ import {
   readStoredSession,
   saveStoredSession,
 } from '@/features/auth/auth-storage'
+import { markRateLimited } from '@/lib/rate-limit-cooldown'
 
 function createClient() {
   return axios.create({
@@ -38,6 +39,24 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config ?? {}
     const status = error.response?.status
+
+    // Rate-limit captured globally so every click handler doesn't have
+    // to do this individually. The backend's RateLimitExceededException
+    // ships `details.action` (`reaction` / `comment` / `social`) and
+    // `details.retryAfterSeconds`; we park that action so click
+    // affordances disable themselves until the window passes. The
+    // `Retry-After` header is read as a fallback when the body's
+    // details object is missing.
+    if (status === 429) {
+      const data = error.response?.data ?? {}
+      const action = data.details?.action ?? data.action
+      const retry =
+        Number(data.details?.retryAfterSeconds) ||
+        Number(error.response?.headers?.['retry-after']) ||
+        null
+      if (action && retry) markRateLimited(action, retry)
+    }
+
     const shouldRefresh =
       status === 401 && !originalRequest._retry && !originalRequest.skipAuthRefresh
 

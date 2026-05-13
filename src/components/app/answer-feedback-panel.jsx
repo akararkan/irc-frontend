@@ -497,7 +497,6 @@ export function AnswerFeedbackPanel({
     if (initialCount > 0 && !loaded && !loading) {
       ensureLoaded()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionId, answerId])
 
   async function ensureLoaded() {
@@ -507,7 +506,7 @@ export function AnswerFeedbackPanel({
       const data = await getAnswerFeedback(questionId, answerId)
       setFeedback(data ?? [])
       setLoaded(true)
-    } catch (error) {
+    } catch {
       // Don't surface — the panel is collapsed by default and the
       // user can retry by toggling it open.
     } finally {

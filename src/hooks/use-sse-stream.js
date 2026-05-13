@@ -6,6 +6,15 @@ const HEARTBEAT_TIMEOUT_MS = 60_000
 const RECONNECT_INITIAL_MS = 1000
 const RECONNECT_MAX_MS = 30_000
 
+// Dev-only console breadcrumb when SSE events flow. Helps diagnose
+// "the count isn't updating live" symptoms: open DevTools and you'll
+// see one [SSE] line per event arrival. Production builds strip these
+// (import.meta.env.DEV is false in `vite build`).
+const DEBUG = typeof import.meta !== 'undefined' && import.meta.env?.DEV
+function sseLog(...args) {
+  if (DEBUG) console.log('[SSE]', ...args)
+}
+
 /**
  * Generic per-resource SSE subscriber.
  *
@@ -57,9 +66,18 @@ export function useSseStream(
   })
 
   const accessToken = session?.accessToken
-  const active = Boolean(
-    enabled && resourceId && isAuthenticated && accessToken && urlBuilder,
-  )
+  // Public streams (posts / research / questions) accept anonymous
+  // subscribers — the backend gates per-event with `assertPostVisible`
+  // / equivalents, so a guest still receives realtime updates for
+  // PUBLIC content. We only need `resourceId` + `urlBuilder` to open
+  // the connection. When `accessToken` is present we pass it as the
+  // `?token=` query param (EventSource can't set headers) so the
+  // backend can apply block / mute filtering for the viewer.
+  //
+  // Authentication tracked here only so the watchdog / reconnect path
+  // re-evaluates when the user logs in or out mid-session.
+  void isAuthenticated
+  const active = Boolean(enabled && resourceId && urlBuilder)
 
   useEffect(() => {
     if (!active) {
@@ -133,6 +151,7 @@ export function useSseStream(
       reconnectId = null
 
       const url = urlBuilder(resourceId, accessToken)
+      sseLog('open', { url, resourceId })
       const source = new EventSource(url, { withCredentials: true })
       activeSource = source
 
@@ -140,6 +159,7 @@ export function useSseStream(
         attempts = 0
         setIsConnected(true)
         pulseWatchdog()
+        sseLog('connected', { resourceId })
         if (!firstConnect) {
           // Catch-up hook for the page — fetch latest state since the
           // last clean connection so we don't miss aggregation bumps.
@@ -151,9 +171,10 @@ export function useSseStream(
         }
         firstConnect = false
       }
-      const onError = () => {
+      const onError = (event) => {
         // EventSource may auto-reconnect; we rely on the watchdog to
         // promote to a hard reconnect if nothing recovers in time.
+        sseLog('error', { resourceId, readyState: source.readyState, event })
         setIsConnected(false)
       }
 
@@ -164,6 +185,7 @@ export function useSseStream(
       const removers = (eventNames ?? []).map((type) => {
         const handler = (event) => {
           pulseWatchdog()
+          sseLog(type, { resourceId, data: event.data })
           dispatch(type, event.data)
         }
         source.addEventListener(type, handler)
@@ -207,6 +229,7 @@ export function useSseStream(
 
     return () => {
       cancelled = true
+      sseLog('close', { resourceId })
       document.removeEventListener('visibilitychange', onVisibility)
       clearTimers()
       if (activeSource) {

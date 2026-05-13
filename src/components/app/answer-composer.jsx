@@ -27,6 +27,7 @@ import {
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
+import { useCooldown } from '@/lib/rate-limit-cooldown'
 import {
   SOURCE_TYPE_OPTIONS,
   formatFileSize,
@@ -49,6 +50,10 @@ export function AnswerComposer({ questionId, disabled, onCreated }) {
   const { user, isAuthenticated } = useAuth()
   const toast = useToast()
   const fileInputRef = useRef(null)
+  // Backend caps 10 comments / 30 s per user across post/research/qna
+  // comment endpoints. Park the post button while the window is open
+  // so the user doesn't keep tapping into 429s.
+  const commentCooldown = useCooldown('comment')
 
   const [body, setBody] = useState('')
   const [showLinks, setShowLinks] = useState(false)
@@ -585,7 +590,12 @@ export function AnswerComposer({ questionId, disabled, onCreated }) {
               ) : null}
               <button
                 type="submit"
-                disabled={!trimmedBody || submitting}
+                disabled={!trimmedBody || submitting || commentCooldown > 0}
+                title={
+                  commentCooldown > 0
+                    ? `Rate limit — try again in ${commentCooldown}s`
+                    : undefined
+                }
                 className="inline-flex h-9 items-center gap-1.5 rounded-full bg-foreground px-4 text-[12.5px] font-semibold text-background transition-colors hover:bg-foreground/85 disabled:opacity-50"
               >
                 {submitting ? (
@@ -593,7 +603,11 @@ export function AnswerComposer({ questionId, disabled, onCreated }) {
                 ) : (
                   <CornerDownLeft className="size-3.5" />
                 )}
-                {submitting ? 'Posting…' : 'Post answer'}
+                {commentCooldown > 0
+                  ? `Wait ${commentCooldown}s`
+                  : submitting
+                    ? 'Posting…'
+                    : 'Post answer'}
               </button>
             </div>
           </div>

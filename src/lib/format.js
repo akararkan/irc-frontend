@@ -46,7 +46,7 @@ export function looksLikeEmail(value) {
 // in the bidi algorithm. Used to decide if a paragraph's leading
 // character is RTL so we can skip Latin-only typographic flourishes
 // (e.g. drop caps).
-const RTL_CHAR_RE = /[֐-׿؀-ۿ܀-ݏހ-޿߀-߿ࠀ-࠿ࢠ-ࣿיִ-﷿ﹰ-﻿]/
+const RTL_CHAR_RE = /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0780-\u07BF\u07C0-\u07FF\u0800-\u083F\u08A0-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/
 
 /**
  * Returns true when the first strong directional character of `value`

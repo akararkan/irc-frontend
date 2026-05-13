@@ -8,6 +8,18 @@ export function extractApiError(error, fallbackMessage = 'Something went wrong.'
     fieldErrors: Array.isArray(responseData.fieldErrors)
       ? responseData.fieldErrors
       : [],
+    // Wave 2A rate-limit metadata: the backend's
+    // RateLimitExceededException returns `RATE_LIMITED` plus a
+    // `retryAfterSeconds` hint in the details object. The Retry-After
+    // header is also set; either one is enough to know how long to
+    // wait before another click is worth trying.
+    retryAfterSeconds:
+      Number(
+        responseData.details?.retryAfterSeconds ??
+          error?.response?.headers?.['retry-after'] ??
+          NaN,
+      ) || null,
+    status: error?.response?.status ?? null,
   }
 }
 
@@ -46,6 +58,25 @@ const FRIENDLY_ERROR_CODES = {
 }
 
 export function friendlyApiMessage(error, fallbackMessage = 'Something went wrong.') {
-  const { errorCode, message } = extractApiError(error, fallbackMessage)
+  const { errorCode, message, retryAfterSeconds, status } = extractApiError(
+    error,
+    fallbackMessage,
+  )
+  // Rate-limit branch: the backend's RateLimiter caps click bursts
+  // (e.g. 30 reactions / 10 s) and returns 429 + `RATE_LIMITED`. Show
+  // a calm, specific message with the wait — generic "Something went
+  // wrong" would make the user spam-retry.
+  if (errorCode === 'RATE_LIMITED' || status === 429) {
+    if (retryAfterSeconds && retryAfterSeconds > 0) {
+      return `You're going a little fast — try again in ${retryAfterSeconds}s.`
+    }
+    return "You're going a little fast — try again in a moment."
+  }
   return FRIENDLY_ERROR_CODES[errorCode] ?? message ?? fallbackMessage
+}
+
+/** True when the error is the backend's 429/RATE_LIMITED response. */
+export function isRateLimited(error) {
+  const { errorCode, status } = extractApiError(error)
+  return status === 429 || errorCode === 'RATE_LIMITED'
 }

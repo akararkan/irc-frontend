@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState } from 'react'
 
 import { loginRequest, logoutRequest, registerRequest } from '@/features/auth/auth.api'
@@ -10,12 +9,25 @@ import {
   saveStoredSession,
 } from '@/features/auth/auth-storage'
 import { getCurrentUser } from '@/features/users/users.api'
+import { clearReactionCache, setReactionCacheUser } from '@/lib/reaction-cache'
+import { setCurrentUserId } from '@/lib/my-reaction-store'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [status, setStatus] = useState('loading')
+
+  // Scope the local reaction-cache + per-viewer reaction store to
+  // whoever is signed in. Switches when sign-in / sign-out / account
+  // switch flips session.user.id so a viewer never sees another
+  // viewer's reactions, and so the actor-aware SSE dispatch knows
+  // which `actorId` to match against.
+  useEffect(() => {
+    const id = session?.user?.id ?? null
+    setReactionCacheUser(id)
+    setCurrentUserId(id)
+  }, [session?.user?.id])
 
   useEffect(() => {
     let isMounted = true
@@ -114,6 +126,7 @@ export function AuthProvider({ children }) {
       })
     } finally {
       clearStoredSession()
+      clearReactionCache()
       setSession(null)
       setStatus('guest')
     }

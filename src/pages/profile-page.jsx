@@ -71,13 +71,13 @@ function Stat({ label, value, to }) {
     return (
       <Link
         to={to}
-        className="min-w-0 flex-1 rounded-md px-2 py-1 transition-colors hover:bg-paper"
+        className="min-w-[88px] shrink-0 flex-1 rounded-md px-2 py-1 transition-colors hover:bg-paper sm:min-w-0"
       >
         {content}
       </Link>
     )
   }
-  return <div className="min-w-0 flex-1 px-2 py-1">{content}</div>
+  return <div className="min-w-[88px] shrink-0 flex-1 px-2 py-1 sm:min-w-0">{content}</div>
 }
 
 // Profile-link pill — used for handle / ORCID / website / email rows.
@@ -694,8 +694,10 @@ export function ProfilePage() {
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
         className="overflow-hidden rounded-xl border-[0.5px] border-border bg-paper"
       >
-        {/* Cover — green-to-blue soft wash (spec §09 .profile-cover) */}
-        <div className="relative h-[120px] overflow-hidden">
+        {/* Cover — green-to-blue soft wash (spec §09 .profile-cover).
+            Shorter on phones so the avatar + name land higher up on the
+            screen without the user having to scroll. */}
+        <div className="relative h-[96px] overflow-hidden sm:h-[120px]">
           <div
             className="absolute inset-0"
             style={{
@@ -720,8 +722,10 @@ export function ProfilePage() {
           </button>
         </div>
 
-        {/* Inner content — avatar overflows, name + actions */}
-        <div className="relative px-6 pb-6 pt-0 sm:px-7">
+        {/* Inner content — avatar overflows, name + actions. Tighter
+            side padding on phones so long names / actions don't get
+            squeezed against the rounded card edge. */}
+        <div className="relative px-4 pb-5 pt-0 sm:px-7 sm:pb-6">
           <div className="-mt-11 flex flex-wrap items-end justify-between gap-4">
             <motion.div
               initial={{ scale: 0.7, opacity: 0 }}
@@ -869,8 +873,10 @@ export function ProfilePage() {
             </div>
           ) : null}
 
-          {/* Stats strip — 5 cells in a muted block (spec §09) */}
-          <div className="mt-5 flex items-center rounded-md border-[0.5px] border-border bg-secondary px-2 py-3">
+          {/* Stats strip — 5-6 cells in a muted block (spec §09). On
+              phones the strip scrolls horizontally so every stat stays
+              readable instead of squishing into illegible columns. */}
+          <div className="scrollbar-none mt-5 flex items-center gap-1 overflow-x-auto rounded-md border-[0.5px] border-border bg-secondary px-2 py-3">
             <Stat label="Followers" value={followerCount} to={`/profile/${profile.username}/followers`} />
             <Stat label="Following" value={followingCount} to={`/profile/${profile.username}/following`} />
             <Stat label="Posts" value={postsCount} />
@@ -882,7 +888,7 @@ export function ProfilePage() {
       </motion.section>
 
       <Tabs defaultValue={showsResearch ? 'research' : 'activity'}>
-        <TabsList className="flex w-full justify-start gap-0 rounded-none border-0 border-b-[0.5px] border-border bg-transparent p-0">
+        <TabsList className="scrollbar-none flex w-full justify-start gap-0 overflow-x-auto rounded-none border-0 border-b-[0.5px] border-border bg-transparent p-0">
           {showsResearch ? (
             <TabsTrigger
               value="research"

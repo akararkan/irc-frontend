@@ -398,7 +398,7 @@ export const MentionTextarea = forwardRef(function MentionTextarea(
         ) : null}
       </motion.div>
     )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [showDropdown, results, highlighted, loading, coords.top, coords.left])
 
   return (

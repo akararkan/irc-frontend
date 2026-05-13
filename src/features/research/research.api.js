@@ -1,5 +1,6 @@
 import { api } from '@/api/client'
 import { API_URL } from '@/config/env'
+import { idempotencyHeaders, newIdempotencyKey } from '@/lib/idempotency'
 
 // ── Create / Update / Lifecycle ─────────────────────────────────
 
@@ -195,11 +196,18 @@ export async function getMyAllResearch({ page = 0, size = 20 } = {}) {
 
 // eslint-disable-next-line no-unused-vars
 export async function reactToResearch(researchId, reactionType) {
-  await api.post(`/api/v1/researches/${researchId}/react`)
+  await api.post(
+    `/api/v1/researches/${researchId}/react`,
+    null,
+    idempotencyHeaders(newIdempotencyKey()),
+  )
 }
 
 export async function removeResearchReaction(researchId) {
-  await api.delete(`/api/v1/researches/${researchId}/react`)
+  await api.delete(
+    `/api/v1/researches/${researchId}/react`,
+    idempotencyHeaders(newIdempotencyKey()),
+  )
 }
 
 export async function getResearchReactionBreakdown(researchId) {
@@ -217,7 +225,11 @@ export async function getResearchComments(researchId, { page = 0, size = 20 } = 
 }
 
 export async function addResearchComment(researchId, payload) {
-  const response = await api.post(`/api/v1/researches/${researchId}/comments`, payload)
+  const response = await api.post(
+    `/api/v1/researches/${researchId}/comments`,
+    payload,
+    idempotencyHeaders(newIdempotencyKey()),
+  )
   return response.data
 }
 
@@ -229,7 +241,12 @@ export async function addResearchCommentWithMedia(researchId, { data, media, voi
   const response = await api.post(
     `/api/v1/researches/${researchId}/comments/upload`,
     form,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Idempotency-Key': newIdempotencyKey(),
+      },
+    },
   )
   return response.data
 }
@@ -254,12 +271,15 @@ export async function deleteResearchComment(researchId, commentId) {
 export async function reactToResearchComment(researchId, commentId, reactionType) {
   await api.post(
     `/api/v1/researches/${researchId}/comments/${commentId}/reactions`,
+    null,
+    idempotencyHeaders(newIdempotencyKey()),
   )
 }
 
 export async function removeResearchCommentReaction(researchId, commentId) {
   await api.delete(
     `/api/v1/researches/${researchId}/comments/${commentId}/reactions`,
+    idempotencyHeaders(newIdempotencyKey()),
   )
 }
 
@@ -279,15 +299,22 @@ export function unlikeResearchComment(researchId, commentId) {
 // ── Saves / bookmarks ──────────────────────────────────────────
 
 export async function saveResearch(researchId, collection) {
+  const key = newIdempotencyKey()
   await api.post(
     `/api/v1/researches/${researchId}/save`,
     null,
-    collection ? { params: { collection } } : undefined,
+    {
+      headers: { 'Idempotency-Key': key },
+      ...(collection ? { params: { collection } } : {}),
+    },
   )
 }
 
 export async function unsaveResearch(researchId) {
-  await api.delete(`/api/v1/researches/${researchId}/save`)
+  await api.delete(
+    `/api/v1/researches/${researchId}/save`,
+    idempotencyHeaders(newIdempotencyKey()),
+  )
 }
 
 export async function getSavedResearch({ page = 0, size = 20 } = {}) {

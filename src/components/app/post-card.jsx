@@ -64,6 +64,24 @@ import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
 import {
+  forgetReaction,
+  rememberReaction,
+  useCachedReaction,
+} from '@/lib/reaction-cache'
+import {
+  bumpCounter,
+  setCounter,
+  useCounter,
+} from '@/lib/counter-store'
+import { useCooldown } from '@/lib/rate-limit-cooldown'
+import {
+  seedFromResponse,
+  setReacted,
+  setSaved,
+  useDidIReact,
+  useDidISave,
+} from '@/lib/my-reaction-store'
+import {
   formatNumber,
   getFullName,
   getHandle,
@@ -654,6 +672,15 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
     setCommentCount(post.commentCount ?? 0)
   }, [post.commentCount])
 
+  // Seed the per-viewer reaction store from the prop. Feed list
+  // endpoints currently return myReaction: null for every row, so we
+  // mark the seed non-authoritative — a known-true state established
+  // by a prior detail fetch / optimistic click / SSE actor match is
+  // not overwritten by the feed's null.
+  useEffect(() => {
+    seedFromResponse('post', post, { authoritative: false })
+  }, [post])
+
   // Per-post realtime — subscribe whenever the card is in (or near)
   // the viewport, OR while the comments thread is open. Combining
   // viewport-gating with the open-comments override means a reader
@@ -698,48 +725,57 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
     })
   }, [inView])
 
-  usePostStream(
+  const postStream = usePostStream(
     post.id,
     {
       POST_UPDATED: (payload) => {
         if (!payload?.id) return
         // Preserve viewer-specific fields the broadcast payload omits.
         onChange?.({ ...post, ...payload, myReaction: post.myReaction })
+        // Counters that arrive in the full snapshot also fan into the
+        // store so any sibling render reading via useCounter reconciles.
+        if (payload.reactionCount != null) setCounter('post', post.id, 'rx', payload.reactionCount)
+        if (payload.commentCount != null) setCounter('post', post.id, 'cm', payload.commentCount)
+        if (payload.shareCount != null) setCounter('post', post.id, 'sh', payload.shareCount)
+        if (payload.viewCount != null) setCounter('post', post.id, 'vw', payload.viewCount)
+        if (payload.saveCount != null) setCounter('post', post.id, 'sv', payload.saveCount)
       },
       POST_DELETED: () => {
         onDelete?.(post.id)
       },
-      // Single-LIKE reactions — backend emits postReactionCount and the
-      // actor; we just sync the counter.
       REACTION_ADDED: (payload) => {
-        if (!payload) return
-        onChange?.({
-          ...post,
-          reactionCount: payload.postReactionCount ?? post.reactionCount,
-        })
+        if (payload?.postReactionCount != null) {
+          setCounter('post', post.id, 'rx', payload.postReactionCount)
+        }
       },
       REACTION_REMOVED: (payload) => {
-        if (!payload) return
-        onChange?.({
-          ...post,
-          reactionCount: payload.postReactionCount ?? post.reactionCount,
-        })
+        if (payload?.postReactionCount != null) {
+          setCounter('post', post.id, 'rx', payload.postReactionCount)
+        }
       },
       SHARE_COUNT_UPDATED: (payload) => {
-        const next = payload?.postShareCount ?? (post.shareCount ?? 0) + 1
-        onChange?.({ ...post, shareCount: next })
+        if (payload?.postShareCount != null) {
+          setCounter('post', post.id, 'sh', payload.postShareCount)
+        }
       },
       SAVE_COUNT_UPDATED: (payload) => {
-        if (payload?.postSaveCount == null) return
-        onChange?.({ ...post, saveCount: payload.postSaveCount })
+        if (payload?.postSaveCount != null) {
+          setCounter('post', post.id, 'sv', payload.postSaveCount)
+        }
       },
       VIEW_COUNT_UPDATED: (payload) => {
-        if (payload?.postViewCount == null) return
-        onChange?.({ ...post, viewCount: payload.postViewCount })
+        if (payload?.postViewCount != null) {
+          setCounter('post', post.id, 'vw', payload.postViewCount)
+        }
       },
       COMMENT_CREATED: (payload) => {
-        const next = payload?.postCommentCount ?? (post.commentCount ?? 0) + 1
-        onChange?.({ ...post, commentCount: next })
+        if (payload?.postCommentCount != null) {
+          setCounter('post', post.id, 'cm', payload.postCommentCount)
+        }
+        // No fallback delta — the backend always carries the
+        // authoritative count on COMMENT_CREATED. Skipping the
+        // synthetic +1 prevents it from clobbering the prop fallback
+        // (commentCount state) if the field is ever absent.
         commentsRef.current?.applyRealtimeEvent('COMMENT_CREATED', payload)
       },
       COMMENT_EDITED: (payload) => {
@@ -747,9 +783,9 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       },
       COMMENT_DELETED: (payload) => {
         commentsRef.current?.applyRealtimeEvent('COMMENT_DELETED', payload)
-        const next =
-          payload?.postCommentCount ?? Math.max(0, (post.commentCount ?? 0) - 1)
-        onChange?.({ ...post, commentCount: next })
+        if (payload?.postCommentCount != null) {
+          setCounter('post', post.id, 'cm', payload.postCommentCount)
+        }
       },
       REPLY_CREATED: (payload) => {
         commentsRef.current?.applyRealtimeEvent('REPLY_CREATED', payload)
@@ -792,32 +828,55 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
     return resolveMediaUrl(post.mediaList?.[0]?.url)
   }, [post.mediaList, postType])
 
+  // "Did I react?" — primary source is the in-memory my-reaction
+  // store (seeded from API responses + actor-aware SSE). Falls back
+  // to the persisted reaction-cache so the heart still remembers
+  // across hard reloads when the feed payload omitted myReaction.
+  const cachedReaction = useCachedReaction('post', post.id)
+  const storeSaysReacted = useDidIReact('post', post.id, false)
+  const effectiveReaction =
+    post.myReaction ?? (storeSaysReacted ? 'LIKE' : null) ?? cachedReaction
+
+  // Counter reads — the store wins when an SSE event or optimistic
+  // delta has touched it; otherwise the prop value is used. Either
+  // way, first-paint is correct and live updates are reactive.
+  const reactionCount = useCounter('post', post.id, 'rx', post.reactionCount ?? 0)
+  const storedShareCount = useCounter('post', post.id, 'sh', post.shareCount ?? 0)
+  const storedSaveCount = useCounter('post', post.id, 'sv', post.saveCount ?? 0)
+  const storedCommentCount = useCounter('post', post.id, 'cm', commentCount)
+  // Rate-limit countdown — when the backend's per-user reaction
+  // bucket fires 429, the axios interceptor parks the action and
+  // this hook ticks down the seconds remaining. We disable the
+  // heart and surface the countdown in its label so the user
+  // stops pounding the button (which would just stack more 429s).
+  const reactionCooldown = useCooldown('reaction')
+  const saveCooldown = useCooldown('social')
+
   async function handlePickReaction(type) {
     if (working || !isAuthenticated) {
       if (!isAuthenticated) toast.info('Sign in to react.')
       return
     }
-    // Optimistic: paint the reacted state immediately.
+    // Optimistic: paint the reacted state immediately + remember it
+    // locally so the feed survives a reload without losing the heart.
     const previous = post
-    const wasReacting = Boolean(post.myReaction)
-    onChange?.({
-      ...post,
-      myReaction: type,
-      reactionCount: wasReacting
-        ? post.reactionCount
-        : (post.reactionCount ?? 0) + 1,
-    })
+    const wasReacting = Boolean(effectiveReaction)
+    onChange?.({ ...post, myReaction: type })
+    rememberReaction('post', post.id, type)
+    setReacted('post', post.id, true, type)
+    // Bump against the currently rendered count so the optimistic +1
+    // always lands on the number the viewer is actually looking at,
+    // even when no SSE event has seeded the store yet. SSE echo
+    // overwrites with the authoritative value moments later.
+    if (!wasReacting) bumpCounter('post', post.id, 'rx', reactionCount, +1)
     setWorking(true)
     try {
-      // Fire-and-forget on success — we don't merge the response.
-      // PostResponse's `reactionCount` reads through the Hibernate
-      // L1 cache and lags the increment by one, so spreading it back
-      // over our optimistic +1 produces a 0→1→0→1 flicker. The
-      // REACTION_ADDED SSE event arrives a tick later with the
-      // authoritative count and reconciles cleanly.
       await reactToPost(post.id, type)
     } catch (error) {
       onChange?.(previous)
+      forgetReaction('post', post.id)
+      setReacted('post', post.id, wasReacting, wasReacting ? cachedReaction : null)
+      if (!wasReacting) setCounter('post', post.id, 'rx', reactionCount)
       toast.error(friendlyApiMessage(error, 'Could not react.'))
     } finally {
       setWorking(false)
@@ -825,18 +884,22 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
   }
 
   async function handleClearReaction() {
-    if (working || !post.myReaction) return
+    if (working || !effectiveReaction) return
     const previous = post
-    onChange?.({
-      ...post,
-      myReaction: null,
-      reactionCount: Math.max(0, (post.reactionCount ?? 0) - 1),
-    })
+    const previousCached = cachedReaction
+    const previousCount = reactionCount
+    onChange?.({ ...post, myReaction: null })
+    forgetReaction('post', post.id)
+    setReacted('post', post.id, false)
+    bumpCounter('post', post.id, 'rx', reactionCount, -1)
     setWorking(true)
     try {
       await removePostReaction(post.id)
     } catch (error) {
       onChange?.(previous)
+      if (previousCached) rememberReaction('post', post.id, previousCached)
+      setReacted('post', post.id, true, previousCached ?? 'LIKE')
+      setCounter('post', post.id, 'rx', previousCount)
       toast.error(friendlyApiMessage(error, 'Could not remove reaction.'))
     } finally {
       setWorking(false)
@@ -858,7 +921,8 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
   // optimistic flip lands first; the SSE SAVE_COUNT_UPDATED echo
   // reconciles the count once the backend commits.
   const [savingBookmark, setSavingBookmark] = useState(false)
-  const isSaved = Boolean(post.isSaved)
+  const storeSaysSaved = useDidISave('post', post.id, false)
+  const isSaved = post.isSaved ?? storeSaysSaved
 
   async function handleToggleSave() {
     if (savingBookmark) return
@@ -867,13 +931,11 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       return
     }
     const previous = post
-    onChange?.({
-      ...post,
-      isSaved: !isSaved,
-      saveCount: isSaved
-        ? Math.max(0, (post.saveCount ?? 0) - 1)
-        : (post.saveCount ?? 0) + 1,
-    })
+    const previousSaved = isSaved
+    const previousSaveCount = storedSaveCount
+    onChange?.({ ...post, isSaved: !isSaved })
+    setSaved('post', post.id, !isSaved)
+    bumpCounter('post', post.id, 'sv', storedSaveCount, isSaved ? -1 : +1)
     setSavingBookmark(true)
     try {
       if (isSaved) {
@@ -884,6 +946,8 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       }
     } catch (error) {
       onChange?.(previous)
+      setSaved('post', post.id, previousSaved)
+      setCounter('post', post.id, 'sv', previousSaveCount)
       toast.error(extractApiMessage(error, 'Could not update bookmark.'))
     } finally {
       setSavingBookmark(false)
@@ -968,6 +1032,27 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
                 </span>
               </>
             ) : null}
+            {/* Realtime status pip — surfaces the per-post SSE stream
+                state so it's obvious whether live counter updates are
+                flowing. "Live" = handshake confirmed, "Offline" =
+                stream not established (out of view, or the backend
+                blocked / errored the connection). */}
+            <span aria-hidden>·</span>
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 font-mono text-[10.5px] uppercase tracking-wider',
+                postStream?.isConnected ? 'text-emerald-600' : 'text-ink-3/70',
+              )}
+              title={postStream?.isConnected ? 'Live updates connected' : 'Live updates not connected'}
+            >
+              <span
+                className={cn(
+                  'inline-block size-1.5 rounded-full',
+                  postStream?.isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-ink-3/40',
+                )}
+              />
+              {postStream?.isConnected ? 'Live' : 'Offline'}
+            </span>
           </div>
         </div>
 
@@ -1053,29 +1138,38 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
           <motion.button
             type="button"
             onClick={() =>
-              post.myReaction ? handleClearReaction() : handlePickReaction('LIKE')
+              effectiveReaction ? handleClearReaction() : handlePickReaction('LIKE')
             }
-            disabled={working}
+            disabled={working || reactionCooldown > 0}
             whileTap={{ scale: 0.94 }}
             transition={{ type: 'spring', stiffness: 480, damping: 26 }}
-            className={cn('rx', post.myReaction && 'is-on')}
-            aria-pressed={Boolean(post.myReaction)}
-            aria-label={post.myReaction ? 'Unlike' : 'Like'}
+            className={cn('rx', effectiveReaction && 'is-on')}
+            aria-pressed={Boolean(effectiveReaction)}
+            aria-label={
+              reactionCooldown > 0
+                ? `Try again in ${reactionCooldown}s`
+                : effectiveReaction ? 'Unlike' : 'Like'
+            }
+            title={
+              reactionCooldown > 0 ? `Rate limit — try again in ${reactionCooldown}s` : undefined
+            }
           >
             <span className="text-[14px] leading-none">
-              {post.myReaction ? '♥' : '♡'}
+              {effectiveReaction ? '♥' : '♡'}
             </span>
-            {(post.reactionCount ?? 0) > 0 ? (
+            {reactionCooldown > 0 ? (
+              <span className="tabular-nums">{reactionCooldown}s</span>
+            ) : reactionCount > 0 ? (
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.span
-                  key={post.reactionCount}
+                  key={reactionCount}
                   initial={{ y: 6, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   exit={{ y: -6, opacity: 0 }}
                   transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-                  className="inline-block tabular-nums"
+                  className="live-flash inline-block tabular-nums"
                 >
-                  {formatNumber(post.reactionCount)}
+                  {formatNumber(reactionCount)}
                 </motion.span>
               </AnimatePresence>
             ) : (
@@ -1094,35 +1188,35 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
             aria-label="Comments"
           >
             <MessageCircle className="size-[14px]" strokeWidth={1.5} />
-            {commentCount > 0 ? (
+            {storedCommentCount > 0 ? (
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.span
-                  key={commentCount}
+                  key={storedCommentCount}
                   initial={{ y: 6, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   exit={{ y: -6, opacity: 0 }}
                   transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-                  className="inline-block tabular-nums"
+                  className="live-flash inline-block tabular-nums"
                 >
-                  {formatNumber(commentCount)}
+                  {formatNumber(storedCommentCount)}
                 </motion.span>
               </AnimatePresence>
             ) : null}
           </motion.button>
 
-          {(post.shareCount ?? 0) > 0 ? (
+          {storedShareCount > 0 ? (
             <span className="rx-bare pointer-events-none">
               <Repeat2 className="size-[14px]" strokeWidth={1.5} />
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.span
-                  key={post.shareCount}
+                  key={storedShareCount}
                   initial={{ y: 5, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   exit={{ y: -5, opacity: 0 }}
                   transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-                  className="inline-block tabular-nums"
+                  className="live-flash inline-block tabular-nums"
                 >
-                  {formatNumber(post.shareCount)}
+                  {formatNumber(storedShareCount)}
                 </motion.span>
               </AnimatePresence>
             </span>
@@ -1137,18 +1231,28 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
           <button
             type="button"
             onClick={handleToggleSave}
-            disabled={savingBookmark}
+            disabled={savingBookmark || saveCooldown > 0}
             className={cn('rx-bare', isSaved && 'is-on')}
             aria-pressed={isSaved}
-            aria-label={isSaved ? 'Remove bookmark' : 'Bookmark'}
-            title={isSaved ? 'Remove bookmark' : 'Save'}
+            aria-label={
+              saveCooldown > 0
+                ? `Try again in ${saveCooldown}s`
+                : isSaved ? 'Remove bookmark' : 'Bookmark'
+            }
+            title={
+              saveCooldown > 0
+                ? `Rate limit — try again in ${saveCooldown}s`
+                : isSaved ? 'Remove bookmark' : 'Save'
+            }
           >
             <Bookmark
               className={cn('size-[14px]', isSaved && 'fill-current')}
               strokeWidth={1.5}
             />
-            {(post.saveCount ?? 0) > 0 ? (
-              <span className="tabular-nums">{formatNumber(post.saveCount)}</span>
+            {saveCooldown > 0 ? (
+              <span className="tabular-nums">{saveCooldown}s</span>
+            ) : storedSaveCount > 0 ? (
+              <span className="tabular-nums">{formatNumber(storedSaveCount)}</span>
             ) : null}
           </button>
         </div>

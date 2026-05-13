@@ -298,7 +298,10 @@ function SoundToggle() {
       aria-pressed={enabled}
     >
       <Icon className="size-4" />
-      {enabled ? 'Sound on' : 'Muted'}
+      {/* Label hides on phones so the action row fits — the icon plus
+          aria-pressed still carries the state. Title attribute also
+          covers screen-readers + hover tooltips. */}
+      <span className="hidden sm:inline">{enabled ? 'Sound on' : 'Muted'}</span>
     </Button>
   )
 }
@@ -406,12 +409,12 @@ export function NotificationsPage() {
               {isConnected ? (
                 <>
                   <Radio className="size-3" />
-                  Live
+                  <span className="hidden sm:inline">Live</span>
                 </>
               ) : (
                 <>
                   <WifiOff className="size-3" />
-                  Offline
+                  <span className="hidden sm:inline">Offline</span>
                 </>
               )}
             </Badge>
@@ -426,7 +429,7 @@ export function NotificationsPage() {
                   disabled={items.length === 0}
                 >
                   <Sparkles className="size-4" />
-                  Manage
+                  <span className="hidden sm:inline">Manage</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -459,8 +462,11 @@ export function NotificationsPage() {
 
       <PushPermissionBanner />
 
-      {/* Inbox tabs — spec's flat pill row inside a soft container */}
-      <div className="flex flex-wrap items-center gap-1 overflow-x-auto rounded-md bg-secondary p-1.5">
+      {/* Inbox tabs — spec's flat pill row inside a soft container.
+          On phones the pill row scrolls horizontally instead of
+          wrapping onto three lines — keeps the page chrome compact
+          and matches the tabs pattern used elsewhere in the app. */}
+      <div className="scrollbar-none flex flex-nowrap items-center gap-1 overflow-x-auto rounded-md bg-secondary p-1.5 snap-x snap-mandatory">
         <InboxTab
           label={ALL_TAB.label}
           count={counts.all}
@@ -583,7 +589,7 @@ function InboxTab({ label, count, active, onSelect }) {
       type="button"
       onClick={onSelect}
       className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 rounded-[5px] px-3 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap',
+        'inline-flex shrink-0 snap-start items-center gap-1.5 rounded-[5px] px-3 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap',
         active
           ? 'bg-paper text-ink shadow-[0_0_0_0.5px_var(--border)]'
           : 'text-ink-3 hover:text-ink',

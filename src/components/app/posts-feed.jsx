@@ -124,7 +124,6 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
   useEffect(() => {
     setInitializing(true)
     loadFirst(filter)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, isAuthenticated])
 
   function handlePostChange(updated) {

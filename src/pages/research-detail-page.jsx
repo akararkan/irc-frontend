@@ -84,6 +84,13 @@ import {
   startsWithRtl,
 } from '@/lib/format'
 import { RelativeTime } from '@/components/app/relative-time'
+import { bumpCounter, setCounter } from '@/lib/counter-store'
+import { useCooldown } from '@/lib/rate-limit-cooldown'
+import {
+  seedFromResponse,
+  setReacted,
+  setSaved,
+} from '@/lib/my-reaction-store'
 const VISIBILITY_META = {
   PUBLIC: { label: 'Public', icon: Globe, hint: 'Anyone can read' },
   FOLLOWERS_ONLY: { label: 'Followers', icon: Users, hint: 'Only your followers' },
@@ -246,7 +253,6 @@ function ReadingTabs({ sourcesCount, citationsCount, commentsCount }) {
       if (el) observer.observe(el)
     })
     return () => observer.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function jump(id) {
@@ -392,6 +398,8 @@ function EditorialHero({
   const cover = resolveMediaUrl(research.coverImageUrl)
   const VisibilityIcon = visibility.icon
   const statusMeta = STATUS_META[status] ?? null
+  const reactionCooldown = useCooldown('reaction')
+  const saveCooldown = useCooldown('social')
 
   const leadAuthor = {
     id: research.researcherId,
@@ -565,6 +573,12 @@ function EditorialHero({
             type="button"
             variant="outline"
             onClick={onSave}
+            disabled={saveCooldown > 0}
+            title={
+              saveCooldown > 0
+                ? `Rate limit — try again in ${saveCooldown}s`
+                : undefined
+            }
             className={cn(
               'h-9 gap-1.5 rounded-full px-4 text-[12.5px]',
               research.currentUserSaved && 'border-brand/50 text-brand',
@@ -575,7 +589,9 @@ function EditorialHero({
             ) : (
               <Bookmark className="size-3.5" strokeWidth={1.8} />
             )}
-            {research.currentUserSaved ? 'Saved' : 'Save'}
+            {saveCooldown > 0
+              ? `Wait ${saveCooldown}s`
+              : research.currentUserSaved ? 'Saved' : 'Save'}
           </Button>
 
           <Button
@@ -594,9 +610,18 @@ function EditorialHero({
             onClick={() =>
               reactionActive ? onClearReaction() : onPickReaction('LIKE')
             }
-            disabled={working}
+            disabled={working || reactionCooldown > 0}
             aria-pressed={reactionActive}
-            aria-label={reactionActive ? 'Unlike' : 'Like'}
+            aria-label={
+              reactionCooldown > 0
+                ? `Try again in ${reactionCooldown}s`
+                : reactionActive ? 'Unlike' : 'Like'
+            }
+            title={
+              reactionCooldown > 0
+                ? `Rate limit — try again in ${reactionCooldown}s`
+                : undefined
+            }
             className={cn(
               'h-9 gap-1.5 rounded-full px-4 text-[12.5px]',
               reactionActive &&
@@ -642,7 +667,7 @@ function EditorialHero({
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: -8, opacity: 0 }}
                     transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-                    className="inline-block"
+                    className="live-flash inline-block"
                   >
                     {formatNumber(value ?? 0)}
                   </motion.span>
@@ -697,6 +722,7 @@ function AuthorPill({ author, label, verified }) {
 
 // ─── Sticky compact title bar (appears on scroll) ───────────────────
 function StickyTitleBar({ visible, research, onReact, onSave, onShare, working }) {
+  const reactionCooldown = useCooldown('reaction')
   const author = {
     username: research.researcherUsername,
     fullName: research.researcherFullName,
@@ -730,8 +756,18 @@ function StickyTitleBar({ visible, research, onReact, onSave, onShare, working }
             onClick={() =>
               research.currentUserReactionType ? onReact(null) : onReact('LIKE')
             }
-            disabled={working}
+            disabled={working || reactionCooldown > 0}
             aria-pressed={Boolean(research.currentUserReactionType)}
+            aria-label={
+              reactionCooldown > 0
+                ? `Try again in ${reactionCooldown}s`
+                : research.currentUserReactionType ? 'Unlike' : 'Like'
+            }
+            title={
+              reactionCooldown > 0
+                ? `Rate limit — try again in ${reactionCooldown}s`
+                : undefined
+            }
             className={cn(
               'h-7 rounded-full gap-1 transition-all duration-200 active:scale-95',
               research.currentUserReactionType &&
@@ -873,6 +909,7 @@ function ActionRail({
   onCite,
   onDownload,
 }) {
+  const reactionCooldown = useCooldown('reaction')
   return (
     <Card className="overflow-hidden rounded-2xl border border-border bg-card">
       <CardContent className="space-y-2 p-3">
@@ -882,8 +919,18 @@ function ActionRail({
           onClick={() =>
             research.currentUserReactionType ? onClear() : onPick('LIKE')
           }
-          disabled={working}
+          disabled={working || reactionCooldown > 0}
           aria-pressed={Boolean(research.currentUserReactionType)}
+          aria-label={
+            reactionCooldown > 0
+              ? `Try again in ${reactionCooldown}s`
+              : research.currentUserReactionType ? 'Unlike' : 'Like'
+          }
+          title={
+            reactionCooldown > 0
+              ? `Rate limit — try again in ${reactionCooldown}s`
+              : undefined
+          }
           className={cn(
             'h-10 w-full justify-start gap-2 rounded-xl transition-all duration-200 active:scale-[0.98]',
             research.currentUserReactionType &&
@@ -1259,6 +1306,7 @@ function SectionHeading({ icon: Icon, title, count }) {
 // ─── Mobile sticky action bar ───────────────────────────────────────
 function MobileStickyActions({ research, working, onPick, onClear, onSave, onShare }) {
   const liked = Boolean(research.currentUserReactionType)
+  const reactionCooldown = useCooldown('reaction')
   return (
     <div
       className="fixed inset-x-0 z-30 mx-3 flex items-center gap-1 rounded-full border border-border bg-background/95 p-1 shadow-[0_18px_40px_-20px_oklch(0_0_0/0.25)] backdrop-blur lg:hidden"
@@ -1271,8 +1319,13 @@ function MobileStickyActions({ research, working, onPick, onClear, onSave, onSha
         variant="ghost"
         size="sm"
         onClick={() => (liked ? onClear() : onPick('LIKE'))}
-        disabled={working}
+        disabled={working || reactionCooldown > 0}
         aria-pressed={liked}
+        aria-label={
+          reactionCooldown > 0
+            ? `Try again in ${reactionCooldown}s`
+            : liked ? 'Unlike' : 'Like'
+        }
         className={cn(
           'h-9 flex-1 gap-1.5 rounded-full transition-all duration-200 active:scale-95',
           liked
@@ -1284,7 +1337,9 @@ function MobileStickyActions({ research, working, onPick, onClear, onSave, onSha
           className={cn('size-4', liked && 'fill-current')}
           strokeWidth={1.8}
         />
-        <span className="font-medium">{liked ? 'Liked' : 'Like'}</span>
+        <span className="font-medium">
+          {reactionCooldown > 0 ? `${reactionCooldown}s` : liked ? 'Liked' : 'Like'}
+        </span>
       </Button>
       <Button
         type="button"
@@ -1356,7 +1411,12 @@ export function ResearchDetailPage() {
         const data = looksLikeUuid(idOrSlug)
           ? await getResearch(idOrSlug)
           : await getResearchBySlug(idOrSlug)
-        if (!cancelled) setResearch(data)
+        if (!cancelled) {
+          setResearch(data)
+          // Research's mapper resolves the viewer's row authoritatively,
+          // so this seed is the canonical "did I react / save" truth.
+          if (data) seedFromResponse('research', data, { authoritative: true })
+        }
         if (data?.id) recordResearchView(data.id).catch(() => {})
       } catch (error) {
         if (!cancelled) {
@@ -1406,49 +1466,45 @@ export function ResearchDetailPage() {
         navigate('/research', { replace: true })
       },
       REACTION_ADDED: (payload) => {
-        if (!payload) return
+        const id = research?.id
+        if (!payload || !id) return
+        const next = payload.reactionCount
+        if (next != null) setCounter('research', id, 'rx', next)
         setResearch((current) =>
-          current
-            ? {
-                ...current,
-                reactionCount: payload.reactionCount ?? current.reactionCount,
-              }
-            : current,
+          current ? { ...current, reactionCount: next ?? current.reactionCount } : current,
         )
       },
       REACTION_REMOVED: (payload) => {
-        if (!payload) return
+        const id = research?.id
+        if (!payload || !id) return
+        const next = payload.reactionCount
+        if (next != null) setCounter('research', id, 'rx', next)
         setResearch((current) =>
-          current
-            ? {
-                ...current,
-                reactionCount: payload.reactionCount ?? current.reactionCount,
-              }
-            : current,
+          current ? { ...current, reactionCount: next ?? current.reactionCount } : current,
         )
       },
       COMMENT_CREATED: (payload) => {
-        if (!payload) return
+        const id = research?.id
+        if (!payload || !id) return
+        const next = payload.commentCount
+        if (next != null) setCounter('research', id, 'cm', next)
         setResearch((current) =>
           current
-            ? {
-                ...current,
-                commentCount:
-                  payload.commentCount ?? (current.commentCount ?? 0) + 1,
-              }
+            ? { ...current, commentCount: next ?? (current.commentCount ?? 0) + 1 }
             : current,
         )
         commentsRef.current?.applyRealtimeEvent('COMMENT_CREATED', payload)
       },
       COMMENT_DELETED: (payload) => {
-        if (!payload) return
+        const id = research?.id
+        if (!payload || !id) return
+        const next = payload.commentCount
+        if (next != null) setCounter('research', id, 'cm', next)
         setResearch((current) =>
           current
             ? {
                 ...current,
-                commentCount:
-                  payload.commentCount ??
-                  Math.max(0, (current.commentCount ?? 0) - 1),
+                commentCount: next ?? Math.max(0, (current.commentCount ?? 0) - 1),
               }
             : current,
         )
@@ -1471,37 +1527,43 @@ export function ResearchDetailPage() {
         commentsRef.current?.applyRealtimeEvent('COMMENT_REACTION_REMOVED', payload)
       },
       VIEW_COUNT_UPDATED: (payload) => {
-        if (payload?.viewCount == null) return
+        const id = research?.id
+        if (!id || payload?.viewCount == null) return
+        setCounter('research', id, 'vw', payload.viewCount)
         setResearch((current) =>
           current ? { ...current, viewCount: payload.viewCount } : current,
         )
       },
       DOWNLOAD_COUNT_UPDATED: (payload) => {
-        if (payload?.downloadCount == null) return
+        const id = research?.id
+        if (!id || payload?.downloadCount == null) return
+        setCounter('research', id, 'dl', payload.downloadCount)
         setResearch((current) =>
-          current
-            ? { ...current, downloadCount: payload.downloadCount }
-            : current,
+          current ? { ...current, downloadCount: payload.downloadCount } : current,
         )
       },
       SAVE_COUNT_UPDATED: (payload) => {
-        if (payload?.saveCount == null) return
+        const id = research?.id
+        if (!id || payload?.saveCount == null) return
+        setCounter('research', id, 'sv', payload.saveCount)
         setResearch((current) =>
           current ? { ...current, saveCount: payload.saveCount } : current,
         )
       },
       SHARE_COUNT_UPDATED: (payload) => {
-        if (payload?.shareCount == null) return
+        const id = research?.id
+        if (!id || payload?.shareCount == null) return
+        setCounter('research', id, 'sh', payload.shareCount)
         setResearch((current) =>
           current ? { ...current, shareCount: payload.shareCount } : current,
         )
       },
       CITATION_COUNT_UPDATED: (payload) => {
-        if (payload?.citationCount == null) return
+        const id = research?.id
+        if (!id || payload?.citationCount == null) return
+        setCounter('research', id, 'ct', payload.citationCount)
         setResearch((current) =>
-          current
-            ? { ...current, citationCount: payload.citationCount }
-            : current,
+          current ? { ...current, citationCount: payload.citationCount } : current,
         )
       },
     },
@@ -1533,19 +1595,30 @@ export function ResearchDetailPage() {
     if (working) return
     if (type == null) return handleClearReaction()
     const previous = research
+    const wasReacting = Boolean(research?.currentUserReacted)
+    const previousReactionCount = research?.reactionCount ?? 0
     setResearch((current) => ({
       ...current,
       currentUserReacted: true,
       currentUserReactionType: type,
-      reactionCount: current?.currentUserReacted
+      reactionCount: wasReacting
         ? current.reactionCount
         : (current?.reactionCount ?? 0) + 1,
     }))
+    setReacted('research', research.id, true, type)
+    if (!wasReacting) bumpCounter('research', research.id, 'rx', previousReactionCount, +1)
     setWorking(true)
     try {
       await reactToResearch(research.id, type)
     } catch (error) {
       setResearch(previous)
+      setReacted(
+        'research',
+        research.id,
+        Boolean(previous?.currentUserReacted),
+        previous?.currentUserReactionType ?? null,
+      )
+      if (!wasReacting) setCounter('research', research.id, 'rx', previousReactionCount)
       toast.error(extractApiMessage(error, 'Could not react.'))
     } finally {
       setWorking(false)
@@ -1555,17 +1628,27 @@ export function ResearchDetailPage() {
   async function handleClearReaction() {
     if (working || !research?.currentUserReacted) return
     const previous = research
+    const previousReactionCount = research?.reactionCount ?? 0
     setResearch((current) => ({
       ...current,
       currentUserReacted: false,
       currentUserReactionType: null,
       reactionCount: Math.max(0, (current?.reactionCount ?? 0) - 1),
     }))
+    setReacted('research', research.id, false)
+    bumpCounter('research', research.id, 'rx', previousReactionCount, -1)
     setWorking(true)
     try {
       await removeResearchReaction(research.id)
     } catch (error) {
       setResearch(previous)
+      setReacted(
+        'research',
+        research.id,
+        Boolean(previous?.currentUserReacted),
+        previous?.currentUserReactionType ?? null,
+      )
+      setCounter('research', research.id, 'rx', previousReactionCount)
       toast.error(extractApiMessage(error, 'Could not remove reaction.'))
     } finally {
       setWorking(false)
@@ -1577,14 +1660,18 @@ export function ResearchDetailPage() {
       toast.info('Sign in to save research.')
       return
     }
+    const wasSaved = Boolean(research.currentUserSaved)
+    const previousSaveCount = research?.saveCount ?? 0
     try {
-      if (research.currentUserSaved) {
+      if (wasSaved) {
         await unsaveResearch(research.id)
         setResearch((current) => ({
           ...current,
           currentUserSaved: false,
           saveCount: Math.max(0, (current?.saveCount ?? 0) - 1),
         }))
+        setSaved('research', research.id, false)
+        bumpCounter('research', research.id, 'sv', previousSaveCount, -1)
       } else {
         await saveResearch(research.id)
         setResearch((current) => ({
@@ -1592,6 +1679,8 @@ export function ResearchDetailPage() {
           currentUserSaved: true,
           saveCount: (current?.saveCount ?? 0) + 1,
         }))
+        setSaved('research', research.id, true)
+        bumpCounter('research', research.id, 'sv', previousSaveCount, +1)
         toast.success('Saved to your library.')
       }
     } catch (error) {

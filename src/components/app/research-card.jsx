@@ -414,7 +414,7 @@ export function LiveCount({
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -6, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-          className="inline-block"
+          className="live-flash inline-block"
         >
           {formatNumber(value)}
         </motion.span>

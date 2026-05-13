@@ -67,6 +67,17 @@ import {
   voteBestAnswer,
 } from '@/features/qna/qna.api'
 import { useQuestionStream } from '@/hooks/use-question-stream'
+import {
+  bumpCounter,
+  setCounter,
+  useCounter,
+} from '@/lib/counter-store'
+import { useCooldown } from '@/lib/rate-limit-cooldown'
+import {
+  seedFromResponse,
+  setReacted,
+  useDidIReact,
+} from '@/lib/my-reaction-store'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
@@ -175,7 +186,7 @@ function QuestionHeader({ question }) {
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: -5, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-                className="inline-block tabular-nums"
+                className="live-flash inline-block tabular-nums"
               >
                 {formatNumber(question.viewCount)}
               </motion.span>
@@ -313,8 +324,24 @@ function AnswerReactionRow({
 }) {
   const toast = useToast()
   const [working, setWorking] = useState(false)
-  const liked = Boolean(answer.myReaction)
-  const reactionCount = answer.reactionCount ?? 0
+  // Seed the per-viewer store from the answer payload — answers
+  // expose `myReaction` authoritatively (the QnA service batches the
+  // viewer's reactions for the page).
+  useEffect(() => {
+    seedFromResponse('answer', answer, { authoritative: true })
+  }, [answer])
+  // "Did I like this answer?" — store wins (kept in sync with
+  // optimistic writes + actor-aware SSE), fallback to the prop.
+  const storeSaysLiked = useDidIReact('answer', answer.id, false)
+  const liked = answer.myReaction != null || storeSaysLiked
+  // Store-backed reaction count — `setCounter` from the SSE handler
+  // wins once an authoritative ANSWER_REACTION_ADDED echo lands; until
+  // then we fall back to the prop value the page seeded.
+  const reactionCount = useCounter('answer', answer.id, 'rx', answer.reactionCount ?? 0)
+  // Rate-limit countdown — backend caps 30 reactions / 10 s per user
+  // across post/research/answer reactions in the same bucket. Disable
+  // and show the timer while the window's still open.
+  const reactionCooldown = useCooldown('reaction')
 
   async function toggle() {
     if (!isAuthenticated) {
@@ -334,6 +361,11 @@ function AnswerReactionRow({
         ? Math.max(0, reactionCount - 1)
         : reactionCount + 1,
     })
+    setReacted('answer', answer.id, !liked, liked ? null : 'LIKE')
+    // Bump against the currently displayed count so the optimistic
+    // delta lands on a real number — never on the synthetic 0 the
+    // store would have when no SSE event has touched this key yet.
+    bumpCounter('answer', answer.id, 'rx', reactionCount, liked ? -1 : +1)
     setWorking(true)
     try {
       // Fire the write — don't merge the response body. AnswerResponse
@@ -352,6 +384,11 @@ function AnswerReactionRow({
         parentAnswerId: answer.parentAnswerId,
         ...previous,
       })
+      setReacted('answer', answer.id, Boolean(previous.myReaction), previous.myReaction ?? null)
+      // Restore the exact pre-click count via an absolute write — we
+      // know what the user was looking at, so this is safer than
+      // re-delta'ing against the (possibly mid-flight) store value.
+      setCounter('answer', answer.id, 'rx', previous.reactionCount)
       toast.error(friendlyApiMessage(error, 'Could not react.'))
     } finally {
       setWorking(false)
@@ -362,19 +399,29 @@ function AnswerReactionRow({
     <div className="flex w-full flex-wrap items-center gap-1.5">
       <button
         type="button"
-        disabled={working}
+        disabled={working || reactionCooldown > 0}
         onClick={toggle}
         className={cn('rx', liked && 'is-on', 'active:scale-95')}
-        title={liked ? 'Unlike' : 'Like'}
+        title={
+          reactionCooldown > 0
+            ? `Rate limit — try again in ${reactionCooldown}s`
+            : liked ? 'Unlike' : 'Like'
+        }
         aria-pressed={liked}
-        aria-label={liked ? 'Unlike' : 'Like'}
+        aria-label={
+          reactionCooldown > 0
+            ? `Try again in ${reactionCooldown}s`
+            : liked ? 'Unlike' : 'Like'
+        }
       >
         <Heart
           className="size-[14px]"
           strokeWidth={1.5}
           fill={liked ? 'currentColor' : 'none'}
         />
-        {reactionCount > 0 ? (
+        {reactionCooldown > 0 ? (
+          <span className="tabular-nums">{reactionCooldown}s</span>
+        ) : reactionCount > 0 ? (
           <span className="tabular-nums">{formatNumber(reactionCount)}</span>
         ) : (
           <span>Like</span>
@@ -444,17 +491,13 @@ function AnswerCard({
   const bestVoteCount = answer.bestAnswerVoteCount ?? 0
   const isAccepted = Boolean(answer.accepted)
   const isVoted = bestVoteCount > 0
-  const isBest = isAccepted || isVoted || Boolean(answer.isBestAnswer)
   const [voteBusy, setVoteBusy] = useState(false)
 
   // Spec §07 — answers are *always* expanded. The reader sees the full
   // body, sources, reactions, asker feedback, and the entire reply
   // thread at a glance. No accordion, no lazy collapse.
-  const expanded = true
   const [showReanswerComposer, setShowReanswerComposer] = useState(false)
 
-  const attachmentCount = answer.attachments?.length ?? 0
-  const sourceCount = answer.sources?.length ?? 0
   const replyCount = repliesLoaded
     ? (replies?.length ?? 0)
     : (answer.replyCount ?? 0)
@@ -469,14 +512,6 @@ function AnswerCard({
       onLoadReplies?.(answer.id)
     }
   }, [repliesLoaded, repliesLoading, answer.id, answer.replyCount, onLoadReplies])
-
-  // First line of the body — used as the collapsed snippet
-  const snippet = useMemo(() => {
-    const text = (answer.body ?? '').trim()
-    if (!text) return ''
-    const firstLine = text.split(/\n+/)[0]
-    return firstLine.length > 180 ? `${firstLine.slice(0, 180).trimEnd()}…` : firstLine
-  }, [answer.body])
 
   return (
     <motion.article
@@ -1713,7 +1748,13 @@ export function QuestionDetailPage() {
     if (!payload) return
     const id = payload.answerId ?? payload.id
     if (!id) return
-    const patch = { id, reactionCount: payload.reactionCount }
+    // Backend's QnaRealtimeEvent uses `answerReactionCount`. The legacy
+    // `reactionCount` alias is also read so a future server tweak that
+    // unifies the field name doesn't silently break this handler.
+    const next = payload.answerReactionCount ?? payload.reactionCount
+    if (next == null) return
+    setCounter('answer', id, 'rx', next)
+    const patch = { id, reactionCount: next }
     if (payload.parentAnswerId) patch.parentAnswerId = payload.parentAnswerId
     applyAnswerPatch(patch)
   }
@@ -1841,6 +1882,7 @@ export function QuestionDetailPage() {
     VIEW_COUNT_UPDATED: (payload) => {
       const next = payload?.questionViewCount ?? payload?.viewCount
       if (next == null) return
+      setCounter('question', questionId, 'vw', next)
       setQuestion((current) =>
         current ? { ...current, viewCount: next } : current,
       )
@@ -1854,15 +1896,17 @@ export function QuestionDetailPage() {
             )
           : [...current, payload],
       )
-      setQuestion((current) =>
-        current
-          ? {
-              ...current,
-              answerCount: (current.answerCount ?? 0) + 1,
-              status: current.status === 'OPEN' ? 'ANSWERED' : current.status,
-            }
-          : current,
-      )
+      setQuestion((current) => {
+        if (!current) return current
+        const nextAnswerCount =
+          payload.questionAnswerCount ?? payload.answerCount ?? (current.answerCount ?? 0) + 1
+        setCounter('question', questionId, 'an', nextAnswerCount)
+        return {
+          ...current,
+          answerCount: nextAnswerCount,
+          status: current.status === 'OPEN' ? 'ANSWERED' : current.status,
+        }
+      })
     },
     REANSWER_CREATED: (payload) => {
       if (!payload?.id || !payload.parentAnswerId) return
@@ -1937,14 +1981,13 @@ export function QuestionDetailPage() {
         return
       }
       setAnswers((current) => current.filter((item) => item.id !== id))
-      setQuestion((current) =>
-        current
-          ? {
-              ...current,
-              answerCount: Math.max(0, (current.answerCount ?? 0) - 1),
-            }
-          : current,
-      )
+      setQuestion((current) => {
+        if (!current) return current
+        const nextAnswerCount =
+          payload?.questionAnswerCount ?? payload?.answerCount ?? Math.max(0, (current.answerCount ?? 0) - 1)
+        setCounter('question', questionId, 'an', nextAnswerCount)
+        return { ...current, answerCount: nextAnswerCount }
+      })
     },
     ANSWER_ACCEPTED: (payload) => {
       if (!payload?.id) return

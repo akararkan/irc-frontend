@@ -653,6 +653,41 @@
   100% { background-position:  150% 0; }
 }
 
+/* Live counter flash — applied to a number whose value just changed
+   via SSE so the user's eye registers the realtime update without
+   them having to be staring at it.
+
+   Pops the digit up to 1.4x with a brand-coloured glow, then settles
+   back to scale 1 + inherited colour over 700 ms. The scale + glow
+   reads clearly on both light cards and the dark reels canvas — the
+   colour-only version was invisible on the black reel background. */
+@keyframes live-count-flash {
+  0% {
+    transform: scale(1.4);
+    color: oklch(0.66 0.18 175);
+    text-shadow: 0 0 14px color-mix(in oklch, oklch(0.66 0.18 175) 55%, transparent);
+  }
+  45% {
+    transform: scale(1.12);
+    color: oklch(0.66 0.18 175);
+  }
+  100% {
+    transform: scale(1);
+    color: inherit;
+    text-shadow: none;
+  }
+}
+.live-flash {
+  display: inline-block;
+  animation: live-count-flash 700ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: center;
+}
+/* Honour reduced-motion — drop the scale pop so vestibular users see
+   only the colour change. */
+:where([data-reduced-motion="true"]) .live-flash {
+  animation: none;
+}
+
 /* ─────────────────────────────────────────────────────────────
    USER TWEAKS — font-scale, reduced motion, density
    ─────────────────────────────────────────────────────────────

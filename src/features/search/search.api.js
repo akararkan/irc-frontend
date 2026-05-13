@@ -27,6 +27,32 @@ function buildTypeParams(types) {
 }
 
 /**
+ * Normalize the backend's UnifiedSearchResult into the shape every FE
+ * consumer expects (`groups`).
+ *
+ * The backend's `UnifiedSearchResult` DTO uses `buckets` (keyed by
+ * SearchType enum). The topbar dropdown, search page, and any future
+ * consumer reads `result.groups[type]`. Translating once here keeps
+ * every call site uniform — if the backend ever renames the field
+ * again, this is the single spot to patch.
+ *
+ * Empty bodies (no `buckets` / `groups`) are coerced to `{}` so
+ * callers can safely `.groups[type].length` without null-checks.
+ */
+function normalizeUnifiedResult(data) {
+  if (!data) return { query: '', elapsedMs: null, groups: {} }
+  const groups = data.groups ?? data.buckets ?? {}
+  return {
+    query: data.query ?? '',
+    elapsedMs: data.elapsedMs ?? null,
+    groups,
+    // Preserve the original `buckets` key so any caller that already
+    // migrated isn't broken; new code should prefer `groups`.
+    buckets: groups,
+  }
+}
+
+/**
  * Multi-corpus search.
  *
  * `types` defaults to "every corpus the user has". Pass a smaller list
@@ -38,12 +64,12 @@ function buildTypeParams(types) {
  */
 export async function unifiedSearch({ q, types, limit = 8 } = {}) {
   if (!q || !q.trim()) {
-    return { query: '', groups: {}, hits: [] }
+    return { query: '', elapsedMs: null, groups: {}, buckets: {} }
   }
   const response = await api.get('/api/v1/search', {
     params: { q: q.trim(), limit, ...buildTypeParams(types) },
   })
-  return response.data
+  return normalizeUnifiedResult(response.data)
 }
 
 /**
@@ -58,12 +84,12 @@ export async function unifiedSearch({ q, types, limit = 8 } = {}) {
  */
 export async function instantSearch({ q, types, limit = 6 } = {}) {
   if (!q || !q.trim()) {
-    return { query: '', groups: {}, hits: [] }
+    return { query: '', elapsedMs: null, groups: {}, buckets: {} }
   }
   const response = await api.get('/api/v1/search/instant', {
     params: { q: q.trim(), limit, ...buildTypeParams(types) },
   })
-  return response.data
+  return normalizeUnifiedResult(response.data)
 }
 
 // ── Per-corpus shortcuts. The backend uses ts_rank_cd for ordering,

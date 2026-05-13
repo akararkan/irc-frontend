@@ -10,12 +10,9 @@ import { PostCard } from '@/components/app/post-card'
 import { QuestionFeedCard } from '@/components/app/question-feed-card'
 import { ResearchCard } from '@/components/app/research-card'
 import { useAuth } from '@/features/auth/auth-context'
-import { getFeed, getFollowingFeed } from '@/features/posts/posts.api'
-import {
-  getResearchFeed,
-  getResearchFollowingFeed,
-} from '@/features/research/research.api'
-import { getQuestions, getQuestionsFollowing } from '@/features/qna/qna.api'
+import { getFeed, getForYouFeed } from '@/features/posts/posts.api'
+import { getResearchFeed } from '@/features/research/research.api'
+import { getQuestions } from '@/features/qna/qna.api'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
@@ -27,6 +24,15 @@ const FILTERS = [
   { value: 'QUESTIONS', label: 'Q&A' },
 ]
 
+// Backend's FeedRankingService scores posts and caches the ordering in
+// Redis for 60 s — only available to signed-in viewers (it needs the
+// viewer id to compute the relationship signal). Guests fall back to
+// the chronological public feed automatically.
+const FEED_MODES = [
+  { value: 'FOR_YOU', label: 'For you', authOnly: true },
+  { value: 'LATEST',  label: 'Latest' },
+]
+const FOR_YOU_LIMIT = 25
 const PAGE_SIZE = 10
 
 function timestampOf(entry) {
@@ -76,58 +82,58 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
   const [pages, setPages] = useState({ posts: 0, research: 0, questions: 0 })
   const [hasMore, setHasMore] = useState({ posts: true, research: true, questions: true })
   const [filter, setFilter] = useState('ALL')
-
-  // Authenticated viewers see following-first, falling back to the
-  // public feed whenever the following result is empty *or* errors —
-  // a 200 with `content: []` looks identical to a user who follows
-  // nobody, so we can't rely on the catch alone.
-  const fetchWithFallback = useCallback(
-    async (followingFn, publicFn, pageIndex) => {
-      const isEmpty = (data) =>
-        !data || !Array.isArray(data.content) || data.content.length === 0
-      try {
-        if (isAuthenticated) {
-          const followingData = await followingFn({ page: pageIndex, size: PAGE_SIZE })
-          if (!isEmpty(followingData)) {
-            return { data: followingData, ok: true }
-          }
-        }
-        const publicData = await publicFn({ page: pageIndex, size: PAGE_SIZE })
-        return { data: publicData, ok: true }
-      } catch (error) {
-        if (isAuthenticated) {
-          try {
-            const publicData = await publicFn({ page: pageIndex, size: PAGE_SIZE })
-            return { data: publicData, ok: true }
-          } catch (innerError) {
-            return { error: innerError, ok: false }
-          }
-        }
-        return { error, ok: false }
-      }
-    },
-    [isAuthenticated],
-  )
+  // Default to the ranked For-You feed for signed-in viewers; guests
+  // see chronological "Latest". Stored in component state so users can
+  // flip between the two without rebuilding the page.
+  const [mode, setMode] = useState(isAuthenticated ? 'FOR_YOU' : 'LATEST')
 
   const fetchPage = useCallback(
-    (pageIndex) =>
-      Promise.all([
-        fetchWithFallback(getFollowingFeed, getFeed, pageIndex),
-        fetchWithFallback(getResearchFollowingFeed, getResearchFeed, pageIndex),
-        fetchWithFallback(getQuestionsFollowing, getQuestions, pageIndex),
-      ]),
-    [fetchWithFallback],
+    (pageIndex) => {
+      // For-You is a single-shot ranked endpoint (no per-page index —
+      // the server caches the top-N in Redis and returns the same
+      // ordering for 60 s). We fetch it on the first page and request
+      // an empty list on subsequent pages so the ranked top-N stays
+      // pinned at the top while pagination falls through to the
+      // chronological streams below it.
+      const wantForYou = mode === 'FOR_YOU' && isAuthenticated && pageIndex === 0
+      const postPromise = wantForYou
+        ? getForYouFeed({ limit: FOR_YOU_LIMIT })
+            .then((data) => ({
+              // Normalize the ranked response shape ({items, hasMore})
+              // into the page shape the rest of this function expects
+              // (`content`/`last`), so the downstream merge code stays
+              // unchanged.
+              data: { content: data?.items ?? [], last: !data?.hasMore },
+              ok: true,
+            }))
+            .catch((error) => ({ error, ok: false }))
+        : getFeed({ page: pageIndex, size: PAGE_SIZE })
+            .then((data) => ({ data, ok: true }))
+            .catch((error) => ({ error, ok: false }))
+      return Promise.all([
+        postPromise,
+        getResearchFeed({ page: pageIndex, size: PAGE_SIZE })
+          .then((data) => ({ data, ok: true }))
+          .catch((error) => ({ error, ok: false })),
+        getQuestions({ page: pageIndex, size: PAGE_SIZE })
+          .then((data) => ({ data, ok: true }))
+          .catch((error) => ({ error, ok: false })),
+      ])
+    },
+    [mode, isAuthenticated],
   )
 
   const load = useCallback(
     async ({ append } = { append: false }) => {
       setLoading(true)
+      const ranked = mode === 'FOR_YOU' && isAuthenticated
       try {
         const pageIndex = append
           ? { posts: pages.posts + 1, research: pages.research + 1, questions: pages.questions + 1 }
           : { posts: 0, research: 0, questions: 0 }
 
-        const nextEntries = []
+        const postEntries = []
+        const otherEntries = []
         const nextHasMore = { ...hasMore }
 
         const [postResult, researchResult, questionResult] = await fetchPage(
@@ -138,8 +144,13 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
 
         if (postResult.ok) {
           const posts = postResult.data?.content ?? []
-          nextHasMore.posts = !postResult.data?.last && posts.length === PAGE_SIZE
-          posts.forEach((p) => nextEntries.push({ kind: 'post', id: `post:${p.id}`, data: p }))
+          // In ranked mode the server caches the top-N in Redis for
+          // 60 s — there's no "next page" to ask for, so hasMore is
+          // pinned false after the first load.
+          nextHasMore.posts = ranked
+            ? false
+            : !postResult.data?.last && posts.length === PAGE_SIZE
+          posts.forEach((p) => postEntries.push({ kind: 'post', id: `post:${p.id}`, data: p }))
         } else {
           nextHasMore.posts = false
         }
@@ -147,7 +158,7 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
         if (researchResult.ok) {
           const research = researchResult.data?.content ?? []
           nextHasMore.research = !researchResult.data?.last && research.length === PAGE_SIZE
-          research.forEach((r) => nextEntries.push({ kind: 'research', id: `research:${r.id}`, data: r }))
+          research.forEach((r) => otherEntries.push({ kind: 'research', id: `research:${r.id}`, data: r }))
         } else {
           nextHasMore.research = false
         }
@@ -155,12 +166,20 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
         if (questionResult.ok) {
           const questions = questionResult.data?.content ?? []
           nextHasMore.questions = !questionResult.data?.last && questions.length === PAGE_SIZE
-          questions.forEach((q) => nextEntries.push({ kind: 'question', id: `question:${q.id}`, data: q }))
+          questions.forEach((q) => otherEntries.push({ kind: 'question', id: `question:${q.id}`, data: q }))
         } else {
           nextHasMore.questions = false
         }
 
-        nextEntries.sort((a, b) => timestampOf(b) - timestampOf(a))
+        // Ranked mode: keep the server's ordering for posts (the score
+        // is meaningful) and slot research + questions chronologically
+        // among themselves. Chronological mode: one merged stream.
+        otherEntries.sort((a, b) => timestampOf(b) - timestampOf(a))
+        const nextEntries = ranked
+          ? [...postEntries, ...otherEntries]
+          : [...postEntries, ...otherEntries].sort(
+              (a, b) => timestampOf(b) - timestampOf(a),
+            )
 
         setPages(pageIndex)
         setHasMore(nextHasMore)
@@ -176,17 +195,19 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
         setInitializing(false)
       }
     },
-    [fetchPage, hasMore, pages, toast],
+    [fetchPage, hasMore, pages, toast, mode, isAuthenticated],
   )
 
+  // Re-fetch whenever the viewer flips between signed-in/guest OR
+  // toggles For-You ↔ Latest. The state reset is identical in both
+  // cases, so they share one effect.
   useEffect(() => {
     setEntries([])
     setPages({ posts: 0, research: 0, questions: 0 })
     setHasMore({ posts: true, research: true, questions: true })
     setInitializing(true)
     load({ append: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated])
+  }, [isAuthenticated, mode])
 
   useImperativeHandle(
     ref,
@@ -257,7 +278,42 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
             Your feed
           </h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* For-You ↔ Latest toggle — only meaningful when signed in
+              (ranking needs the viewer id to compute the relationship
+              signal). Hidden for guests, who always see Latest. */}
+          {isAuthenticated ? (
+            <div className="flex items-center gap-1 rounded-full bg-muted p-1">
+              {FEED_MODES.map((option) => {
+                const active = mode === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setMode(option.value)}
+                    className={cn(
+                      'relative rounded-full px-3 py-1 text-xs font-semibold transition-colors',
+                      active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+                    )}
+                    title={
+                      option.value === 'FOR_YOU'
+                        ? 'Ranked by engagement, recency and who you follow'
+                        : 'Newest first across the whole community'
+                    }
+                  >
+                    {active ? (
+                      <motion.span
+                        layoutId="feedModePill"
+                        className="absolute inset-0 rounded-full bg-background shadow-sm"
+                        transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+                      />
+                    ) : null}
+                    <span className="relative">{option.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
           <div className="flex items-center gap-1 rounded-full bg-muted p-1">
             {FILTERS.map((option) => {
               const active = filter === option.value
@@ -305,7 +361,7 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
           title="Nothing here yet"
           description={
             filter === 'ALL'
-              ? "Follow people to see their posts, research, and questions here."
+              ? 'No posts, research, or questions yet — be the first to share.'
               : 'Try changing the filter or check back soon.'
           }
         />
@@ -375,7 +431,7 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
   )
 })
 
-export function addPostToFeed(entries, post) {
+function addPostToFeed(entries, post) {
   if (!post) return entries
   const newEntry = { kind: 'post', id: `post:${post.id}`, data: post }
   return [newEntry, ...entries.filter((e) => e.id !== newEntry.id)]

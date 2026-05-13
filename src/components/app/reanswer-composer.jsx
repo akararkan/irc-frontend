@@ -68,7 +68,7 @@ export function ReanswerComposer({
       }
     }
     // initialBody is stable for the composer's lifetime; run-once focus.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [])
 
   if (!isAuthenticated) return null

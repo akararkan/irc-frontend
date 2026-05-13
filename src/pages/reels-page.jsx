@@ -63,6 +63,23 @@ import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
 import {
+  forgetReaction,
+  rememberReaction,
+  useCachedReaction,
+} from '@/lib/reaction-cache'
+import {
+  bumpCounter,
+  getCounter,
+  setCounter,
+  useCounter,
+} from '@/lib/counter-store'
+import { useCooldown } from '@/lib/rate-limit-cooldown'
+import {
+  seedFromResponse,
+  setReacted,
+  useDidIReact,
+} from '@/lib/my-reaction-store'
+import {
   formatNumber,
   getFullName,
   getHandle,
@@ -347,8 +364,18 @@ const ReelCard = forwardRef(function ReelCard(
     const watched = Math.round(watchedSecondsRef.current)
     if (watched < 2) return
     recordedRef.current = true
-    recordReelView(reel.id, watched).catch(() => {
+    const reelId = reel.id
+    // Optimistic bump from the currently displayed count. Reading via
+    // getCounter at call time avoids the stale-closure trap the
+    // surrounding observer callback would otherwise create, and lands
+    // on the same number the user is looking at — never on a
+    // synthetic 0 the store would default to if no SSE event had
+    // touched this key yet.
+    const base = getCounter('post', reelId, 'vw') ?? (reel.viewCount ?? 0)
+    bumpCounter('post', reelId, 'vw', base, +1)
+    recordReelView(reelId, watched).catch(() => {
       recordedRef.current = false
+      setCounter('post', reelId, 'vw', base)
     })
   }
 
@@ -432,6 +459,31 @@ const ReelCard = forwardRef(function ReelCard(
     setProgress(ratio)
   }
 
+  // Seed the my-reaction store with whatever the reel payload carries.
+  // The reels feed endpoint inherits the same myReaction-null bug as
+  // every other post-feed path, so the seed is non-authoritative —
+  // it only promotes positive signals.
+  useEffect(() => {
+    if (reel) seedFromResponse('post', reel, { authoritative: false })
+  }, [reel])
+
+  // "Did I react to this reel?" — store first (seeded + SSE actor),
+  // then the localStorage cache (persists across hard reloads), then
+  // whatever the prop says.
+  const cachedReaction = useCachedReaction('post', reel?.id)
+  const storeSaysReacted = useDidIReact('post', reel?.id, false)
+  const effectiveReaction =
+    reel?.myReaction ?? (storeSaysReacted ? 'LIKE' : null) ?? cachedReaction
+
+  // Counter reads — store wins when an SSE event or optimistic delta
+  // has touched the key; otherwise the prop value is used.
+  const railReactionCount = useCounter('post', reel?.id, 'rx', reel?.reactionCount ?? 0)
+  const railCommentCount = useCounter('post', reel?.id, 'cm', reel?.commentCount ?? 0)
+  const railShareCount = useCounter('post', reel?.id, 'sh', reel?.shareCount ?? 0)
+  const railViewCount = useCounter('post', reel?.id, 'vw', reel?.viewCount ?? 0)
+  // Rate-limit countdown for the heart on the rail.
+  const reactionCooldown = useCooldown('reaction')
+
   async function pickReaction(type, { silent = false } = {}) {
     if (!isAuthenticated) {
       if (!silent) toast.info('Sign in to react.')
@@ -439,26 +491,20 @@ const ReelCard = forwardRef(function ReelCard(
     }
     if (working) return
     const previous = reel
-    const wasReacting = Boolean(reel.myReaction)
-    onChange?.({
-      ...reel,
-      myReaction: type,
-      reactionCount: wasReacting
-        ? reel.reactionCount
-        : (reel.reactionCount ?? 0) + 1,
-    })
+    const wasReacting = Boolean(effectiveReaction)
+    const previousReactionCount = railReactionCount
+    onChange?.({ ...reel, myReaction: type })
+    rememberReaction('post', reel.id, type)
+    setReacted('post', reel.id, true, type)
+    if (!wasReacting) bumpCounter('post', reel.id, 'rx', railReactionCount, +1)
     setWorking(true)
     try {
-      // Fire the write — we deliberately ignore the response body.
-      // The backend's PostResponse echoes a stale `reactionCount`
-      // (Hibernate L1 cache shadows the just-applied bump), so
-      // spreading it would clobber our optimistic +1 with the old
-      // value and produce a visible flicker until the SSE event
-      // reconciles. The authoritative count arrives over
-      // REACTION_ADDED on the per-post stream a moment later.
       await reactToPost(reel.id, type)
     } catch (error) {
       onChange?.(previous)
+      forgetReaction('post', reel.id)
+      setReacted('post', reel.id, wasReacting, wasReacting ? cachedReaction : null)
+      if (!wasReacting) setCounter('post', reel.id, 'rx', previousReactionCount)
       if (!silent) toast.error(extractApiMessage(error, 'Could not react.'))
     } finally {
       setWorking(false)
@@ -466,18 +512,22 @@ const ReelCard = forwardRef(function ReelCard(
   }
 
   async function clearReaction() {
-    if (!isAuthenticated || working || !reel?.myReaction) return
+    if (!isAuthenticated || working || !effectiveReaction) return
     const previous = reel
-    onChange?.({
-      ...reel,
-      myReaction: null,
-      reactionCount: Math.max(0, (reel.reactionCount ?? 0) - 1),
-    })
+    const previousCached = cachedReaction
+    const previousReactionCount = railReactionCount
+    onChange?.({ ...reel, myReaction: null })
+    forgetReaction('post', reel.id)
+    setReacted('post', reel.id, false)
+    bumpCounter('post', reel.id, 'rx', railReactionCount, -1)
     setWorking(true)
     try {
       await removePostReaction(reel.id)
     } catch (error) {
       onChange?.(previous)
+      if (previousCached) rememberReaction('post', reel.id, previousCached)
+      setReacted('post', reel.id, true, previousCached ?? 'LIKE')
+      setCounter('post', reel.id, 'rx', previousReactionCount)
       toast.error(extractApiMessage(error, 'Could not remove reaction.'))
     } finally {
       setWorking(false)
@@ -706,13 +756,13 @@ const ReelCard = forwardRef(function ReelCard(
                   {reel.textContent}
                 </p>
               ) : null}
-              {reel?.viewCount ? (
+              {railViewCount > 0 ? (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span
                     className="font-mono text-[10.5px] font-semibold tabular-nums text-white/85"
                     style={{ textShadow: '0 1px 4px oklch(0 0 0 / 0.55)' }}
                   >
-                    {formatNumber(reel.viewCount)} views
+                    {formatNumber(railViewCount)} views
                   </span>
                 </div>
               ) : null}
@@ -754,26 +804,32 @@ const ReelCard = forwardRef(function ReelCard(
                 unlikes; the rail button fills + the count animates. */}
             <RailButton
               icon={Heart}
-              count={reel?.reactionCount ?? 0}
-              label={reel?.myReaction ? 'Unlike' : 'Like'}
-              onClick={() =>
-                reel?.myReaction ? clearReaction() : pickReaction('LIKE')
+              count={reactionCooldown > 0 ? `${reactionCooldown}s` : railReactionCount}
+              label={
+                reactionCooldown > 0
+                  ? `Try again in ${reactionCooldown}s`
+                  : effectiveReaction ? 'Unlike' : 'Like'
               }
-              active={Boolean(reel?.myReaction)}
+              onClick={
+                reactionCooldown > 0
+                  ? undefined
+                  : () => (effectiveReaction ? clearReaction() : pickReaction('LIKE'))
+              }
+              active={Boolean(effectiveReaction)}
               activeTone="reaction"
-              iconClass={reel?.myReaction ? 'fill-current' : undefined}
+              iconClass={effectiveReaction ? 'fill-current' : undefined}
             />
 
             <RailButton
               icon={MessageCircle}
-              count={reel?.commentCount ?? 0}
+              count={railCommentCount}
               label="Comments"
               onClick={onOpenComments}
             />
 
             <RailButton
               icon={Repeat2}
-              count={reel?.shareCount ?? 0}
+              count={railShareCount}
               label="Repost"
               onClick={onOpenShare}
             />
@@ -1285,7 +1341,10 @@ function ReelsLoadingSkeleton() {
 
 // ─── Page ───────────────────────────────────────────────────────────
 export function ReelsPage() {
-  const { isAuthenticated } = useAuth()
+  // Auth state is intentionally not consulted at this level — guests
+  // see the same scroll feed as signed-in viewers. Per-reel gates
+  // (FollowChip, ReelCard's react / clearReaction, ShareSheet's
+  // copyLink) consult useAuth themselves where signed-in matters.
   const toast = useToast()
   const [reels, setReels] = useState([])
   const [page, setPage] = useState(null)
@@ -1451,7 +1510,7 @@ export function ReelsPage() {
   }, [activeId, goTo])
 
   // Live updates for the currently-active reel.
-  usePostStream(activeReel?.id, {
+  const reelStream = usePostStream(activeReel?.id, {
     POST_UPDATED: (payload) => {
       if (!payload?.id) return
       setReels((current) =>
@@ -1474,109 +1533,43 @@ export function ReelsPage() {
       })
       toast.info('This reel was removed by its author.')
     },
-    // Event names + payload fields mirror the canonical post realtime
-    // contract (PostRealtimeEventType) — POST_REACTED / POST_SHARED /
-    // POST_VIEWED were legacy aliases the backend no longer emits.
+    // Counter events feed straight into the global store via
+    // setCounter so the rail's `useCounter` reads pick them up. The
+    // backend emits authoritative absolute values; we trust them.
     REACTION_ADDED: (payload) => {
       const id = payload?.postId ?? payload?.id ?? activeReel?.id
-      if (!id) return
-      setReels((current) =>
-        current.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                reactionCount:
-                  payload.postReactionCount ?? payload.reactionCount ?? item.reactionCount,
-              }
-            : item,
-        ),
-      )
+      const next = payload?.postReactionCount ?? payload?.reactionCount
+      if (id && next != null) setCounter('post', id, 'rx', next)
     },
     REACTION_REMOVED: (payload) => {
       const id = payload?.postId ?? payload?.id ?? activeReel?.id
-      if (!id) return
-      setReels((current) =>
-        current.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                reactionCount:
-                  payload.postReactionCount ?? payload.reactionCount ?? item.reactionCount,
-              }
-            : item,
-        ),
-      )
+      const next = payload?.postReactionCount ?? payload?.reactionCount
+      if (id && next != null) setCounter('post', id, 'rx', next)
     },
     SHARE_COUNT_UPDATED: (payload) => {
       const id = payload?.postId ?? payload?.id ?? activeReel?.id
-      if (!id) return
-      setReels((current) =>
-        current.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                shareCount:
-                  payload.postShareCount ??
-                  payload.shareCount ??
-                  (item.shareCount ?? 0) + 1,
-              }
-            : item,
-        ),
-      )
+      const next = payload?.postShareCount ?? payload?.shareCount
+      if (id && next != null) setCounter('post', id, 'sh', next)
     },
     VIEW_COUNT_UPDATED: (payload) => {
       const id = payload?.postId ?? payload?.id ?? activeReel?.id
       const next = payload?.postViewCount ?? payload?.viewCount
-      if (!id || next == null) return
-      setReels((current) =>
-        current.map((item) =>
-          item.id === id ? { ...item, viewCount: next } : item,
-        ),
-      )
+      if (id && next != null) setCounter('post', id, 'vw', next)
     },
     SAVE_COUNT_UPDATED: (payload) => {
       const id = payload?.postId ?? payload?.id ?? activeReel?.id
       const next = payload?.postSaveCount ?? payload?.saveCount
-      if (!id || next == null) return
-      setReels((current) =>
-        current.map((item) =>
-          item.id === id ? { ...item, saveCount: next } : item,
-        ),
-      )
+      if (id && next != null) setCounter('post', id, 'sv', next)
     },
     COMMENT_CREATED: (payload) => {
-      const targetId = payload?.postId ?? payload?.id ?? activeReel?.id
-      if (!targetId) return
-      setReels((current) =>
-        current.map((item) =>
-          item.id === targetId
-            ? {
-                ...item,
-                commentCount:
-                  payload?.postCommentCount ??
-                  payload?.commentCount ??
-                  (item.commentCount ?? 0) + 1,
-              }
-            : item,
-        ),
-      )
+      const id = payload?.postId ?? payload?.id ?? activeReel?.id
+      const next = payload?.postCommentCount ?? payload?.commentCount
+      if (id && next != null) setCounter('post', id, 'cm', next)
     },
     COMMENT_DELETED: (payload) => {
-      const targetId = payload?.postId ?? activeReel?.id
-      if (!targetId) return
-      setReels((current) =>
-        current.map((item) =>
-          item.id === targetId
-            ? {
-                ...item,
-                commentCount:
-                  payload?.postCommentCount ??
-                  payload?.commentCount ??
-                  Math.max(0, (item.commentCount ?? 0) - 1),
-              }
-            : item,
-        ),
-      )
+      const id = payload?.postId ?? activeReel?.id
+      const next = payload?.postCommentCount ?? payload?.commentCount
+      if (id && next != null) setCounter('post', id, 'cm', next)
     },
   })
 
@@ -1609,7 +1602,9 @@ export function ReelsPage() {
     <ReelsShell>
       {/* Top floating chrome — mobile-only close (←) button so the
           user can leave the immersive reels viewport. Desktop drops it
-          because the sidebar already covers navigation. */}
+          because the sidebar already covers navigation. The "Live"
+          pip on the right surfaces the SSE handshake status so it's
+          obvious whether realtime counter updates are flowing. */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 px-3 sm:px-5"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
@@ -1622,6 +1617,24 @@ export function ReelsPage() {
         >
           <X className="size-[18px]" strokeWidth={1.8} />
         </Link>
+        <span
+          className={cn(
+            'pointer-events-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10.5px] font-semibold tabular-nums backdrop-blur-md',
+            reelStream?.isConnected
+              ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-200'
+              : 'border-white/15 bg-black/45 text-white/60',
+          )}
+          title={reelStream?.isConnected ? 'Live updates connected' : 'Live updates disconnected'}
+        >
+          <span
+            aria-hidden
+            className={cn(
+              'inline-block size-1.5 rounded-full',
+              reelStream?.isConnected ? 'bg-emerald-300 animate-pulse' : 'bg-white/40',
+            )}
+          />
+          {reelStream?.isConnected ? 'Live' : 'Offline'}
+        </span>
       </div>
 
       {/* Side desktop nav arrows */}

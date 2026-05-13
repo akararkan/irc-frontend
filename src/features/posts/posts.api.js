@@ -1,5 +1,6 @@
 import { api } from '@/api/client'
 import { API_URL } from '@/config/env'
+import { idempotencyHeaders, newIdempotencyKey } from '@/lib/idempotency'
 
 // ══════════════════════════════════════════════════════════════
 //  POSTS  —  /api/v1/posts
@@ -33,6 +34,25 @@ export async function getFeedCursor({ cursor, limit = 20 } = {}) {
   const params = { limit }
   if (cursor) params.cursor = cursor
   const response = await api.get('/api/v1/posts/feed/cursor', { params })
+  return response.data
+}
+
+/**
+ * For-You ranked feed. The backend's FeedRankingService scores each
+ * candidate post with a 0.4·engagement + 0.3·recency + 0.2·relationship
+ * + 0.1·diversity formula and caches the result in Redis for 60 s, so
+ * paginated scrolls hit the same ordering. Use this as the home feed's
+ * primary mode for signed-in viewers; fall back to {@link getFeed} for
+ * guests or when ranking returns an empty page.
+ *
+ * @param {object} [params]
+ * @param {number} [params.limit=20] — capped at 100 server-side.
+ * @returns Promise<{ items: PostResponse[], hasMore: boolean }>
+ */
+export async function getForYouFeed({ limit = 20 } = {}) {
+  const response = await api.get('/api/v1/posts/feed/for-you', {
+    params: { limit },
+  })
   return response.data
 }
 
@@ -115,12 +135,22 @@ export async function deletePost(postId) {
  */
 // eslint-disable-next-line no-unused-vars
 export async function reactToPost(postId, reactionType) {
-  const response = await api.post(`/api/v1/posts/${postId}/react`)
+  // Idempotency-Key — guards against double-tap / network-retry
+  // duplicate fires. The backend caches the response for 24 h keyed
+  // by (actor, key) so the second click just replays.
+  const response = await api.post(
+    `/api/v1/posts/${postId}/react`,
+    null,
+    idempotencyHeaders(newIdempotencyKey()),
+  )
   return response.data
 }
 
 export async function removePostReaction(postId) {
-  await api.delete(`/api/v1/posts/${postId}/react`)
+  await api.delete(
+    `/api/v1/posts/${postId}/react`,
+    idempotencyHeaders(newIdempotencyKey()),
+  )
 }
 
 // ── Repost / Reshare (Facebook-style) ──────────────────────────
@@ -136,14 +166,19 @@ export async function removePostReaction(postId) {
 // working.
 
 export async function repostPost(postId, caption) {
+  const key = newIdempotencyKey()
   const response = await api.post(`/api/v1/posts/${postId}/repost`, null, {
     params: caption ? { caption } : undefined,
+    headers: { 'Idempotency-Key': key },
   })
   return response.data
 }
 
 export async function undoRepost(postId) {
-  await api.delete(`/api/v1/posts/${postId}/repost`)
+  await api.delete(
+    `/api/v1/posts/${postId}/repost`,
+    idempotencyHeaders(newIdempotencyKey()),
+  )
 }
 
 export async function sharePost(postId, caption) {
@@ -188,15 +223,21 @@ export async function copyPostShareLink(postId) {
  * `collection` is optional; backend defaults to "Default".
  */
 export async function savePost(postId, collection) {
+  const headers = idempotencyHeaders(newIdempotencyKey())
   await api.post(
     `/api/v1/posts/${postId}/save`,
     null,
-    collection ? { params: { collection } } : undefined,
+    collection
+      ? { params: { collection }, headers: headers?.headers }
+      : headers,
   )
 }
 
 export async function unsavePost(postId) {
-  await api.delete(`/api/v1/posts/${postId}/save`)
+  await api.delete(
+    `/api/v1/posts/${postId}/save`,
+    idempotencyHeaders(newIdempotencyKey()),
+  )
 }
 
 /** GET /api/v1/posts/me/saved — paged PostResponse. */
@@ -244,9 +285,43 @@ export async function getPostCommentReplies(postId, commentId, { page = 0, size 
   return response.data
 }
 
+/**
+ * Cursor-paginated top-level comments. Stable under concurrent
+ * inserts — page-based pagination shifts entries when a new comment
+ * lands above the current page, causing duplicates or skips on
+ * scroll. The cursor is the previous page's last `createdAt` (ISO).
+ *
+ * @returns Promise<{ items: CommentResponse[], nextCursor: string|null, hasMore: boolean }>
+ */
+export async function getPostCommentsCursor(postId, { cursor, limit = 20 } = {}) {
+  const params = { limit }
+  if (cursor) params.cursor = cursor
+  const response = await api.get(`/api/v1/posts/${postId}/comments/cursor`, { params })
+  return response.data
+}
+
+/** Cursor-paginated reply thread under a single comment. */
+export async function getPostCommentRepliesCursor(
+  postId,
+  commentId,
+  { cursor, limit = 10 } = {},
+) {
+  const params = { limit }
+  if (cursor) params.cursor = cursor
+  const response = await api.get(
+    `/api/v1/posts/${postId}/comments/${commentId}/replies/cursor`,
+    { params },
+  )
+  return response.data
+}
+
 /** POST /api/v1/posts/{postId}/comments — CreateCommentRequest body. */
 export async function createPostComment(postId, payload) {
-  const response = await api.post(`/api/v1/posts/${postId}/comments`, payload)
+  const response = await api.post(
+    `/api/v1/posts/${postId}/comments`,
+    payload,
+    idempotencyHeaders(newIdempotencyKey()),
+  )
   return response.data
 }
 
@@ -261,7 +336,12 @@ export async function createPostCommentWithMedia(postId, { data, media }) {
   const response = await api.post(
     `/api/v1/posts/${postId}/comments/upload`,
     form,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Idempotency-Key': newIdempotencyKey(),
+      },
+    },
   )
   return response.data
 }
@@ -284,12 +364,17 @@ export async function deletePostComment(postId, commentId) {
 export async function reactToComment(postId, commentId, reactionType) {
   const response = await api.post(
     `/api/v1/posts/${postId}/comments/${commentId}/react`,
+    null,
+    idempotencyHeaders(newIdempotencyKey()),
   )
   return response.data
 }
 
 export async function removeCommentReaction(postId, commentId) {
-  await api.delete(`/api/v1/posts/${postId}/comments/${commentId}/react`)
+  await api.delete(
+    `/api/v1/posts/${postId}/comments/${commentId}/react`,
+    idempotencyHeaders(newIdempotencyKey()),
+  )
 }
 
 // ══════════════════════════════════════════════════════════════

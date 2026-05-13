@@ -190,7 +190,7 @@ export function SearchPage() {
       setSearchParams(next, { replace: true })
     }
     // setSearchParams is referentially stable; deps capture intent.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [trimmed, activeTab])
 
   // Run the appropriate query whenever the term, tab, or hashtag flag

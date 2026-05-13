@@ -268,7 +268,7 @@ function Stat({ value, label, tone = 'default', icon: Icon }) {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -8, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-            className="inline-block"
+            className="live-flash inline-block"
           >
             {display}
           </motion.span>

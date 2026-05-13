@@ -1,5 +1,6 @@
 import { api } from '@/api/client'
 import { API_URL } from '@/config/env'
+import { idempotencyHeaders, newIdempotencyKey } from '@/lib/idempotency'
 
 // ══════════════════════════════════════════════════════════════
 //  QUESTIONS  —  /api/v1/questions
@@ -124,6 +125,7 @@ export async function createAnswer(questionId, payload) {
   const response = await api.post(
     `/api/v1/questions/${questionId}/answers`,
     payload,
+    idempotencyHeaders(newIdempotencyKey()),
   )
   return response.data
 }
@@ -149,7 +151,12 @@ export async function createAnswerWithMedia(questionId, { data, media, voice }) 
   const response = await api.post(
     `/api/v1/questions/${questionId}/answers/upload`,
     form,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Idempotency-Key': newIdempotencyKey(),
+      },
+    },
   )
   return response.data
 }
@@ -296,6 +303,8 @@ export async function unvoteBestAnswer(questionId, answerId) {
 export async function reactToAnswer(questionId, answerId, reactionType) {
   const response = await api.post(
     `/api/v1/questions/${questionId}/answers/${answerId}/react`,
+    null,
+    idempotencyHeaders(newIdempotencyKey()),
   )
   return response.data
 }
@@ -303,6 +312,7 @@ export async function reactToAnswer(questionId, answerId, reactionType) {
 export async function removeAnswerReaction(questionId, answerId) {
   await api.delete(
     `/api/v1/questions/${questionId}/answers/${answerId}/react`,
+    idempotencyHeaders(newIdempotencyKey()),
   )
 }
 

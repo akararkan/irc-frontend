@@ -47,7 +47,11 @@ function PopoverContent({ className, align = 'end', sideOffset = 8, children, ..
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          'z-50 max-h-[calc(100dvh-5rem)] w-[320px] origin-[var(--radix-popover-content-transform-origin)] overflow-y-auto rounded-2xl border border-border bg-paper p-4 shadow-soft-lg outline-none',
+          // Mobile: cap width at the viewport minus a 1 rem gutter so
+          // the popover never hangs off the screen on phones; desktop:
+          // the original 320 px width. `max-h-[calc(100dvh-5rem)]`
+          // keeps tall content scrollable inside the popover.
+          'scrollbar-none z-50 max-h-[calc(100dvh-5rem)] w-[min(calc(100vw-1rem),320px)] origin-[var(--radix-popover-content-transform-origin)] overflow-y-auto rounded-2xl border border-border bg-paper p-4 shadow-soft-lg outline-none',
           'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
           className,
@@ -241,22 +245,27 @@ function FontScaleSelect({ value, onChange }) {
             onClick={() => onChange(opt.value)}
             title={`${opt.label} — ${opt.hint}`}
             className={cn(
-              'group/scale relative inline-flex flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-2 text-[11.5px] font-semibold transition-colors',
+              'group/scale relative inline-flex flex-col items-center justify-center gap-1 rounded-lg px-2 py-2.5 text-[11px] font-semibold transition-colors',
               active
                 ? 'border border-brand/25 bg-paper text-brand shadow-soft'
-                : 'text-ink-3 hover:text-ink',
+                : 'text-ink-3 hover:bg-paper/50 hover:text-ink',
             )}
             aria-pressed={active}
             aria-label={opt.label}
           >
             <span
               aria-hidden
-              className="font-display font-semibold leading-none text-ink"
-              style={{ fontSize: `${opt.factor * 18}px` }}
+              className={cn(
+                'font-display font-semibold leading-none transition-colors',
+                active ? 'text-brand' : 'text-ink',
+              )}
+              style={{ fontSize: `${opt.factor * 19}px` }}
             >
               {opt.sample}
             </span>
-            <span className="text-[10.5px]">{opt.label.split(' ')[0]}</span>
+            <span className="text-[10px] uppercase tracking-[0.06em]">
+              {opt.label.split(' ')[0]}
+            </span>
           </button>
         )
       })}
