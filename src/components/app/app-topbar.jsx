@@ -21,6 +21,47 @@ import { instantSearch, unifiedSearch } from '@/features/search/search.api'
 import { cn } from '@/lib/utils'
 import { getFullName, getHandle } from '@/lib/format'
 import { getSearchTypeMeta, searchHitHref } from '@/lib/search'
+import { useTweaks } from '@/features/tweaks/tweaks-context'
+import { LANGUAGES } from '@/i18n'
+
+// Compact 3-way language switcher — always visible in the topbar.
+function LangSwitcher() {
+  const { lang, setLang } = useTweaks()
+  const current = LANGUAGES.find((l) => l.code === (lang ?? 'en')) ?? LANGUAGES[0]
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 gap-1.5 rounded-full px-3 font-mono text-[12px] font-semibold text-ink-2 hover:bg-accent hover:text-ink"
+          title="Change language"
+        >
+          {current.nativeLabel}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-40 rounded-xl">
+        {LANGUAGES.map((l) => (
+          <DropdownMenuItem
+            key={l.code}
+            onSelect={() => setLang(l.code)}
+            className={cn(
+              'flex items-center gap-2.5 rounded-lg',
+              l.code === current.code && 'font-semibold text-brand',
+            )}
+            dir={l.dir}
+          >
+            <span className="w-5 shrink-0 text-center font-bold">
+              {l.code === 'en' ? 'A' : l.code === 'ar' ? 'ع' : 'ک'}
+            </span>
+            {l.nativeLabel}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 function isMacLike() {
   if (typeof navigator === 'undefined') return false
@@ -414,6 +455,7 @@ export function AppTopbar({ onMenuClick, title, className }) {
       <div className="flex items-center gap-1 md:ml-auto md:gap-2">
         {isAuthenticated ? (
           <>
+            <LangSwitcher />
             <NotificationBell />
             <TweaksMenu
               trigger={
