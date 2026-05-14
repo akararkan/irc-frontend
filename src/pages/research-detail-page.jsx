@@ -432,16 +432,24 @@ function EditorialHero({
 
   const metrics = [
     { value: research.viewCount, label: 'Views' },
-    { value: research.downloadCount, label: 'Downloads' },
+    { value: research.reactionCount, label: 'Likes' },
+    { value: research.commentCount, label: 'Comments' },
     { value: research.citationCount, label: 'Citations' },
     { value: research.saveCount, label: 'Saves' },
-    { value: research.commentCount, label: 'Comments' },
+    { value: research.shareCount, label: 'Shares' },
+    { value: research.downloadCount, label: 'Downloads' },
   ]
 
+  const allAuthors = [leadAuthor, ...coAuthors]
+  const authorNames = allAuthors
+    .map((a) => getFullName(a) || getHandle(a))
+    .filter(Boolean)
+    .join(', ')
+
   return (
-    <section className="relative isolate overflow-hidden rounded-2xl border-[0.5px] border-border bg-paper shadow-[0_24px_60px_-32px_oklch(0_0_0/0.18)]">
-      {/* ── Identifier strip ──────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b-[0.5px] border-border bg-secondary/30 px-6 py-3 sm:px-8">
+    <section className="relative isolate space-y-8 pb-2">
+      {/* ── Identifier strip — mono uppercase meta row ────────────── */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
         {statusMeta ? (
           <span
             className={cn(
@@ -453,43 +461,41 @@ function EditorialHero({
             {statusMeta.label}
           </span>
         ) : null}
-
         {research.ircId ? (
-          <span className="font-mono text-[11px] tabular-nums tracking-[0.04em] text-ink-3">
-            {research.ircId}
-          </span>
-        ) : null}
-
-        {research.doi ? (
-          <span className="text-ink-4">·</span>
+          <>
+            <span aria-hidden className="text-ink-4">·</span>
+            <span className="tabular-nums">{research.ircId}</span>
+          </>
         ) : null}
         {research.doi ? (
-          <a
-            href={`https://doi.org/${research.doi}`}
-            target="_blank"
-            rel="noreferrer"
-            className="font-mono text-[11px] text-ink-3 transition-colors hover:text-ink hover:underline"
-            title="Open DOI in a new tab"
-          >
-            DOI: {research.doi}
-          </a>
+          <>
+            <span aria-hidden className="text-ink-4">·</span>
+            <a
+              href={`https://doi.org/${research.doi}`}
+              target="_blank"
+              rel="noreferrer"
+              className="transition-colors hover:text-ink hover:underline"
+              title="Open DOI in a new tab"
+            >
+              DOI: {research.doi}
+            </a>
+          </>
         ) : null}
-
-        <span className="inline-flex items-center gap-1.5 text-[11px] text-ink-3">
+        <span className="inline-flex items-center gap-1.5">
           <VisibilityIcon className="size-3" strokeWidth={1.6} />
           {visibility.label}
         </span>
-
-        {dateLabel ? (
-          <span className="ml-auto font-mono text-[11px] tabular-nums text-ink-3">
-            {dateLabel}
-          </span>
+        {readingMinutes ? (
+          <>
+            <span aria-hidden className="text-ink-4">·</span>
+            <span>{readingMinutes} min read</span>
+          </>
         ) : null}
       </div>
 
-      {/* ── Optional cover (kept for visual interest when present) ── */}
+      {/* ── Optional cover ─────────────────────────────────────────── */}
       {cover ? (
-        <div className="relative aspect-[16/6] w-full overflow-hidden bg-muted">
+        <div className="relative aspect-[16/6] w-full overflow-hidden rounded-2xl bg-muted">
           <img
             src={cover}
             alt={research.title}
@@ -502,111 +508,58 @@ function EditorialHero({
         </div>
       ) : null}
 
-      {/* ── Title + authors + actions ─────────────────────────────── */}
-      <div className="space-y-7 px-6 py-7 sm:px-8 sm:py-8">
-        {/* Title */}
-        <h1
-          dir="auto"
-          className="font-display text-[28px] font-semibold leading-[1.1] tracking-[-0.012em] text-ink sm:text-[36px]"
-        >
-          {research.title}
-        </h1>
+      {/* ── Title ──────────────────────────────────────────────────── */}
+      <h1
+        dir="auto"
+        className="font-display text-[34px] font-semibold leading-[1.05] tracking-[-0.02em] text-ink sm:text-[46px]"
+      >
+        {research.title}
+      </h1>
 
-        {readingMinutes ? (
-          <p className="-mt-3 text-[12px] text-ink-3">
-            <span className="font-mono">{readingMinutes}</span> min read
-          </p>
-        ) : null}
-
-        {/* Authors row */}
-        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <AuthorPill author={leadAuthor} label="Lead researcher" verified />
-            {coAuthors.map((coAuthor) => (
-              <AuthorPill
-                key={coAuthor.id ?? coAuthor.username}
-                author={coAuthor}
-                label="Co-author"
-              />
+      {/* ── Authors + date + follow ────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-b-[0.5px] border-border pb-8">
+        <div className="flex items-center gap-4">
+          {/* Overlapping avatar stack */}
+          <div className="flex -space-x-2.5">
+            {allAuthors.slice(0, 5).map((author, i) => (
+              <Link
+                key={author.id ?? author.username ?? i}
+                to={author.username ? `/profile/${getRawUsername(author)}` : '#'}
+                className="relative block rounded-full ring-2 ring-paper"
+                style={{ zIndex: allAuthors.length - i }}
+                title={getFullName(author) || getHandle(author) || 'Author'}
+              >
+                <UserAvatar user={author} className="size-11" />
+              </Link>
             ))}
           </div>
-          {leadAuthor.username ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="rounded-full"
-              asChild
-            >
-              <Link to={`/profile/${leadAuthor.username}`}>
-                <span className="text-[15px] leading-none">+</span>
-                Follow {coAuthors.length ? 'authors' : 'author'}
-              </Link>
-            </Button>
-          ) : null}
+          {/* Names + publication date */}
+          <div className="leading-tight">
+            <p className="font-display text-[16px] font-medium tracking-[-0.005em] text-ink">
+              {authorNames}
+            </p>
+            {dateLabel ? (
+              <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                Published {dateLabel}
+              </p>
+            ) : null}
+          </div>
         </div>
+        {leadAuthor.username ? (
+          <Link
+            to={`/profile/${leadAuthor.username}`}
+            className="inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-border px-4 py-2 text-[12.5px] font-medium text-ink transition-colors hover:bg-secondary"
+          >
+            <span className="text-[15px] leading-none">+</span>
+            Follow {coAuthors.length ? 'authors' : 'author'}
+          </Link>
+        ) : null}
+      </div>
 
-        {/* Action bar */}
+        {/* Action bar — .rx bordered rounded-rect buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          {downloadsEnabled && (research.mediaFiles?.length ?? 0) > 0 ? (
-            <Button
-              type="button"
-              onClick={onDownload}
-              className="h-9 gap-1.5 rounded-full bg-brand px-4 text-[12.5px] font-semibold text-brand-foreground hover:bg-brand/90"
-            >
-              <Download className="size-3.5" strokeWidth={2} />
-              Download PDF
-            </Button>
-          ) : null}
-
-          <Button
+          <button
             type="button"
-            variant="outline"
-            onClick={onCite}
-            className="h-9 gap-1.5 rounded-full px-4 text-[12.5px]"
-          >
-            <Quote className="size-3.5" strokeWidth={1.8} />
-            Cite
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onSave}
-            disabled={saveCooldown > 0}
-            title={
-              saveCooldown > 0
-                ? `Rate limit — try again in ${saveCooldown}s`
-                : undefined
-            }
-            className={cn(
-              'h-9 gap-1.5 rounded-full px-4 text-[12.5px]',
-              research.currentUserSaved && 'border-brand/50 text-brand',
-            )}
-          >
-            {research.currentUserSaved ? (
-              <BookmarkCheck className="size-3.5" strokeWidth={1.8} />
-            ) : (
-              <Bookmark className="size-3.5" strokeWidth={1.8} />
-            )}
-            {saveCooldown > 0
-              ? `Wait ${saveCooldown}s`
-              : research.currentUserSaved ? 'Saved' : 'Save'}
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onShare}
-            className="h-9 gap-1.5 rounded-full px-4 text-[12.5px]"
-          >
-            <Share2 className="size-3.5" strokeWidth={1.8} />
-            Share
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
             onClick={() =>
               reactionActive ? onClearReaction() : onPickReaction('LIKE')
             }
@@ -622,43 +575,82 @@ function EditorialHero({
                 ? `Rate limit — try again in ${reactionCooldown}s`
                 : undefined
             }
-            className={cn(
-              'h-9 gap-1.5 rounded-full px-4 text-[12.5px]',
-              reactionActive &&
-                'border-transparent bg-rose-500/15 text-rose-600',
-            )}
+            className={cn('rx', reactionActive && 'is-on')}
           >
             <Heart
-              className={cn('size-4', reactionActive && 'fill-current')}
-              strokeWidth={1.8}
+              className={cn('size-[14px]', reactionActive && 'fill-current')}
+              strokeWidth={1.6}
             />
             {reactionActive ? 'Liked' : 'Like'}
-          </Button>
+          </button>
 
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="icon-sm"
-            className="size-9 rounded-full"
-            aria-label="More"
-            title="More"
+            onClick={onSave}
+            disabled={saveCooldown > 0}
+            title={
+              saveCooldown > 0
+                ? `Rate limit — try again in ${saveCooldown}s`
+                : undefined
+            }
+            className={cn(
+              'rx',
+              research.currentUserSaved && 'border-brand/50 text-brand',
+            )}
           >
-            <MoreHorizontal className="size-4" />
-          </Button>
+            {research.currentUserSaved ? (
+              <BookmarkCheck className="size-[14px]" strokeWidth={1.6} />
+            ) : (
+              <Bookmark className="size-[14px]" strokeWidth={1.6} />
+            )}
+            {saveCooldown > 0
+              ? `Wait ${saveCooldown}s`
+              : research.currentUserSaved ? 'Saved' : 'Save'}
+          </button>
+
+          <button
+            type="button"
+            onClick={onCite}
+            className="rx"
+          >
+            <Quote className="size-[14px]" strokeWidth={1.6} />
+            Cite
+          </button>
+
+          <button
+            type="button"
+            onClick={onShare}
+            className="rx"
+          >
+            <Share2 className="size-[14px]" strokeWidth={1.6} />
+            Share
+          </button>
+
+          {downloadsEnabled && (research.mediaFiles?.length ?? 0) > 0 ? (
+            <button
+              type="button"
+              onClick={onDownload}
+              className="rx"
+            >
+              <Download className="size-[14px]" strokeWidth={1.6} />
+              Download
+            </button>
+          ) : null}
         </div>
 
-        {/* Metric strip — every value ticks live via the page-level
-            useResearchStream subscription (VIEW_COUNT_UPDATED,
-            DOWNLOAD_COUNT_UPDATED, CITATION_COUNT_UPDATED, SAVE_COUNT_UPDATED,
-            and COMMENT_CREATED/DELETED). Keying each motion.span on the
-            current value gives us a soft mount/exit so the change is
-            visible rather than silent. */}
-        <div className="-mx-6 mt-6 grid grid-cols-3 gap-px overflow-hidden border-y-[0.5px] border-border bg-border sm:-mx-8 sm:grid-cols-5">
+        {/* Metric strip — individual bordered boxes, live-ticking via
+            the page-level useResearchStream subscription. Each box uses
+            the same rounded-rect border as .rx so the whole header reads
+            as a cohesive set. */}
+        <div className="flex flex-wrap gap-2">
           {metrics.map(({ value, label }) => (
             <div
               key={label}
-              className="flex flex-col items-center justify-center gap-1 bg-paper px-3 py-5 text-center"
+              className="flex flex-col gap-1.5 rounded-xl border-[0.5px] border-border px-5 py-4"
             >
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
+                {label}
+              </p>
               <p className="font-display text-[22px] font-semibold leading-none tracking-[-0.012em] tabular-nums text-ink sm:text-[26px]">
                 <AnimatePresence mode="popLayout" initial={false}>
                   <motion.span
@@ -673,13 +665,9 @@ function EditorialHero({
                   </motion.span>
                 </AnimatePresence>
               </p>
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
-                {label}
-              </p>
             </div>
           ))}
         </div>
-      </div>
     </section>
   )
 }

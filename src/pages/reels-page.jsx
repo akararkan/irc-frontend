@@ -204,7 +204,6 @@ function FollowChip({ author }) {
 }
 
 // ─── Action rail icon (vertical TikTok-style stack) ────────────────
-// Spec §06 — glass-blur side rail. Single circle, mono count beneath.
 function RailButton({
   icon: Icon,
   emoji,
@@ -215,10 +214,7 @@ function RailButton({
   activeTone = 'reaction',
   iconClass,
 }) {
-  const activeBg =
-    activeTone === 'reaction'
-      ? 'linear-gradient(135deg, rgba(244, 63, 94, 0.92) 0%, rgba(225, 29, 72, 0.92) 100%)'
-      : undefined
+  const isReaction = activeTone === 'reaction'
   return (
     <button
       type="button"
@@ -228,45 +224,48 @@ function RailButton({
       title={label}
     >
       <motion.span
-        whileTap={{ scale: 0.88 }}
-        whileHover={{ scale: 1.06, y: -1 }}
-        transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-        className="size-[54px] lg:size-[50px]"
+        whileTap={{ scale: 0.86 }}
+        whileHover={{ scale: 1.08, y: -2 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 24 }}
         style={{
-          borderRadius: 9999,
+          width: 48,
+          height: 48,
+          borderRadius: '999px',
           display: 'grid',
           placeItems: 'center',
-          background: active && activeBg ? activeBg : 'rgba(0, 0, 0, 0.42)',
-          border: active && activeBg
-            ? '0.5px solid rgba(255, 200, 215, 0.55)'
-            : '0.5px solid rgba(255, 255, 255, 0.18)',
-          backdropFilter: 'blur(10px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(10px) saturate(180%)',
-          boxShadow: active && activeBg
-            ? '0 6px 20px -10px rgba(244, 63, 94, 0.65)'
-            : '0 6px 14px -10px rgba(0, 0, 0, 0.5)',
-          transition: 'background 240ms ease, border-color 240ms ease, box-shadow 240ms ease',
+          background: active && isReaction
+            ? 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)'
+            : 'rgba(15, 12, 8, 0.55)',
+          border: active && isReaction
+            ? '1px solid rgba(255, 180, 200, 0.4)'
+            : '1px solid rgba(255, 255, 255, 0.14)',
+          backdropFilter: 'blur(14px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(14px) saturate(180%)',
+          boxShadow: active && isReaction
+            ? '0 0 24px -8px rgba(244, 63, 94, 0.7), 0 4px 12px -6px rgba(0,0,0,0.6)'
+            : '0 4px 16px -8px rgba(0, 0, 0, 0.7)',
+          transition: 'all 240ms cubic-bezier(0.22, 0.61, 0.36, 1)',
         }}
       >
         {emoji ? (
-          <span className="text-[22px] leading-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
+          <span className="text-[20px] leading-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]">
             {emoji}
           </span>
         ) : Icon ? (
           <Icon
-            className={cn('size-[20px] drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)]', iconClass)}
-            strokeWidth={1.6}
+            className={cn('size-[19px] drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]', iconClass)}
+            strokeWidth={active && isReaction ? 2 : 1.7}
           />
         ) : null}
       </motion.span>
       {count != null ? (
         <motion.span
           key={count}
-          initial={{ scale: 0.85, opacity: 0.4 }}
+          initial={{ scale: 0.8, opacity: 0.3 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 480, damping: 26 }}
-          className="font-mono text-[11px] font-semibold tabular-nums"
-          style={{ textShadow: '0 1px 4px rgba(0, 0, 0, 0.6)' }}
+          transition={{ type: 'spring', stiffness: 500, damping: 28 }}
+          className="font-mono text-[11px] font-bold tabular-nums"
+          style={{ textShadow: '0 1px 6px rgba(0, 0, 0, 0.8)' }}
         >
           {typeof count === 'number' ? formatNumber(count) : count}
         </motion.span>
@@ -560,14 +559,14 @@ const ReelCard = forwardRef(function ReelCard(
       data-reel-id={reel?.id}
       className="relative grid h-full place-items-center snap-start snap-always"
     >
-      {/* Mobile: edge-to-edge fill, no border, no max-width.
-          Desktop: max-w-[440px] centered with breathing room. */}
-      <div className="relative isolate flex h-full w-full items-center justify-center lg:max-w-[440px] lg:px-3">
+      {/* Mobile: edge-to-edge fill. Desktop: centered phone frame. */}
+      <div className="relative isolate flex h-full w-full items-center justify-center lg:max-w-[420px] lg:px-2">
         <div
           className={cn(
             'relative isolate h-full w-full overflow-hidden bg-[oklch(0.08_0.012_270)]',
-            // Phones: full-bleed; desktop: aspect-locked card.
-            'lg:aspect-[9/16] lg:max-h-full lg:rounded-[14px] lg:border-[0.5px] lg:border-ink',
+            'lg:aspect-[9/16] lg:max-h-full lg:rounded-[28px]',
+            'lg:border lg:border-white/[0.12]',
+            'lg:shadow-[0_0_0_3px_rgba(255,255,255,0.04),0_40px_80px_-20px_rgba(0,0,0,0.95),0_0_100px_-40px_color-mix(in_oklch,var(--brand)_60%,transparent)]',
           )}
           style={
             url
@@ -575,6 +574,12 @@ const ReelCard = forwardRef(function ReelCard(
               : stripe
           }
         >
+          {/* Specular top-edge highlight on desktop */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 hidden h-px lg:block"
+            style={{ background: 'linear-gradient(90deg, transparent 10%, rgba(255,255,255,0.20) 50%, transparent 90%)' }}
+          />
           {(eager || active) && url ? (
             <>
               {/* TikTok-style blurred backdrop — same video mirrored
@@ -644,10 +649,16 @@ const ReelCard = forwardRef(function ReelCard(
             }}
           />
 
-          {/* Floor/ceiling vignettes for legibility */}
+          {/* Cinematic vignettes — heavier floor for caption legibility */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/35"
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background: [
+                'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.30) 35%, transparent 55%)',
+                'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 30%)',
+              ].join(', '),
+            }}
           />
 
           <FloatingHearts bursts={bursts} />
@@ -675,22 +686,23 @@ const ReelCard = forwardRef(function ReelCard(
             ) : null}
           </AnimatePresence>
 
-          {/* Top-right mute toggle — glass blur. Pushed down from the
-              top edge on mobile to clear iOS notch / dynamic island,
-              and sized larger for a comfortable tap target on phones. */}
+          {/* Mute toggle — glass pill, top-right */}
           <button
             type="button"
             onClick={onToggleMuted}
-            className="absolute right-3 z-[5] grid size-9 place-items-center rounded-full bg-black/40 text-white backdrop-blur transition-colors hover:bg-black/60 lg:size-[30px]"
-            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
+            className="absolute right-3 z-[5] inline-flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1.5 text-white backdrop-blur-md transition-all hover:bg-black/65"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
             aria-label={isMuted ? 'Unmute' : 'Mute'}
             title={isMuted ? 'Unmute' : 'Mute'}
           >
             {isMuted ? (
-              <VolumeX className="size-[16px] lg:size-[14px]" strokeWidth={1.6} />
+              <VolumeX className="size-[15px]" strokeWidth={1.7} />
             ) : (
-              <Volume2 className="size-[16px] lg:size-[14px]" strokeWidth={1.6} />
+              <Volume2 className="size-[15px]" strokeWidth={1.7} />
             )}
+            <span className="font-mono text-[10px] uppercase tracking-wider">
+              {isMuted ? 'Unmute' : 'Mute'}
+            </span>
           </button>
 
           {/* Big play overlay (paused state) — glass-blur disc per
@@ -733,14 +745,10 @@ const ReelCard = forwardRef(function ReelCard(
             ) : null}
           </AnimatePresence>
 
-          {/* Bottom — caption + author. Honours iOS safe-area inset so
-              the text never hides behind the home indicator. Right
-              gutter leaves room for the action rail. */}
+          {/* Bottom — caption + author. */}
           <div
-            className="absolute inset-x-0 bottom-0 z-[5] flex items-end gap-3 px-4 pr-[80px] sm:pr-[92px]"
-            style={{
-              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
-            }}
+            className="absolute inset-x-0 bottom-0 z-[5] flex items-end gap-3 px-4 pr-[72px] sm:pr-[86px]"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)' }}
           >
             <div className="min-w-0 flex-1 text-white">
               <Link
@@ -749,8 +757,8 @@ const ReelCard = forwardRef(function ReelCard(
               >
                 <span className="flex items-center gap-1.5">
                   <span
-                    className="truncate font-display text-[15.5px] font-bold tracking-[-0.005em]"
-                    style={{ textShadow: '0 1px 6px oklch(0 0 0 / 0.6)' }}
+                    className="truncate font-display text-[17px] font-bold tracking-[-0.008em]"
+                    style={{ textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}
                   >
                     {authorDisplayName}
                   </span>
@@ -760,8 +768,8 @@ const ReelCard = forwardRef(function ReelCard(
                 </span>
                 {authorHandle ? (
                   <span
-                    className="mt-0.5 block truncate font-mono text-[11.5px] font-semibold text-white/85"
-                    style={{ textShadow: '0 1px 4px oklch(0 0 0 / 0.55)' }}
+                    className="mt-0.5 block truncate font-mono text-[12px] text-white/70"
+                    style={{ textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}
                   >
                     @{authorHandle}
                   </span>
@@ -770,33 +778,30 @@ const ReelCard = forwardRef(function ReelCard(
               {reel?.textContent ? (
                 <p
                   dir="auto"
-                  className="mt-2 line-clamp-3 text-[13.5px] leading-[1.4] text-white/95"
-                  style={{ textShadow: '0 1px 6px oklch(0 0 0 / 0.6)' }}
+                  className="mt-2.5 line-clamp-2 text-[14px] leading-[1.45] text-white/90"
+                  style={{ textShadow: '0 1px 6px rgba(0,0,0,0.65)' }}
                 >
                   {reel.textContent}
                 </p>
               ) : null}
-              {railViewCount > 0 ? (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                {railViewCount > 0 ? (
                   <span
-                    className="font-mono text-[10.5px] font-semibold tabular-nums text-white/85"
-                    style={{ textShadow: '0 1px 4px oklch(0 0 0 / 0.55)' }}
+                    className="font-mono text-[10.5px] tabular-nums text-white/60"
+                    style={{ textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}
                   >
                     {formatNumber(railViewCount)} views
                   </span>
-                </div>
-              ) : null}
-              {reel?.audioTrackName ? (
-                <div className="mt-2 inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-white/15 bg-black/45 px-2.5 py-1 backdrop-blur-md">
-                  <span className="size-1.5 animate-pulse rounded-full bg-white" />
-                  <span
-                    className="truncate font-mono text-[10.5px] font-semibold tabular-nums text-white"
-                    style={{ textShadow: '0 1px 4px oklch(0 0 0 / 0.55)' }}
-                  >
-                    ♪ {reel.audioTrackName}
-                  </span>
-                </div>
-              ) : null}
+                ) : null}
+                {reel?.audioTrackName ? (
+                  <div className="inline-flex max-w-[180px] items-center gap-1.5 truncate rounded-full border border-white/12 bg-black/40 px-2.5 py-1 backdrop-blur-md">
+                    <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-white/80" />
+                    <span className="truncate font-mono text-[10.5px] text-white/75">
+                      ♪ {reel.audioTrackName}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -921,38 +926,40 @@ const ReelCard = forwardRef(function ReelCard(
             ) : null}
           </div>
 
-          {/* Top — 5-segment progress bar (spec §06). Click anywhere on
-              the strip to seek. Honours iOS safe-area inset so it
-              never hides behind the notch / dynamic island. */}
+          {/* Bottom — continuous progress bar, just above the floor */}
           {url ? (
             <div
-              className="absolute inset-x-3 z-[7] flex h-3 cursor-pointer items-start gap-[3px]"
-              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
+              role="slider"
+              aria-valuemin={0}
+              aria-valuemax={1}
+              aria-valuenow={progress}
+              className="absolute inset-x-0 z-[7] h-5 cursor-pointer touch-none"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 0px)' }}
               onClick={seek}
             >
-              {[0, 1, 2, 3, 4].map((i) => {
-                const seg = Math.max(0, Math.min(1, progress * 5 - i))
-                return (
-                  <span
-                    key={i}
-                    className="h-[2px] flex-1 overflow-hidden rounded-full bg-white/30"
-                  >
-                    <span
-                      className="block h-full bg-white transition-[width] duration-150"
-                      style={{ width: `${seg * 100}%` }}
-                    />
-                  </span>
-                )
-              })}
+              <div className="absolute inset-x-0 bottom-0 h-[3px] overflow-hidden">
+                <span className="absolute inset-0 bg-white/20" />
+                <span
+                  className="absolute inset-y-0 left-0 transition-[width] duration-150"
+                  style={{
+                    width: `${progress * 100}%`,
+                    background: 'linear-gradient(90deg, var(--brand) 0%, color-mix(in oklch, var(--brand) 70%, white) 100%)',
+                    boxShadow: '0 0 8px var(--brand)',
+                  }}
+                />
+                <span
+                  className="absolute top-1/2 -translate-y-1/2 size-2.5 rounded-full bg-white shadow-md"
+                  style={{ left: `calc(${progress * 100}% - 5px)` }}
+                />
+              </div>
             </div>
           ) : null}
 
-          {/* Time pill (bottom-left, mono) — lifts above safe-area on
-              mobile so it never disappears under the home indicator. */}
+          {/* Time pill (bottom-left, mono) */}
           {duration ? (
             <span
-              className="pointer-events-none absolute left-3 z-[6] rounded-sm bg-black/55 px-1.5 py-[2px] font-mono text-[10px] tabular-nums text-white backdrop-blur"
-              style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
+              className="pointer-events-none absolute left-3 z-[6] rounded-full bg-black/50 px-2.5 py-1 font-mono text-[10px] tabular-nums text-white/90 backdrop-blur-sm"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}
             >
               {fmtTime(duration * progress)} / {fmtTime(duration)}
             </span>
@@ -1625,13 +1632,9 @@ export function ReelsPage() {
 
   return (
     <ReelsShell>
-      {/* Top floating chrome — mobile-only close (←) button so the
-          user can leave the immersive reels viewport. Desktop drops it
-          because the sidebar already covers navigation. The "Live"
-          pip on the right surfaces the SSE handshake status so it's
-          obvious whether realtime counter updates are flowing. */}
+      {/* Mobile-only back button — desktop sidebar already handles nav */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 px-3 sm:px-5"
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start px-3 sm:px-5"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
       >
         <Link
@@ -1642,47 +1645,29 @@ export function ReelsPage() {
         >
           <X className="size-[18px]" strokeWidth={1.8} />
         </Link>
-        <span
-          className={cn(
-            'pointer-events-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10.5px] font-semibold tabular-nums backdrop-blur-md',
-            reelStream?.isConnected
-              ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-200'
-              : 'border-white/15 bg-black/45 text-white/60',
-          )}
-          title={reelStream?.isConnected ? 'Live updates connected' : 'Live updates disconnected'}
-        >
-          <span
-            aria-hidden
-            className={cn(
-              'inline-block size-1.5 rounded-full',
-              reelStream?.isConnected ? 'bg-emerald-300 animate-pulse' : 'bg-white/40',
-            )}
-          />
-          {reelStream?.isConnected ? 'Live' : 'Offline'}
-        </span>
       </div>
 
-      {/* Side desktop nav arrows */}
-      <div className="pointer-events-none absolute right-3 top-1/2 z-20 hidden -translate-y-1/2 flex-col gap-2 lg:flex">
+      {/* Desktop nav arrows — right edge */}
+      <div className="pointer-events-none absolute right-4 top-1/2 z-20 hidden -translate-y-1/2 flex-col gap-2 lg:flex">
         <button
           type="button"
           onClick={() => goTo(-1)}
           disabled={activeIndex <= 0}
-          className="pointer-events-auto grid size-10 place-items-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur-md transition-colors hover:bg-black/65 disabled:opacity-30"
+          className="pointer-events-auto grid size-10 place-items-center rounded-full border border-white/15 bg-black/50 text-white backdrop-blur-md transition-all hover:bg-black/70 hover:scale-105 disabled:opacity-25 disabled:pointer-events-none"
           aria-label="Previous reel"
-          title="Previous reel  (↑ / K)"
+          title="Previous (↑ / K)"
         >
-          <ChevronUp className="size-5" />
+          <ChevronUp className="size-5" strokeWidth={1.8} />
         </button>
         <button
           type="button"
           onClick={() => goTo(1)}
           disabled={activeIndex >= reels.length - 1 && page?.last}
-          className="pointer-events-auto grid size-10 place-items-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur-md transition-colors hover:bg-black/65 disabled:opacity-30"
+          className="pointer-events-auto grid size-10 place-items-center rounded-full border border-white/15 bg-black/50 text-white backdrop-blur-md transition-all hover:bg-black/70 hover:scale-105 disabled:opacity-25 disabled:pointer-events-none"
           aria-label="Next reel"
-          title="Next reel  (↓ / J)"
+          title="Next (↓ / J)"
         >
-          <ChevronDown className="size-5" />
+          <ChevronDown className="size-5" strokeWidth={1.8} />
         </button>
       </div>
 
@@ -1754,30 +1739,22 @@ export function ReelsPage() {
   )
 }
 
-// ─── Shell — full-bleed black canvas
-//
-// Mobile / tablet: position fixed, covers the entire viewport (the
-// AppLayout already hides the topbar + bottom tab bar on /reels for
-// us). The reel itself fills the screen edge-to-edge — TikTok /
-// Instagram convention.
-//
-// Desktop (lg+): in-flow inside <main> at full viewport height minus
-// the topbar — the sidebar stays visible so the user keeps their
-// orientation.
+// ─── Shell — cinematic full-bleed black canvas
 function ReelsShell({ children }) {
   return (
     <div
       className={cn(
-        'overflow-hidden bg-[oklch(0.08_0.012_270)]',
-        // Mobile: full viewport overlay (topbar + bottom tabs are
-        // hidden by AppLayout on /reels).
+        'overflow-hidden',
         'fixed inset-0 z-30',
-        // Desktop: in-flow inside the main column; sidebar stays put.
         'lg:static lg:z-0 lg:h-[calc(100dvh-4.5rem)] lg:rounded-2xl',
       )}
       style={{
-        backgroundImage:
-          'radial-gradient(120% 80% at 50% -10%, color-mix(in oklch, var(--brand) 18%, transparent), transparent 60%), radial-gradient(80% 50% at 50% 110%, color-mix(in oklch, var(--gold) 10%, transparent), transparent 70%)',
+        background: 'oklch(0.06 0.014 270)',
+        backgroundImage: [
+          'radial-gradient(ellipse 80% 60% at 30% 0%, color-mix(in oklch, var(--brand) 16%, transparent), transparent 55%)',
+          'radial-gradient(ellipse 60% 70% at 80% 100%, color-mix(in oklch, var(--accent-violet) 10%, transparent), transparent 60%)',
+          'radial-gradient(ellipse 40% 40% at 50% 50%, color-mix(in oklch, var(--gold) 6%, transparent), transparent 70%)',
+        ].join(', '),
       }}
     >
       {children}

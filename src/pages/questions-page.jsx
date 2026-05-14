@@ -354,14 +354,7 @@ export function QuestionsPage() {
 
   // Editorial stats
   const totalQuestions = page?.totalElements ?? questions.length
-  const answeredCount = questions.filter(
-    (q) => q.status === 'ANSWERED' || q.hasAcceptedAnswer,
-  ).length
-  const answeredPct =
-    questions.length > 0
-      ? Math.round((answeredCount / questions.length) * 100)
-      : 0
-  const sealedAnswers = questions.filter((q) => q.hasAcceptedAnswer).length
+  const totalAnswers = questions.reduce((sum, q) => sum + (q.answerCount ?? 0), 0)
 
   return (
     <div className="space-y-5">
@@ -371,8 +364,7 @@ export function QuestionsPage() {
         description="A focused Q&A space where every answer is rated by the community and reviewed by qualified scholars before earning a gilt seal."
         stats={[
           { value: formatNumber(totalQuestions), label: 'Questions' },
-          { value: `${answeredPct}%`,           label: 'Answered' },
-          { value: formatNumber(sealedAnswers), label: 'Sealed answers', tone: 'gold' },
+          { value: formatNumber(totalAnswers),   label: 'Answers' },
         ]}
       />
 

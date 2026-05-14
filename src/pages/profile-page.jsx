@@ -21,6 +21,12 @@ import { Link, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/app/empty-state'
@@ -59,35 +65,29 @@ import { formatNumber, getFullName, getHandle } from '@/lib/format'
 function Stat({ label, value, to }) {
   const content = (
     <>
-      <div className="text-[20px] font-medium tabular-nums leading-[1.1] text-ink">
+      <div className="font-display text-[26px] font-semibold tabular-nums leading-[1.1] tracking-[-0.012em] text-ink sm:text-[30px]">
         {formatNumber(value ?? 0)}
       </div>
-      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-3">
+      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
         {label}
       </div>
     </>
   )
   if (to) {
     return (
-      <Link
-        to={to}
-        className="min-w-[88px] shrink-0 flex-1 rounded-md px-2 py-1 transition-colors hover:bg-paper sm:min-w-0"
-      >
+      <Link to={to} className="shrink-0 transition-opacity hover:opacity-70">
         {content}
       </Link>
     )
   }
-  return <div className="min-w-[88px] shrink-0 flex-1 px-2 py-1 sm:min-w-0">{content}</div>
+  return <div className="shrink-0">{content}</div>
 }
 
-// Profile-link pill — used for handle / ORCID / website / email rows.
+// Profile-link pill — outlined rounded pill matching the spec reference.
 function ProfileLink({ href, icon: Icon, children, title }) {
   const inner = (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-info-fg transition-colors hover:bg-info-bg/60"
-      style={{ color: 'var(--info-fg)' }}
-    >
-      {Icon ? <Icon className="size-[13px]" strokeWidth={1.5} /> : null}
+    <span className="inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-border px-3 py-1.5 text-[12px] text-ink-2 transition-colors hover:bg-secondary">
+      {Icon ? <Icon className="size-3.5" strokeWidth={1.5} /> : null}
       {children}
     </span>
   )
@@ -649,6 +649,7 @@ export function ProfilePage() {
   const researchCount = profile.researchCount ?? profile.publicationsCount ?? 0
   const answersCount = profile.answersCount ?? profile.answerCount ?? 0
   const reelsCount = profile.reelsCount ?? 0
+  // eslint-disable-next-line no-unused-vars
   const profileViewsLabel =
     profile.profileViewsThisWeek != null
       ? `${formatNumber(profile.profileViewsThisWeek)} profile views this week`
@@ -687,200 +688,170 @@ export function ProfilePage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-        className="overflow-hidden rounded-xl border-[0.5px] border-border bg-paper"
       >
-        {/* Cover — green-to-blue soft wash (spec §09 .profile-cover).
-            Shorter on phones so the avatar + name land higher up on the
-            screen without the user having to scroll. */}
-        <div className="relative h-[96px] overflow-hidden sm:h-[120px]">
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                'linear-gradient(135deg, var(--brand-soft) 0%, var(--info-bg) 100%)',
-            }}
-          />
-          <div
-            aria-hidden
-            className="absolute inset-0"
-            style={{
-              background:
-                'radial-gradient(circle at 20% 30%, color-mix(in oklch, var(--brand) 15%, transparent) 0, transparent 50%), radial-gradient(circle at 80% 70%, color-mix(in oklch, var(--info-fg) 15%, transparent) 0, transparent 50%)',
-            }}
-          />
-          <button
-            type="button"
-            className="absolute right-3 top-3 grid size-8 place-items-center rounded-md border-[0.5px] border-white/40 bg-white/80 text-ink-2 backdrop-blur transition-colors hover:bg-white"
-            aria-label="More"
+        {/* ── 3-column hero: avatar | info | actions ──────────── */}
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
+
+          {/* Avatar — large square */}
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 280, damping: 22, delay: 0.05 }}
+            className="shrink-0"
           >
-            <MoreHorizontal className="size-4" />
-          </button>
-        </div>
+            <UserAvatar
+              user={profile}
+              className="size-28 rounded-2xl text-[40px] sm:size-32"
+            />
+          </motion.div>
 
-        {/* Inner content — avatar overflows, name + actions. Tighter
-            side padding on phones so long names / actions don't get
-            squeezed against the rounded card edge. */}
-        <div className="relative px-4 pb-5 pt-0 sm:px-7 sm:pb-6">
-          <div className="-mt-11 flex flex-wrap items-end justify-between gap-4">
-            <motion.div
-              initial={{ scale: 0.7, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 22, delay: 0.1 }}
-            >
-              <UserAvatar
-                user={profile}
-                className="size-[88px] border-4 border-paper text-[30px]"
-              />
-            </motion.div>
-
-            {/* Right-side actions */}
-            <div className="mb-1 flex flex-wrap items-center gap-2">
-              {!isMe && isAuthenticated ? (
-                status?.isBlocking ? (
-                  <Button size="sm" variant="outline" className="rounded-md" onClick={handleUnblock} disabled={working}>
-                    Unblock
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="rounded-md gap-1.5"
-                      title="Message"
-                    >
-                      <Mail className="size-4" strokeWidth={1.5} />
-                      Message
-                    </Button>
-                    <Button
-                      size="sm"
-                      className={cn(
-                        'rounded-md gap-1.5',
-                        status?.isFollowing
-                          ? 'bg-secondary text-ink hover:bg-muted'
-                          : 'bg-ink text-paper hover:bg-ink-2',
-                      )}
-                      onClick={status?.isFollowing ? handleUnfollow : handleFollow}
-                      disabled={working}
-                    >
-                      {status?.isFollowing ? (
-                        <>
-                          <UserMinus className="size-4" strokeWidth={1.5} /> Following
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="size-4" strokeWidth={1.5} /> Follow
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      className="rounded-md text-ink-3"
-                      onClick={handleToggleRestrict}
-                      disabled={working}
-                      title={status?.isRestricting ? 'Unrestrict' : 'Restrict'}
-                    >
-                      <ShieldAlert className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      className="rounded-md text-ink-3"
-                      onClick={handleBlock}
-                      disabled={working}
-                      title="Block"
-                    >
-                      <Ban className="size-4" />
-                    </Button>
-                  </>
-                )
-              ) : null}
-              {isMe ? (
-                <Button asChild size="sm" variant="outline" className="rounded-md">
-                  <Link to="/settings">Edit profile</Link>
-                </Button>
-              ) : null}
-            </div>
-          </div>
-
-          {/* Name row — Newsreader serif, verified rosette, role pill */}
-          <div className="mt-4 flex flex-wrap items-center gap-2.5">
-            <h1 className="font-display text-[28px] font-medium leading-[1.1] tracking-[-0.02em] text-ink sm:text-[30px]">
-              {getFullName(profile) || handle}
-            </h1>
-            {verified ? (
-              <span
-                aria-hidden
-                title="Verified"
-                className="grid size-[22px] place-items-center rounded-full text-paper"
-                style={{ background: 'var(--info-fg)' }}
-              >
-                <Award className="size-3" strokeWidth={2} />
-              </span>
-            ) : null}
-            {profile.role ? <RoleBadge role={profile.role} size="sm" /> : null}
-          </div>
-
-          {/* @handle */}
-          {handle ? (
-            <p className="mt-1 text-[14px] text-ink-3">@{handle}</p>
-          ) : null}
-
-          {/* Bio */}
-          {profile.profileBio ? (
-            <p className="mt-3 max-w-[58ch] whitespace-pre-wrap text-[14px] leading-[1.65] text-ink-2">
-              {profile.profileBio}
-            </p>
-          ) : null}
-
-          {/* Meta row — location · joined · views */}
-          {(profile.location || joinedLabel || profileViewsLabel) ? (
-            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-ink-3">
+          {/* Info column */}
+          <div className="min-w-0 flex-1 space-y-3">
+            {/* Role + location + joined meta */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+              {profile.role ? <span>{profile.role}</span> : null}
               {profile.location ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <MapPin className="size-3" strokeWidth={1.5} />
-                  {profile.location}
-                </span>
+                <>
+                  {profile.role ? <span aria-hidden>·</span> : null}
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="size-3" strokeWidth={1.5} />
+                    {profile.location}
+                  </span>
+                </>
               ) : null}
               {joinedLabel ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="size-3" strokeWidth={1.5} />
-                  Joined {joinedLabel}
-                </span>
+                <>
+                  <span aria-hidden>·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="size-3" strokeWidth={1.5} />
+                    {joinedLabel}
+                  </span>
+                </>
               ) : null}
-              {profileViewsLabel ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <Eye className="size-3" strokeWidth={1.5} />
-                  {profileViewsLabel}
+            </div>
+
+            {/* Name */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="font-display text-[32px] font-semibold leading-[1.05] tracking-[-0.022em] text-ink sm:text-[38px]">
+                {getFullName(profile) || handle}
+              </h1>
+              {verified ? (
+                <span
+                  aria-hidden
+                  title="Verified"
+                  className="grid size-[22px] place-items-center rounded-full text-paper"
+                  style={{ background: 'var(--info-fg)' }}
+                >
+                  <Award className="size-3" strokeWidth={2} />
                 </span>
               ) : null}
             </div>
-          ) : null}
 
-          {/* Profile links — info-blue chips */}
-          {linkList.length > 0 ? (
-            <div className="mt-4 flex flex-wrap gap-1">
-              {linkList.map((link, idx) => (
-                <ProfileLink key={idx} href={link.href} icon={link.icon}>
-                  {link.label}
-                </ProfileLink>
-              ))}
-            </div>
-          ) : null}
+            {/* Handle */}
+            {handle ? (
+              <p className="text-[14px] text-ink-3">@{handle}</p>
+            ) : null}
 
-          {/* Stats strip — 5-6 cells in a muted block (spec §09). On
-              phones the strip scrolls horizontally so every stat stays
-              readable instead of squishing into illegible columns. */}
-          <div className="scrollbar-none mt-5 flex items-center gap-1 overflow-x-auto rounded-md border-[0.5px] border-border bg-secondary px-2 py-3">
+            {/* Bio — italic serif */}
+            {profile.profileBio ? (
+              <p className="font-display text-[16px] italic leading-[1.6] tracking-[-0.005em] text-ink-2">
+                {profile.profileBio}
+              </p>
+            ) : null}
+
+            {/* Tagline / self-describer */}
+            {profile.selfDescriber ? (
+              <p className="text-[15px] leading-[1.65] text-ink-2">
+                {profile.selfDescriber}
+              </p>
+            ) : null}
+
+            {/* Profile links — outlined rounded pills */}
+            {linkList.length > 0 ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {linkList.map((link, idx) => (
+                  <ProfileLink key={idx} href={link.href} icon={link.icon}>
+                    {link.label}
+                  </ProfileLink>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          {/* Actions column — stacked vertical on desktop */}
+          <div className="flex flex-row flex-wrap gap-2 sm:w-36 sm:flex-col">
+            {!isMe && isAuthenticated ? (
+              status?.isBlocking ? (
+                <button
+                  type="button"
+                  onClick={handleUnblock}
+                  disabled={working}
+                  className="rx w-full justify-center"
+                >
+                  Unblock
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={status?.isFollowing ? handleUnfollow : handleFollow}
+                    disabled={working}
+                    className={cn(
+                      'rx w-full justify-center',
+                      status?.isFollowing && 'border-ink/40 bg-secondary text-ink',
+                    )}
+                  >
+                    <Plus className="size-4" strokeWidth={2} />
+                    {status?.isFollowing ? 'Following' : 'Follow'}
+                  </button>
+                  <button type="button" className="rx w-full justify-center">
+                    <MessageSquare className="size-4" strokeWidth={1.5} />
+                    Contact
+                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="rx justify-center" title="More options">
+                        <MoreHorizontal className="size-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem onSelect={handleToggleRestrict} disabled={working}>
+                        <ShieldAlert className="mr-2 size-4" />
+                        {status?.isRestricting ? 'Unrestrict' : 'Restrict'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={handleBlock}
+                        disabled={working}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Ban className="mr-2 size-4" />
+                        Block
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              )
+            ) : null}
+            {isMe ? (
+              <Link to="/settings" className="rx w-full justify-center text-center">
+                Edit profile
+              </Link>
+            ) : null}
+          </div>
+        </div>
+
+        {/* ── Stats row — flat, hairline separator above ──────── */}
+        <div className="mt-8 border-t-[0.5px] border-border pt-6">
+          <div className="scrollbar-none flex items-start gap-x-8 gap-y-4 overflow-x-auto">
             <Stat label="Followers" value={followerCount} to={`/profile/${profile.username}/followers`} />
             <Stat label="Following" value={followingCount} to={`/profile/${profile.username}/following`} />
-            <Stat label="Posts" value={postsCount} />
             {showsResearch ? <Stat label="Research" value={researchCount} /> : null}
+            <Stat label="Posts" value={postsCount} />
             <Stat label="Answers" value={answersCount} />
             {reelsCount > 0 ? <Stat label="Reels" value={reelsCount} /> : null}
           </div>

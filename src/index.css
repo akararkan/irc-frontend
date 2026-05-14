@@ -189,73 +189,83 @@
 }
 
 /* ───────────────────────────────────────────────────────────
-   DARK — warm charcoal, paper rises, teal stays the constant
+   DARK — warm charcoal, dramatically raised contrast so every
+   element is immediately legible without eye strain.
+   Key changes vs v1:
+     · paper/card lifted to #252118 (was #1F1B14) for cleaner
+       separation against the #14110C page
+     · border jumps to 18% opacity (was 10%) so card edges are
+       obvious in dim ambient light
+     · ink scale compressed: ink is brighter (#F5F0E4 not #F2EDDF),
+       ink-3 lifted so muted text is still readable
+     · secondary / muted surfaces tinted warmer + lighter
    ─────────────────────────────────────────────────────────── */
 .dark {
-  --background: #14110C;            /* deep ink as page bg */
-  --page-tint:  #1B1812;
+  --background: #13110B;            /* deep warm ink */
+  --page-tint:  #1A1710;
 
-  --paper:    #1F1B14;
-  --card:     #1F1B14;
-  --card-foreground: #F2EDDF;
-  --popover:  #1F1B14;
-  --popover-foreground: #F2EDDF;
-  --foreground: #F2EDDF;
+  --paper:    #252118;              /* card surface — visibly lighter */
+  --card:     #252118;
+  --card-foreground: #F5F0E4;
+  --popover:  #2C2720;
+  --popover-foreground: #F5F0E4;
+  --foreground: #F5F0E4;
 
-  --secondary: #232019;
-  --secondary-foreground: #F2EDDF;
-  --muted:    #232019;
-  --muted-foreground: #A6A091;
-  --accent:   #2A2620;
-  --accent-foreground: #F2EDDF;
+  --secondary: #2E2A22;             /* hover / nav-active — clearly distinct */
+  --secondary-foreground: #F5F0E4;
+  --muted:    #2A261E;
+  --muted-foreground: #B0A898;      /* lifted for readability */
+  --accent:   #322E26;
+  --accent-foreground: #F5F0E4;
 
-  --primary: #F2EDDF;
-  --primary-foreground: #14110C;
+  --primary: #F5F0E4;
+  --primary-foreground: #13110B;
 
-  --destructive: #D85A30;
-  --destructive-foreground: #14110C;
+  --destructive: #E06040;            /* brighter so it reads against dark bg */
+  --destructive-foreground: #13110B;
 
-  --border: rgba(229, 220, 196, 0.10);
-  --input:  rgba(229, 220, 196, 0.14);
+  --border: rgba(235, 224, 200, 0.18); /* 18% — visible card edges */
+  --input:  rgba(235, 224, 200, 0.20);
   --ring:   #5BBA9C;
 
-  --ink:   #F2EDDF;
-  --ink-2: #D8D2BF;
-  --ink-3: #A6A091;
-  --ink-4: #7A7468;
+  --ink:   #F5F0E4;                  /* brighter primary text */
+  --ink-2: #DED8C8;
+  --ink-3: #B0A898;                  /* lifted muted text */
+  --ink-4: #857C72;
 
   --brand: #5BBA9C;
-  --brand-foreground: #14110C;
-  --brand-soft: rgba(91, 186, 156, 0.18);
-  --brand-muted: rgba(91, 186, 156, 0.55);
+  --brand-foreground: #13110B;
+  --brand-soft: rgba(91, 186, 156, 0.22);
+  --brand-muted: rgba(91, 186, 156, 0.58);
 
-  --gold: #E0A04A;
-  --gold-2: #C68630;
-  --gold-foreground: #14110C;
-  --gold-soft: rgba(224, 160, 74, 0.18);
+  --gold: #E8AA55;
+  --gold-2: #D08A35;
+  --gold-foreground: #13110B;
+  --gold-soft: rgba(232, 170, 85, 0.22);
 
-  /* Semantic — soften fills, brighten foregrounds */
-  --ok-bg: rgba(91, 186, 156, 0.18);   --ok-fg: #9FD9C2;
-  --info-bg: rgba(96, 156, 220, 0.18); --info-fg: #A6C8EE;
-  --warn-bg: rgba(224, 160, 74, 0.18); --warn-fg: #E5BE85;
-  --danger-bg: rgba(216, 90, 48, 0.18);--danger-fg: #F0A88E;
-  --mute-bg: rgba(229, 220, 196, 0.08);--mute-fg: #D8D2BF;
-  --purple-bg: rgba(160, 152, 220, 0.18);--purple-fg: #C0B8E8;
-  --love-bg: rgba(244, 63, 94, 0.16); --love-fg: #FDA4AF;
+  /* Semantic — more opaque fills for dark legibility */
+  --ok-bg: rgba(91, 186, 156, 0.22);    --ok-fg: #A8E0CC;
+  --info-bg: rgba(96, 156, 220, 0.22);  --info-fg: #B4D0F2;
+  --warn-bg: rgba(232, 170, 85, 0.22);  --warn-fg: #EAC888;
+  --danger-bg: rgba(224, 96, 64, 0.22); --danger-fg: #F2AE98;
+  --mute-bg: rgba(235, 224, 200, 0.10); --mute-fg: #DED8C8;
+  --purple-bg: rgba(160, 152, 220, 0.22);--purple-fg: #C8C0F0;
+  --love-bg: rgba(244, 63, 94, 0.20);   --love-fg: #FDAFC0;
 
-  --accent-rust:   #D88A4A;
+  --accent-rust:   #E89060;
   --accent-sage:   #5BBA9C;
-  --accent-violet: #A097DC;
-  --accent-amber:  #E0A04A;
-  --accent-sky:    #79A8DC;
+  --accent-violet: #A89CE0;
+  --accent-amber:  #E8AA55;
+  --accent-sky:    #82B4E4;
 
-  --sidebar: #100E0A;
-  --sidebar-foreground: #F2EDDF;
+  /* Sidebar — slightly darker than cards for depth */
+  --sidebar: #0F0D08;
+  --sidebar-foreground: #F5F0E4;
   --sidebar-primary: #5BBA9C;
-  --sidebar-primary-foreground: #14110C;
-  --sidebar-accent: #1B1812;
-  --sidebar-accent-foreground: #F2EDDF;
-  --sidebar-border: rgba(229, 220, 196, 0.08);
+  --sidebar-primary-foreground: #13110B;
+  --sidebar-accent: #252118;
+  --sidebar-accent-foreground: #F5F0E4;
+  --sidebar-border: rgba(235, 224, 200, 0.12);
   --sidebar-ring: #5BBA9C;
 }
 
@@ -331,6 +341,108 @@
   --sidebar-ring: #D8D2BF;
 }
 
+/* Gold accent */
+:root[data-accent="gold"] {
+  --brand: #B57417;
+  --brand-soft: #FAEBD2;
+  --brand-muted: #D4A060;
+  --ring: #B57417;
+  --sidebar-primary: #B57417;
+  --sidebar-accent: #FAEBD2;
+  --sidebar-accent-foreground: #6B3B07;
+  --sidebar-ring: #B57417;
+}
+.dark[data-accent="gold"] {
+  --brand: #E8AA55;
+  --brand-soft: rgba(232, 170, 85, 0.22);
+  --brand-muted: rgba(232, 170, 85, 0.55);
+  --ring: #E8AA55;
+  --sidebar-primary: #E8AA55;
+  --sidebar-accent: rgba(232, 170, 85, 0.20);
+  --sidebar-accent-foreground: #F5DFA8;
+  --sidebar-ring: #E8AA55;
+}
+
+/* Sky accent */
+:root[data-accent="sky"] {
+  --brand: #185FA5;
+  --brand-soft: #E0ECFA;
+  --brand-muted: #6AA0D0;
+  --ring: #185FA5;
+  --sidebar-primary: #185FA5;
+  --sidebar-accent: #E0ECFA;
+  --sidebar-accent-foreground: #0C3A6E;
+  --sidebar-ring: #185FA5;
+}
+.dark[data-accent="sky"] {
+  --brand: #82B4E4;
+  --brand-soft: rgba(130, 180, 228, 0.20);
+  --brand-muted: rgba(130, 180, 228, 0.55);
+  --ring: #82B4E4;
+  --sidebar-primary: #82B4E4;
+  --sidebar-accent: rgba(130, 180, 228, 0.18);
+  --sidebar-accent-foreground: #C0D8F4;
+  --sidebar-ring: #82B4E4;
+}
+
+/* ─── Page background presets — [data-page-bg] ───────────────
+   Override --background and --page-tint (and card surfaces in
+   dark mode) so the page "paper" changes globally — affects the
+   sidebar, the main feed, and every popover in one shot.       */
+
+:root[data-page-bg="white"] {
+  --background: #FFFFFF;
+  --page-tint:  #F8F8F8;
+  --paper:      #FFFFFF;
+  --card:       #FFFFFF;
+}
+.dark[data-page-bg="white"] {
+  --background: #0D0D0D;
+  --page-tint:  #141414;
+  --paper:      #1A1A1A;
+  --card:       #1A1A1A;
+}
+
+:root[data-page-bg="slate"] {
+  --background: #F1F5F9;
+  --page-tint:  #E8EDF3;
+  --paper:      #FFFFFF;
+  --card:       #FFFFFF;
+}
+.dark[data-page-bg="slate"] {
+  --background: #0F172A;
+  --page-tint:  #131C35;
+  --paper:      #1E293B;
+  --card:       #1E293B;
+  --sidebar:    #0B1120;
+}
+
+:root[data-page-bg="sepia"] {
+  --background: #FDF6E3;
+  --page-tint:  #F5EED6;
+  --paper:      #FFFCF4;
+  --card:       #FFFCF4;
+}
+.dark[data-page-bg="sepia"] {
+  --background: #1C1409;
+  --page-tint:  #221A0C;
+  --paper:      #2A1F10;
+  --card:       #2A1F10;
+  --sidebar:    #150F05;
+}
+
+/* ─── Border radius presets — [data-radius] ─────────────────
+   A single --radius override propagates through the four
+   radius-scale tokens computed in @theme (sm, md, lg, xl, 2xl).  */
+
+:root[data-radius="sharp"] {
+  --radius: 0.25rem;   /* 4 px — geometric, no rounding */
+}
+:root[data-radius="round"] {
+  --radius: 1rem;      /* 16 px — soft, pillow-like */
+}
+/* "default" keeps the :root value of 0.625rem defined above */
+
 /* Display-font variants -------------------------------------- */
 :root[data-font="cormorant"] {
   --font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
@@ -367,7 +479,7 @@
     @apply min-h-screen bg-background text-foreground antialiased;
     font-family: var(--font-sans);
     font-size: 15px;
-    line-height: 1.65;
+    line-height: var(--content-lh, 1.65);
     font-feature-settings: "ss01", "cv11";
   }
 
@@ -567,19 +679,20 @@
   .pill-mute    { background: var(--mute-bg);   color: var(--mute-fg); }
   .pill-purple  { background: var(--purple-bg); color: var(--purple-fg); }
 
-  /* Spec § Posts / Q&A — reaction pill (`.rx`).
-     A hairline-bordered pill. Active state fills with info-soft and
-     trades the neutral border for an info-fg one.                      */
+  /* Spec § Posts / Q&A — reaction button (`.rx`).
+     A rounded-rectangle hairline-bordered action button. Used for likes,
+     comments, shares, bookmarks across posts, questions, and research.
+     Active state (heart liked) fills with the love-soft palette.       */
   .rx {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 10px;
-    border-radius: 999px;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: 0.75rem;
     border: 0.5px solid var(--border);
     background: transparent;
     color: var(--ink);
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1;
     font-feature-settings: "tnum";
     transition: background-color 180ms, border-color 180ms, color 180ms;
@@ -597,14 +710,16 @@
     70%  { transform: scale(0.95); }
     100% { transform: scale(1); }
   }
+  /* Bare variant — same shape but no border, used in secondary/compact
+     contexts (e.g. reel overlay controls, comment thread actions).    */
   .rx-bare {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 8px;
-    border-radius: 999px;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: 0.75rem;
     color: var(--ink-3);
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1;
     font-feature-settings: "tnum";
     transition: background-color 180ms, color 180ms;

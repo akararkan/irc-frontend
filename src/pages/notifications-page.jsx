@@ -6,6 +6,7 @@ import {
   Check,
   CheckCheck,
   Inbox,
+  Plus,
   Radio,
   Sparkles,
   Trash2,
@@ -35,7 +36,7 @@ import { useNotifications } from '@/features/notifications/notifications-context
 import { useAuth } from '@/features/auth/auth-context'
 import { cn } from '@/lib/utils'
 import { RelativeTime } from '@/components/app/relative-time'
-import { getHandle, getRawUsername } from '@/lib/format'
+import { getRawUsername } from '@/lib/format'
 import {
   NOTIFICATION_CATEGORIES,
   actorDisplayName,
@@ -62,47 +63,45 @@ function aggregateLabel(notification, actor) {
 function NotificationRow({ notification, onMarkRead, onDelete }) {
   const meta = getNotificationTypeMeta(notification.type)
   const categoryMeta = getNotificationCategoryMeta(notification.category)
-  const Icon = meta.icon
   const actor = pickPrimaryActor(notification)
   const aggregate = aggregateLabel(notification, actor)
   const actorRoute = getRawUsername(actor)
-  const actorHandle = getHandle(actor)
   const actorLink = actorRoute ? `/profile/${actorRoute}` : null
   const unread = !notification.isRead
   const href = notificationHref(notification)
+  const isFollowNotif =
+    notification.type === 'USER_FOLLOWED' || notification.type === 'NEW_FOLLOWER'
+
+  const name = aggregate ?? (actor ? actorDisplayName(actor) : 'Someone')
 
   function handleOpen() {
     if (unread) onMarkRead(notification.id)
   }
 
-  // Spec §10 — Notifications. Flat row, hairline-divided, unread dot
-  // floating in the left gutter, snippet in serif italic, actions inline.
   const containerClass = cn(
-    'group/notif relative flex items-start gap-3 py-3.5 pl-5 pr-2 transition-colors border-b-[0.5px] border-border',
-    'hover:bg-secondary/60',
+    'group/notif relative flex items-start gap-4 border-b-[0.5px] border-border px-0 py-5 transition-colors',
+    'hover:bg-secondary/40',
+    unread && 'bg-paper',
   )
 
   const inner = (
     <>
-      {/* Unread dot — gutter left, info-blue (spec) */}
-      {unread ? (
-        <span
-          aria-hidden
-          className="absolute left-1.5 top-[26px] size-[6px] rounded-full"
-          style={{ background: 'var(--info-fg)' }}
-          title="Unread"
-        />
-      ) : null}
-
-      {/* Actor avatar (with optional aggregate badge) */}
-      <div className="relative shrink-0">
-        {actor ? (
-          <UserAvatar user={actor} className="size-[34px]" />
+      {/* Unread dot — left gutter */}
+      <div className="flex w-5 shrink-0 justify-center pt-1">
+        {unread ? (
+          <span
+            aria-hidden
+            className="size-2 rounded-full bg-ink"
+            title="Unread"
+          />
         ) : (
-          <div className="grid size-[34px] place-items-center rounded-full pill-mute text-[11px] font-medium">
-            {(notification.type ?? 'N').slice(0, 1)}
-          </div>
+          <span className="size-2" />
         )}
+      </div>
+
+      {/* Actor avatar */}
+      <div className="relative shrink-0">
+        <UserAvatar user={actor ?? {}} className="size-10" />
         {notification.aggregateCount > 1 ? (
           <span
             aria-hidden
@@ -114,99 +113,98 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
         ) : null}
       </div>
 
-      <div className="min-w-0 flex-1">
-        {/* Bold actor + verb composed by the meta map */}
-        <p
-          className={cn(
-            'text-[13px] leading-[1.5] text-ink-2',
+      {/* Content */}
+      <div className="min-w-0 flex-1 space-y-1.5">
+        {/* Actor name bold + verb italic + resource title */}
+        <p className="text-[15px] leading-[1.5] text-ink">
+          {actorLink ? (
+            <Link
+              to={actorLink}
+              onClick={(e) => e.stopPropagation()}
+              className="font-semibold hover:underline"
+            >
+              {name}
+            </Link>
+          ) : (
+            <span className="font-semibold">{name}</span>
           )}
-        >
-          {aggregate ? (
-            <b className="font-medium text-ink">{aggregate}</b>
-          ) : notification.title ? (
-            <b className="font-medium text-ink">{notification.title}</b>
+          {' '}
+          <span className="font-display italic text-ink-2">{meta.verb}</span>
+          {notification.title && !aggregate ? (
+            <>
+              {' '}
+              <span className="font-semibold">{notification.title.replace(name, '').replace(meta.verb, '').trim()}</span>
+            </>
           ) : null}
         </p>
 
-        {/* Snippet in serif italic — spec's "quoted content" treatment */}
+        {/* Quote / snippet — serif italic, indented */}
         {notification.body ? (
-          <p className="mt-1 font-display text-[12px] italic leading-[1.55] text-ink-3">
-            <MentionText text={notification.body} />
+          <p className="border-l-2 border-ink-3 pl-3 font-display text-[14px] italic leading-[1.6] text-ink-3">
+            <MentionText text={`"${notification.body}"`} />
           </p>
         ) : null}
 
-        <div className="mt-1.5 flex items-center gap-2 font-mono text-[10px] text-ink-4">
-          <RelativeTime value={notification.createdAt} />
-          {actorLink && actorHandle ? (
-            <>
-              <span aria-hidden>·</span>
-              <Link
-                to={actorLink}
-                onClick={(event) => event.stopPropagation()}
-                className="hover:text-ink"
-              >
-                @{actorHandle}
-              </Link>
-            </>
-          ) : null}
+        {/* Meta — CATEGORY · TIME */}
+        <div className="flex flex-wrap items-center gap-x-2 font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
           {notification.category ? (
-            <>
-              <span aria-hidden>·</span>
-              <span className="uppercase tracking-[0.12em]">
-                {categoryMeta.label}
-              </span>
-            </>
+            <span>{categoryMeta.label}</span>
           ) : null}
+          {notification.category ? <span aria-hidden>·</span> : null}
+          <RelativeTime value={notification.createdAt} />
         </div>
       </div>
 
-      {/* Inline actions */}
+      {/* Right side — follow-back button or mark-read/delete */}
       <div
-        className="flex shrink-0 items-center gap-1"
-        onClick={(event) => event.stopPropagation()}
+        className="flex shrink-0 items-center gap-1.5"
+        onClick={(e) => e.stopPropagation()}
       >
-        <span
-          aria-hidden
-          className={cn(
-            'mr-1 hidden size-[22px] place-items-center rounded-full opacity-70 sm:grid',
-            meta.accent,
-          )}
-          title={meta.verb}
-        >
-          <Icon className="size-3" strokeWidth={1.6} />
-        </span>
-        {unread ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="rounded-md text-ink-3 hover:text-ink"
-            onClick={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              onMarkRead(notification.id)
-            }}
-            title="Mark as read"
-            aria-label="Mark as read"
+        {isFollowNotif ? (
+          <Link
+            to={actorLink ?? '#'}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1.5 rounded-xl border-[0.5px] border-border px-4 py-2.5 text-[13px] font-medium text-ink transition-colors hover:bg-secondary"
           >
-            <Check className="size-3.5" />
-          </Button>
-        ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="rounded-md text-ink-3 opacity-0 transition-opacity hover:text-destructive group-hover/notif:opacity-100 focus-visible:opacity-100"
-          onClick={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            onDelete(notification.id)
-          }}
-          title="Delete notification"
-          aria-label="Delete notification"
-        >
-          <X className="size-3.5" />
-        </Button>
+            <Plus className="size-3.5" strokeWidth={2} />
+            Follow back
+          </Link>
+        ) : (
+          <>
+            {unread ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="rounded-md text-ink-3 opacity-0 transition-opacity hover:text-ink group-hover/notif:opacity-100 focus-visible:opacity-100"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onMarkRead(notification.id)
+                }}
+                title="Mark as read"
+                aria-label="Mark as read"
+              >
+                <Check className="size-3.5" />
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="rounded-md text-ink-3 opacity-0 transition-opacity hover:text-destructive group-hover/notif:opacity-100 focus-visible:opacity-100"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onDelete(notification.id)
+              }}
+              title="Delete"
+              aria-label="Delete notification"
+            >
+              <X className="size-3.5" />
+            </Button>
+          </>
+        )}
       </div>
     </>
   )
@@ -311,7 +309,6 @@ export function NotificationsPage() {
   const {
     items,
     unreadCount,
-    isConnected,
     isLoading,
     markAsRead,
     markAllAsRead,
@@ -320,7 +317,6 @@ export function NotificationsPage() {
     purgeReadNotifications,
   } = useNotifications()
   const [category, setCategory] = useState('ALL')
-  const [readFilter, setReadFilter] = useState('all')
 
   const counts = useMemo(() => {
     const all = items.length
@@ -342,11 +338,8 @@ export function NotificationsPage() {
     } else if (category !== 'ALL') {
       list = list.filter((item) => item.category === category)
     }
-    if (readFilter === 'unread') {
-      list = list.filter((item) => !item.isRead)
-    }
     return list
-  }, [items, category, readFilter])
+  }, [items, category])
 
   const activeMeta = useMemo(() => {
     if (category === 'ALL') return ALL_TAB
@@ -390,83 +383,52 @@ export function NotificationsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Notifications"
-        title="Your activity"
-        description="Follower activity, reactions, replies, and system messages — streamed in real time, coalesced when noisy."
-        action={
-          <>
-            <Badge
-              variant="outline"
-              className={cn(
-                'gap-1.5 text-xs',
-                isConnected
-                  ? 'border-[color-mix(in_oklch,var(--accent-sage)_36%,transparent)] bg-[color-mix(in_oklch,var(--accent-sage)_12%,transparent)] text-accent-sage'
-                  : 'border-border text-muted-foreground',
-              )}
-            >
-              {isConnected ? (
-                <>
-                  <Radio className="size-3" />
-                  <span className="hidden sm:inline">Live</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="size-3" />
-                  <span className="hidden sm:inline">Offline</span>
-                </>
-              )}
-            </Badge>
-            <SoundToggle />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                  disabled={items.length === 0}
-                >
-                  <Sparkles className="size-4" />
-                  <span className="hidden sm:inline">Manage</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem
-                  onSelect={handleClearCategory}
-                  disabled={unreadCount === 0}
-                >
-                  <CheckCheck className="mr-2 size-4" />
-                  {category === 'ALL' || category === 'MENTIONS'
-                    ? 'Mark all read'
-                    : `Mark ${activeMeta.label} read`}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={purgeReadNotifications}
-                  className="text-destructive focus:text-destructive"
-                  disabled={
-                    items.length === 0 ||
-                    items.every((item) => !item.isRead)
-                  }
-                >
-                  <Trash2 className="mr-2 size-4" />
-                  Delete all read
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </>
-        }
-      />
+    <div className="space-y-0">
+      {/* ── Page header ───────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-3 pb-6">
+        <h1 className="font-display text-[28px] font-semibold leading-[1.1] tracking-[-0.016em] text-ink sm:text-[32px]">
+          Notifications
+        </h1>
+        {unreadCount > 0 ? (
+          <span className="inline-flex items-center rounded-full bg-ink px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider text-paper">
+            {unreadCount} New
+          </span>
+        ) : null}
+        <div className="ml-auto flex items-center gap-2">
+          <SoundToggle />
+          <button
+            type="button"
+            onClick={handleClearCategory}
+            disabled={unreadCount === 0}
+            className="inline-flex items-center gap-1.5 rounded-xl border-[0.5px] border-border px-4 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-secondary disabled:opacity-40"
+          >
+            <Check className="size-3.5" strokeWidth={2} />
+            Mark all read
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-xl border-[0.5px] border-border px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-secondary disabled:opacity-40"
+                disabled={items.length === 0}
+              >
+                <Sparkles className="size-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onSelect={purgeReadNotifications} className="text-destructive focus:text-destructive" disabled={items.every((i) => !i.isRead)}>
+                <Trash2 className="mr-2 size-4" />
+                Delete all read
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
 
       <PushPermissionBanner />
 
-      {/* Inbox tabs — spec's flat pill row inside a soft container.
-          On phones the pill row scrolls horizontally instead of
-          wrapping onto three lines — keeps the page chrome compact
-          and matches the tabs pattern used elsewhere in the app. */}
-      <div className="scrollbar-none flex flex-nowrap items-center gap-1 overflow-x-auto rounded-md bg-secondary p-1.5 snap-x snap-mandatory">
+      {/* ── Category tabs — flat underline ────────────────────── */}
+      <div className="scrollbar-none flex flex-nowrap items-end overflow-x-auto border-b-[0.5px] border-border">
         <InboxTab
           label={ALL_TAB.label}
           count={counts.all}
@@ -490,74 +452,21 @@ export function NotificationsPage() {
         />
       </div>
 
-      {/* Read-state secondary filter */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-border bg-card p-1">
-          {READ_FILTERS.map((option) => {
-            const active = readFilter === option.value
-            const count =
-              option.value === 'unread'
-                ? visibleCountFor(items, category, true)
-                : visibleCountFor(items, category, false)
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setReadFilter(option.value)}
-                className={cn(
-                  'relative inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition-colors',
-                  active
-                    ? 'text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-                aria-pressed={active}
-              >
-                {active ? (
-                  <motion.span
-                    layoutId="notificationReadFilterPill"
-                    className="absolute inset-0 rounded-full bg-muted"
-                    transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-                  />
-                ) : null}
-                <span className="relative">{option.label}</span>
-                {count > 0 ? (
-                  <span
-                    className={cn(
-                      'relative rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
-                      active
-                        ? 'bg-foreground text-background'
-                        : 'bg-muted-foreground/15 text-muted-foreground',
-                    )}
-                  >
-                    {count > 99 ? '99+' : count}
-                  </span>
-                ) : null}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {isLoading && items.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>
-      ) : visible.length === 0 ? (
-        <EmptyState
-          icon={BellOff}
-          title={
-            readFilter === 'unread'
-              ? `No unread ${category === 'ALL' ? 'notifications' : activeMeta.label.toLowerCase()}`
-              : `Nothing in ${activeMeta.label}`
-          }
-          description={
-            readFilter === 'unread'
-              ? 'Everything is read. New activity will surface here in real time.'
-              : category === 'MENTIONS'
+      {/* ── Notifications list — flat rows ────────────────────── */}
+      <div className="pt-2">
+        {isLoading && items.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
+        ) : visible.length === 0 ? (
+          <EmptyState
+            icon={BellOff}
+            title={`Nothing in ${activeMeta.label}`}
+            description={
+              category === 'MENTIONS'
                 ? "Tag colleagues with @username and mentions land here when someone tags you back."
-                : 'When activity matching this category arrives, it will show up here.'
-          }
-        />
-      ) : (
-        <div className="rounded-xl border-[0.5px] border-border bg-paper">
+                : 'When activity matching this category arrives, it will show up here in real time.'
+            }
+          />
+        ) : (
           <AnimatePresence initial={false}>
             {visible.map((notification) => (
               <motion.div
@@ -577,8 +486,8 @@ export function NotificationsPage() {
               </motion.div>
             ))}
           </AnimatePresence>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
@@ -589,37 +498,21 @@ function InboxTab({ label, count, active, onSelect }) {
       type="button"
       onClick={onSelect}
       className={cn(
-        'inline-flex shrink-0 snap-start items-center gap-1.5 rounded-[5px] px-3 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap',
-        active
-          ? 'bg-paper text-ink shadow-[0_0_0_0.5px_var(--border)]'
-          : 'text-ink-3 hover:text-ink',
+        'relative shrink-0 whitespace-nowrap pb-3 pr-5 text-[14px] font-medium transition-colors',
+        active ? 'text-ink' : 'text-ink-3 hover:text-ink',
       )}
       aria-pressed={active}
     >
-      <span>{label}</span>
+      {label}
       {count > 0 ? (
-        <span className="font-mono text-[10px] tabular-nums text-ink-4">
+        <span className="ml-1.5 font-mono text-[10px] text-ink-4">
           {count > 99 ? '99+' : count}
         </span>
+      ) : null}
+      {active ? (
+        <span className="absolute bottom-0 left-0 h-[2px] w-[calc(100%-1.25rem)] rounded-full bg-ink" />
       ) : null}
     </button>
   )
 }
 
-// Count of items that match the current category tab + a read-state filter.
-// Used to drive the read-state pill counters so they only ever reflect the
-// rows the user is currently looking at.
-function visibleCountFor(items, category, unreadOnly) {
-  return items.reduce((total, item) => {
-    if (category === 'MENTIONS' && item.type !== 'USER_MENTIONED') return total
-    if (
-      category !== 'ALL' &&
-      category !== 'MENTIONS' &&
-      item.category !== category
-    ) {
-      return total
-    }
-    if (unreadOnly && item.isRead) return total
-    return total + 1
-  }, 0)
-}

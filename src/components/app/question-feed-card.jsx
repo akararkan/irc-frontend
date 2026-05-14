@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
-  ArrowRight,
   Award,
   CheckCircle2,
+  Eye,
   Hash,
   Lock,
   MessageCircleQuestion,
-  Sparkles,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -132,8 +131,8 @@ export function QuestionFeedCard({ question: incoming }) {
   const answers = question.answerCount ?? 0
   const status = STATUS_META[question.status] ?? STATUS_META.OPEN
   const isAnswered = question.status === 'ANSWERED'
-  const limitReached =
-    question.maxAnswers != null && answers >= question.maxAnswers
+  // eslint-disable-next-line no-unused-vars
+  const limitReached = question.maxAnswers != null && answers >= question.maxAnswers
   // Backend rolls up the per-answer scholar votes onto the question so
   // listings can surface the seal without a per-answer fetch.
   const sealVotes =
@@ -146,55 +145,39 @@ export function QuestionFeedCard({ question: incoming }) {
     <Link
       ref={setLiveRef}
       to={`/questions/${question.id}`}
-      className={cn(
-        'group/card card-hover block overflow-hidden rounded-xl border-[0.5px] border-border bg-paper p-4 sm:p-5 md:p-6',
-      )}
+      className="group/card card-hover block overflow-hidden rounded-xl border-[0.5px] border-border bg-paper p-5 sm:p-6"
     >
-      {/* Status & meta strip — pinned at top per spec §07. */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span
-          className={cn(
-            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium leading-none',
-            status.className,
-          )}
-        >
-          {isAnswered ? <CheckCircle2 className="size-3" strokeWidth={1.5} /> : null}
-          {status.label}
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2 py-0.5 text-[11px] font-medium">
-          {formatNumber(answers)} {answers === 1 ? 'answer' : 'answers'}
-        </span>
-        {sealed ? (
-          <span
-            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-            style={{ background: 'var(--gold-soft)', color: 'var(--gold-2)' }}
-            title={`${sealVotes} ${sealVotes === 1 ? 'scholar has' : 'scholars have'} voted a best answer`}
-          >
-            <Award className="size-3" strokeWidth={1.5} />
-            {sealVotes > 1 ? `${formatNumber(sealVotes)} seals` : 'Sealed'}
+      {/* Author + meta — single row matching reference */}
+      <div className="mb-4 flex items-center gap-2.5">
+        <UserAvatar user={author} className="size-9 shrink-0" />
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+          <span className="font-display text-[15px] font-semibold text-ink">
+            {getFullName(author) || getHandle(author) || 'Unknown'}
           </span>
-        ) : null}
-        {question.answersLocked ? (
-          <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2 py-0.5 text-[11px] font-medium">
-            <Lock className="size-3" strokeWidth={1.5} />
-            Locked
+          <span className="font-display text-[14px] italic text-ink-3">asked</span>
+          <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+            <RelativeTime entity={question} />
           </span>
-        ) : null}
-        {limitReached ? (
-          <span className="inline-flex items-center gap-1 rounded-full pill-warn px-2 py-0.5 text-[11px] font-medium">
-            <Hash className="size-3" strokeWidth={1.5} />
-            Limit
-          </span>
-        ) : null}
-        <span className="ml-auto font-mono text-[11px] text-ink-3">
-          <RelativeTime entity={question} />
+          {question.answersLocked ? (
+            <span className="inline-flex items-center gap-1 font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
+              <Lock className="size-3" strokeWidth={1.5} />
+              Locked
+            </span>
+          ) : null}
+        </div>
+        {/* Status pill — top right, outlined */}
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border-[0.5px] border-border px-2.5 py-1 text-[11px] font-medium leading-none text-ink">
+          {isAnswered || sealed ? (
+            <CheckCircle2 className="size-3" strokeWidth={1.8} />
+          ) : null}
+          {sealed ? 'Answered' : status.label}
         </span>
       </div>
 
-      {/* Title — Newsreader serif, spec §07 */}
+      {/* Title */}
       <h3
         dir="auto"
-        className="font-display text-[20px] font-medium leading-[1.3] tracking-[-0.012em] text-ink text-balance group-hover/card:text-brand transition-colors sm:text-[22px]"
+        className="font-display text-[21px] font-semibold leading-[1.2] tracking-[-0.016em] text-ink text-balance transition-colors group-hover/card:text-brand sm:text-[23px]"
       >
         {question.title}
       </h3>
@@ -203,38 +186,36 @@ export function QuestionFeedCard({ question: incoming }) {
       {question.body ? (
         <p
           dir="auto"
-          className="mt-2 line-clamp-2 text-[14px] leading-[1.65] text-ink-3"
+          className="mt-2.5 line-clamp-2 text-[14.5px] leading-[1.65] text-ink-2"
         >
           {question.body}
         </p>
       ) : null}
 
-      {/* Asker row + CTA — hairline rule above, matches spec */}
-      <div className="mt-4 flex flex-wrap items-center gap-3 border-t-[0.5px] border-border pt-3">
-        <UserAvatar user={author} className="size-[28px] shrink-0" />
-        <div className="min-w-0 flex-1 leading-tight">
-          <p className="truncate text-[13px] font-medium text-ink">
-            {getFullName(author) || getHandle(author) || 'Unknown'}
-          </p>
-          <p className="truncate font-mono text-[10.5px] text-ink-3">
-            {getHandle(author) ? `@${getHandle(author)}` : 'asked'}
-          </p>
-        </div>
-        {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
-
-        <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand">
-          {sealed ? (
-            <>
-              <Sparkles className="size-3.5" strokeWidth={1.5} />
-              Read seals
-            </>
-          ) : isAnswered ? (
-            'Read answers'
-          ) : (
-            'Answer this'
-          )}
-          <ArrowRight className="size-3.5" strokeWidth={1.5} />
+      {/* Stat footer — mono uppercase icons + counts, no bordered pills */}
+      <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+        <span className="inline-flex items-center gap-1.5">
+          <MessageCircleQuestion className="size-3.5" strokeWidth={1.5} />
+          {formatNumber(answers)} {answers === 1 ? 'answer' : 'answers'}
         </span>
+        {(question.reactionCount ?? 0) > 0 ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="text-[13px] leading-none">♡</span>
+            {formatNumber(question.reactionCount)} likes
+          </span>
+        ) : null}
+        {(question.viewCount ?? 0) > 0 ? (
+          <span className="inline-flex items-center gap-1.5">
+            <Eye className="size-3.5" strokeWidth={1.5} />
+            {formatNumber(question.viewCount)} views
+          </span>
+        ) : null}
+        {sealed ? (
+          <span className="inline-flex items-center gap-1.5" title={`${sealVotes} scholar ${sealVotes === 1 ? 'vote' : 'votes'}`}>
+            <Award className="size-3.5" strokeWidth={1.5} />
+            {sealVotes > 1 ? `${formatNumber(sealVotes)} seals` : 'Sealed'}
+          </span>
+        ) : null}
       </div>
 
       <span hidden data-raw-username={getRawUsername(author)} />

@@ -265,8 +265,88 @@ export function AudioPlayer({
   const displayedSpeedLabel = `${speed}×`
 
   const rich = variant === 'rich'
+  const feed = variant === 'feed'
   const KindIcon = trackKind === 'music' ? Music : Mic
 
+  // ─── Feed variant ─────────────────────────────────────────────────
+  // Minimal in-card player: outlined play button + waveform + timer.
+  // No title/subtitle/controls so the player doesn't compete with the
+  // post body. Matches the spec voice-post card mock.
+  if (feed) {
+    return (
+      <div
+        className={cn(
+          'flex items-center gap-4 rounded-2xl border-[0.5px] border-border bg-muted/40 px-4 py-3.5',
+          className,
+        )}
+      >
+        {/* Outlined ghost play/pause button */}
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.93 }}
+          onClick={togglePlay}
+          disabled={!src}
+          aria-label={playing ? 'Pause' : 'Play'}
+          className={cn(
+            'relative grid size-11 shrink-0 place-items-center rounded-full border-[0.5px] border-ink/20 bg-paper text-ink shadow-sm transition-colors hover:border-ink/40 hover:bg-secondary disabled:opacity-50',
+          )}
+        >
+          {playing ? (
+            <Pause className="size-4" />
+          ) : (
+            <Play className="size-4 translate-x-[1px] fill-ink" />
+          )}
+          {playing ? (
+            <motion.span
+              aria-hidden
+              className="absolute inset-0 rounded-full ring-1 ring-ink/15"
+              animate={{ scale: [1, 1.22, 1], opacity: [0.5, 0, 0.5] }}
+              transition={{ duration: 1.8, repeat: Infinity }}
+            />
+          ) : null}
+        </motion.button>
+
+        {/* Waveform — takes all available space */}
+        <div className="min-w-0 flex-1">
+          <Waveform
+            peaks={peaks ?? fallback}
+            progress={displayedProgress}
+            onSeek={seekTo}
+            onScrub={setScrubProgress}
+            height={44}
+          />
+        </div>
+
+        {/* Position / duration counter */}
+        <p className="shrink-0 font-mono text-[11.5px] tabular-nums text-ink-3">
+          <span className="text-ink">{formatTime(displayedTime)}</span>
+          <span className="mx-1 opacity-40">/</span>
+          {formatTime(duration)}
+        </p>
+
+        {src ? (
+          <audio
+            ref={audioRef}
+            src={src}
+            preload="metadata"
+            className="hidden"
+            onLoadedMetadata={(e) => setDuration(e.currentTarget.duration ?? 0)}
+            onDurationChange={(e) => setDuration(e.currentTarget.duration ?? 0)}
+            onTimeUpdate={(e) => {
+              const el = e.currentTarget
+              if (!el.duration) return
+              setProgress(el.currentTime / el.duration)
+            }}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onEnded={() => { setPlaying(false); setProgress(0) }}
+          />
+        ) : null}
+      </div>
+    )
+  }
+
+  // ─── Rich / compact variants (unchanged) ──────────────────────────
   return (
     <div
       className={cn(

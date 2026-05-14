@@ -168,76 +168,48 @@ function QuestionHeader({ question, onToggleSave }) {
   const isSaved = question.isSaved ?? storeSaysSaved
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border-[0.5px] border-border bg-paper px-7 py-8 shadow-[0_1px_0_rgba(0,0,0,0.02)] sm:px-10 sm:py-10">
-      {/* Manuscript-style hairline ornament at the top edge — a soft
-          brand gradient that fades into the paper. Sets the page apart
-          as the opening of a discussion rather than just another card. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand/55 to-transparent"
-      />
-
-      {/* Meta strip — status / answers / views / seals / lock, with the
-          relative timestamp set as a small uppercase dateline on the far
-          right. Tighter pill padding + slightly tracked typography reads
-          as editorial rather than chip-y. */}
-      <div className="flex flex-wrap items-center gap-1.5">
+    <section className="relative space-y-6 pb-2">
+      {/* Meta strip — status pill + mono dateline */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span
           className={cn(
-            'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium leading-none',
-            status.className,
+            'inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-border px-3 py-1 text-[12px] font-medium leading-none',
           )}
         >
-          <HelpCircle className="size-3" strokeWidth={1.5} />
+          {sealed ? (
+            <CheckCircle2 className="size-3.5" strokeWidth={1.8} />
+          ) : (
+            <HelpCircle className="size-3.5" strokeWidth={1.5} />
+          )}
           {status.label}
         </span>
-        <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2.5 py-1 text-[11px] font-medium">
-          {formatNumber(question.answerCount ?? 0)}{' '}
-          {(question.answerCount ?? 0) === 1 ? 'answer' : 'answers'}
-        </span>
-        {question.viewCount != null ? (
-          <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2.5 py-1 text-[11px] font-medium">
-            <Eye className="size-3" strokeWidth={1.5} />
-            <AnimatePresence mode="popLayout" initial={false}>
+        <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+          Asked <RelativeTime entity={question} />
+          {question.viewCount != null ? (
+            <> · <AnimatePresence mode="popLayout" initial={false}>
               <motion.span
                 key={question.viewCount}
-                initial={{ y: 5, opacity: 0 }}
+                initial={{ y: 4, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -5, opacity: 0 }}
+                exit={{ y: -4, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-                className="live-flash inline-block tabular-nums"
+                className="live-flash tabular-nums"
               >
                 {formatNumber(question.viewCount)}
               </motion.span>
-            </AnimatePresence>
-            {' '}views
-          </span>
-        ) : null}
-        {sealed ? (
-          <span
-            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium"
-            style={{ background: 'var(--gold-soft)', color: 'var(--gold-2)' }}
-            title={`${sealVotes} ${sealVotes === 1 ? 'scholar has' : 'scholars have'} sealed an answer`}
-          >
-            <Award className="size-3" strokeWidth={1.5} />
-            {sealVotes > 1 ? `${formatNumber(sealVotes)} seals` : 'Sealed'}
-          </span>
-        ) : null}
-        {question.answersLocked ? (
-          <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2.5 py-1 text-[11px] font-medium">
-            <Lock className="size-3" strokeWidth={1.5} />
-            Locked
-          </span>
-        ) : null}
-        <span className="ml-auto font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink-3">
-          <RelativeTime entity={question} />
+            </AnimatePresence> views</>
+          ) : null}
+          {question.maxAnswers != null ? (
+            <> · Answer limit {question.maxAnswers}</>
+          ) : null}
+          {question.answersLocked ? <> · Locked</> : null}
         </span>
       </div>
 
-      {/* Title — Newsreader, dramatic */}
+      {/* Title */}
       <h1
         dir="auto"
-        className="mt-6 font-display text-[30px] font-medium leading-[1.12] tracking-[-0.022em] text-ink text-balance sm:text-[40px]"
+        className="font-display text-[34px] font-semibold leading-[1.08] tracking-[-0.022em] text-ink text-balance sm:text-[46px]"
       >
         {question.title}
       </h1>
@@ -246,47 +218,50 @@ function QuestionHeader({ question, onToggleSave }) {
       {question.body ? (
         <p
           dir="auto"
-          className="mt-3.5 max-w-[68ch] whitespace-pre-wrap text-[15.5px] leading-[1.7] text-ink-2"
+          className="max-w-[68ch] whitespace-pre-wrap text-[16px] leading-[1.72] text-ink-2"
         >
           <MentionText text={question.body} />
         </p>
       ) : null}
 
-      {/* Asker byline — no hard separator above; whitespace alone carries
-          the break so the card breathes. Role pill sits inline with the
-          name; secondary meta flows underneath in mono. */}
-      <div className="mt-8 flex flex-wrap items-center gap-3.5">
+      {/* Author row + actions */}
+      <div className="flex flex-wrap items-center gap-3.5 border-t-[0.5px] border-border pt-5">
         <Link to={`/profile/${authorRoute}`} className="shrink-0">
-          <UserAvatar user={author} className="size-[38px] ring-1 ring-border" />
+          <UserAvatar user={author} className="size-10" />
         </Link>
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
             <Link
               to={`/profile/${authorRoute}`}
-              className="truncate text-[14px] font-medium text-ink hover:underline"
+              className="font-display text-[15px] font-semibold text-ink hover:underline"
             >
               {authorName}
             </Link>
-            {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
+            {author.role ? (
+              <span className="font-display text-[13px] italic text-ink-3">
+                · <RoleBadge role={author.role} size="xs" />
+              </span>
+            ) : null}
           </div>
-          <div className="mt-1 font-mono text-[11px] text-ink-3">
-            {authorHandle ? <span>@{authorHandle}</span> : null}
-            {authorHandle ? <span className="mx-1.5" aria-hidden>·</span> : null}
-            <span>
-              Asked <RelativeTime entity={question} />
-              {question.updatedAt && question.updatedAt !== question.createdAt
-                ? ' · edited'
-                : ''}
-            </span>
-          </div>
+          {authorHandle ? (
+            <p className="mt-0.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+              @{authorHandle}
+            </p>
+          ) : null}
         </div>
         <div className="flex items-center gap-1.5">
+          {(question.reactionCount ?? 0) > 0 ? (
+            <span className="rx pointer-events-none">
+              <span className="text-[14px] leading-none">♡</span>
+              {formatNumber(question.reactionCount)}
+            </span>
+          ) : null}
           <button
             type="button"
             onClick={onToggleSave}
             title={isSaved ? 'Remove from saved' : 'Save question'}
             aria-pressed={isSaved}
-            className={cn('rx-bare', isSaved && 'is-on text-brand')}
+            className={cn('rx', isSaved && 'border-brand/50 text-brand')}
           >
             <Bookmark
               className="size-[14px]"
@@ -294,10 +269,6 @@ function QuestionHeader({ question, onToggleSave }) {
               fill={isSaved ? 'currentColor' : 'none'}
             />
             {isSaved ? 'Saved' : 'Save'}
-          </button>
-          <button className="rx-bare" type="button" title="Share">
-            <Share2 className="size-[14px]" strokeWidth={1.5} />
-            Share
           </button>
         </div>
       </div>
@@ -484,7 +455,7 @@ function AnswerCard({
   answer,
   /** answer.author.id === currentUser.id */
   isAnswerOwner,
-  /** answer.authorId === question.authorId — the asker answered their own question */
+  // eslint-disable-next-line no-unused-vars
   isQuestionAuthor,
   /** mirrors backend canManageQuestion: question author OR admin/super-admin */
   canManageQuestion: canManage,
@@ -612,147 +583,96 @@ function AnswerCard({
         </span>
       ) : null}
 
-      {/* Top status row — accepted / votes / edited time */}
+      {/* Top status row — single dark pill for accepted + best */}
       {(isAccepted || isVoted) ? (
         <div className="flex flex-wrap items-center gap-2 px-6 pt-5">
-          {isAccepted ? (
-            <span className="inline-flex items-center gap-1 rounded-full pill-success px-2 py-0.5 text-[11px] font-medium leading-none">
-              <CheckCircle2 className="size-3" strokeWidth={1.5} />
-              Accepted by asker
-            </span>
-          ) : null}
-          {isVoted ? (
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium leading-none"
-              style={{ background: 'var(--gold-soft)', color: 'var(--gold-2)' }}
-              title={`${bestVoteCount} ${bestVoteCount === 1 ? 'scholar has' : 'scholars have'} voted this as best`}
-            >
-              <Award className="size-3" strokeWidth={1.5} />
-              {formatNumber(bestVoteCount)}{' '}
-              {bestVoteCount === 1 ? 'scholar vote' : 'scholar votes'}
-            </span>
-          ) : null}
-          <span className="ml-auto font-mono text-[11px] text-ink-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-[11px] font-semibold leading-none text-paper">
+            {isAccepted ? (
+              <>
+                <CheckCircle2 className="size-3.5" strokeWidth={2} />
+                Accepted
+              </>
+            ) : null}
+            {isAccepted && isVoted ? <span aria-hidden className="opacity-40">·</span> : null}
+            {isVoted ? (
+              <>
+                <Award className="size-3.5" strokeWidth={1.8} />
+                Best
+              </>
+            ) : null}
+          </span>
+          <span className="ml-auto font-mono text-[11px] uppercase tracking-wider text-ink-3">
             <RelativeTime entity={answer} />
             {answer.edited ? ' · edited' : ''}
           </span>
         </div>
       ) : expert ? (
         <div className="flex items-center gap-2 px-6 pt-5">
-          <span className="inline-flex items-center gap-1 rounded-full pill-info px-2 py-0.5 text-[11px] font-medium leading-none">
+          <span className="inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-border px-2.5 py-1 text-[11px] font-medium leading-none text-ink">
             <Star className="size-3" strokeWidth={1.5} />
             {author.role === 'SCHOLAR' ? "Scholar's answer" : 'Expert answer'}
           </span>
-          <span className="ml-auto font-mono text-[11px] text-ink-3">
+          <span className="ml-auto font-mono text-[11px] uppercase tracking-wider text-ink-3">
             <RelativeTime entity={answer} />
             {answer.edited ? ' · edited' : ''}
           </span>
         </div>
       ) : null}
 
-      {/* ── Header — always visible, click to toggle ─────────── */}
-      {/* Author row — flat, always visible, no toggle (spec §07). */}
-      <div className="flex w-full items-start gap-3 px-6 pt-4">
-        <Link
-          to={`/profile/${getRawUsername(author)}`}
-          className="shrink-0"
-        >
-          <UserAvatar user={author} className="size-10" />
-        </Link>
-
-        <div className="min-w-0 flex-1 leading-tight">
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-            <Link
-              to={`/profile/${getRawUsername(author)}`}
-              className="truncate text-[14px] font-medium text-ink hover:underline"
-            >
-              {getFullName(author) || getHandle(author) || 'Unknown'}
-            </Link>
-            {/* Account-type chip — Scholar / Researcher / Admin etc.
-                rendered at full sm-size so the reader instantly knows
-                the answerer's standing on a question they care about. */}
-            {author.role ? <RoleBadge role={author.role} size="sm" /> : null}
-            {isQuestionAuthor ? (
-              <span
-                className="inline-flex items-center rounded-full pill-info px-1.5 py-0.5 text-[10px] font-medium leading-none"
-                title="The question's author posted this answer"
+      {/* Manage dropdown — top-right, for answer owner / admin */}
+      {(canManageThisAnswer || canManage) ? (
+        <div className="absolute right-4 top-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="rounded-md text-ink-3 hover:text-ink"
+                aria-label="More"
               >
-                Author
-              </span>
-            ) : null}
-          </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11.5px] text-ink-3">
-            {expert ? (
-              <span>
-                Verified scholar
-                {answer.expertSubtitle ? ` · ${answer.expertSubtitle}` : ''}
-              </span>
-            ) : null}
-            {getHandle(author) ? (
-              <>
-                {expert ? <span aria-hidden>·</span> : null}
-                <span className="font-mono text-[10.5px]">
-                  @{getHandle(author)}
-                </span>
-              </>
-            ) : null}
-          </div>
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {canManage && !answer.parentAnswerId ? (
+                answer.accepted ? (
+                  <DropdownMenuItem onSelect={() => onUnaccept(answer.id)}>
+                    <Award className="mr-2 size-4" />
+                    Remove author's accept
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onSelect={() => onAccept(answer.id)}>
+                    <Award className="mr-2 size-4" />
+                    Accept as author
+                  </DropdownMenuItem>
+                )
+              ) : null}
+              {isAnswerOwner ? (
+                <>
+                  {canManage ? <DropdownMenuSeparator /> : null}
+                  <DropdownMenuItem onSelect={() => onEdit(answer)}>
+                    <Pencil className="mr-2 size-4" />
+                    Edit
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+              {canManageThisAnswer ? (
+                <>
+                  {!isAnswerOwner && canManage ? <DropdownMenuSeparator /> : null}
+                  <DropdownMenuItem
+                    onSelect={() => onDelete(answer.id)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 size-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-
-        <div className="flex shrink-0 items-center gap-1">
-          {(canManageThisAnswer || canManage) ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className="rounded-md text-ink-3 hover:text-ink"
-                  aria-label="More"
-                >
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                {canManage && !answer.parentAnswerId ? (
-                  answer.accepted ? (
-                    <DropdownMenuItem onSelect={() => onUnaccept(answer.id)}>
-                      <Award className="mr-2 size-4" />
-                      Remove author's accept
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem onSelect={() => onAccept(answer.id)}>
-                      <Award className="mr-2 size-4" />
-                      Accept as author
-                    </DropdownMenuItem>
-                  )
-                ) : null}
-                {isAnswerOwner ? (
-                  <>
-                    {canManage ? <DropdownMenuSeparator /> : null}
-                    <DropdownMenuItem onSelect={() => onEdit(answer)}>
-                      <Pencil className="mr-2 size-4" />
-                      Edit
-                    </DropdownMenuItem>
-                  </>
-                ) : null}
-                {canManageThisAnswer ? (
-                  <>
-                    {!isAnswerOwner && canManage ? <DropdownMenuSeparator /> : null}
-                    <DropdownMenuItem
-                      onSelect={() => onDelete(answer.id)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="mr-2 size-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-        </div>
-      </div>
+      ) : null}
 
       {/* ── Body — always shown per spec §07 ────────────────── */}
       <div>
@@ -830,16 +750,41 @@ function AnswerCard({
                 onChange={(next) => onSourcesChange?.(answer.id, next)}
               />
 
-              {/* Inline reaction (8-emoji palette) — sits above the
-                   feedback panel because reactions are open to anyone
-                   while feedback is question-author-only. */}
-              <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3">
-                <AnswerReactionRow
-                  questionId={questionId}
-                  answer={answer}
-                  isAuthenticated={isAuthenticated}
-                  onPatch={onAnswerPatch}
-                />
+              {/* Author + reaction row — avatar · name · role · timestamp + ♡ N + 💬 N */}
+              <div className="flex flex-wrap items-center gap-3 border-t-[0.5px] border-border pt-4">
+                <Link to={`/profile/${getRawUsername(author)}`} className="shrink-0">
+                  <UserAvatar user={author} className="size-9" />
+                </Link>
+                <div className="min-w-0 flex-1 leading-tight">
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    <Link
+                      to={`/profile/${getRawUsername(author)}`}
+                      className="font-display text-[14px] font-semibold text-ink hover:underline"
+                    >
+                      {getFullName(author) || getHandle(author) || 'Unknown'}
+                    </Link>
+                    {author.role ? (
+                      <span className="font-display text-[13px] italic text-ink-3">
+                        · {author.role.toLowerCase()}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <AnswerReactionRow
+                    questionId={questionId}
+                    answer={answer}
+                    isAuthenticated={isAuthenticated}
+                    onPatch={onAnswerPatch}
+                  />
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                    <RelativeTime entity={answer} />
+                  </span>
+                </div>
+              </div>
+
+              {/* Spacer div for vote best section */}
+              <div className="flex flex-wrap items-center gap-3">
 
                 {/* Multi-scholar best-answer vote — only for top-level
                     answers, only when the viewer is allowed to vote.
@@ -903,7 +848,7 @@ function AnswerCard({
                     {bestVoteCount === 1 ? 'best vote' : 'best votes'}
                   </span>
                 ) : null}
-              </div>
+                </div>
 
               {/* Reanswers — collapsed-by-default thread with a dropdown
                   toggle. Visual hierarchy: header strip with count +

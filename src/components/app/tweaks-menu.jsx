@@ -1,8 +1,9 @@
 import { Popover as PopoverPrimitive } from 'radix-ui'
 import {
   ALargeSmall,
+  AlignJustify,
   Check,
-  ChevronDown,
+  Layers,
   Moon,
   Palette,
   RotateCcw,
@@ -14,23 +15,18 @@ import {
 
 import { Button } from '@/components/ui/button'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
   ACCENT_OPTIONS,
   DENSITY_OPTIONS,
   FONT_OPTIONS,
   FONT_SCALE_OPTIONS,
+  LINE_HEIGHT_OPTIONS,
+  PAGE_BG_OPTIONS,
+  RADIUS_OPTIONS,
   useTweaks,
 } from '@/features/tweaks/tweaks-context'
 import { cn } from '@/lib/utils'
 
 const Popover = PopoverPrimitive.Root
-const PopoverAnchor = PopoverPrimitive.Anchor
-const PopoverPortal = PopoverPrimitive.Portal
 
 function PopoverTrigger({ asChild, children, ...props }) {
   return (
@@ -42,16 +38,12 @@ function PopoverTrigger({ asChild, children, ...props }) {
 
 function PopoverContent({ className, align = 'end', sideOffset = 8, children, ...props }) {
   return (
-    <PopoverPortal>
+    <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          // Mobile: cap width at the viewport minus a 1 rem gutter so
-          // the popover never hangs off the screen on phones; desktop:
-          // the original 320 px width. `max-h-[calc(100dvh-5rem)]`
-          // keeps tall content scrollable inside the popover.
-          'scrollbar-none z-50 max-h-[calc(100dvh-5rem)] w-[min(calc(100vw-1rem),320px)] origin-[var(--radix-popover-content-transform-origin)] overflow-y-auto rounded-2xl border border-border bg-paper p-4 shadow-soft-lg outline-none',
+          'scrollbar-none z-50 max-h-[calc(100dvh-4rem)] w-[min(calc(100vw-1rem),340px)] origin-[var(--radix-popover-content-transform-origin)] overflow-y-auto rounded-2xl border border-border bg-paper p-0 shadow-soft-lg outline-none',
           'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
           className,
@@ -60,27 +52,28 @@ function PopoverContent({ className, align = 'end', sideOffset = 8, children, ..
       >
         {children}
       </PopoverPrimitive.Content>
-    </PopoverPortal>
+    </PopoverPrimitive.Portal>
   )
 }
 
+// ─── Section label ──────────────────────────────────────────────────
 function SectionLabel({ children, icon: Icon }) {
   return (
-    <p className="mb-1.5 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-ink-3">
-      {Icon ? <Icon className="size-3" /> : null}
+    <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3">
+      {Icon ? <Icon className="size-3" strokeWidth={1.5} /> : null}
       {children}
     </p>
   )
 }
 
+// ─── Theme (light / dark) ───────────────────────────────────────────
 function ThemeToggle({ value, onChange }) {
-  const options = [
-    { value: 'light', label: 'Light', icon: Sun },
-    { value: 'dark',  label: 'Dark',  icon: Moon },
-  ]
   return (
-    <div className="relative grid grid-cols-2 gap-1 rounded-xl border border-border bg-muted/50 p-1">
-      {options.map(({ value: v, label, icon: Icon }) => {
+    <div className="grid grid-cols-2 gap-1.5 rounded-xl border-[0.5px] border-border bg-secondary/50 p-1.5">
+      {[
+        { value: 'light', label: 'Light', icon: Sun  },
+        { value: 'dark',  label: 'Dark',  icon: Moon },
+      ].map(({ value: v, label, icon: Icon }) => {
         const active = v === value
         return (
           <button
@@ -88,13 +81,15 @@ function ThemeToggle({ value, onChange }) {
             type="button"
             onClick={() => onChange(v)}
             className={cn(
-              'relative inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
+              'relative flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-all',
               active
-                ? 'border border-brand/25 bg-paper text-brand shadow-soft'
+                ? v === 'dark'
+                  ? 'bg-ink text-paper shadow-sm'
+                  : 'bg-paper text-ink shadow-[0_0_0_0.5px_var(--border)]'
                 : 'text-ink-3 hover:text-ink',
             )}
           >
-            <Icon className="size-[15px]" strokeWidth={active ? 2.1 : 1.7} />
+            <Icon className="size-4" strokeWidth={active ? 2 : 1.6} />
             {label}
           </button>
         )
@@ -103,168 +98,70 @@ function ThemeToggle({ value, onChange }) {
   )
 }
 
-function AccentSelect({ value, onChange }) {
-  const current = ACCENT_OPTIONS.find((o) => o.value === value) ?? ACCENT_OPTIONS[0]
+// ─── Accent color grid ──────────────────────────────────────────────
+function AccentGrid({ value, onChange }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            'inline-flex w-full items-center gap-2.5 rounded-lg border border-border bg-paper px-3 py-2 text-left',
-            'text-[13px] text-ink transition-colors hover:border-brand/40',
-          )}
-        >
-          <span
-            aria-hidden
-            className="size-[14px] shrink-0 rounded-full border border-border"
-            style={{ background: current.swatch }}
-          />
-          <span className="min-w-0 flex-1 truncate font-semibold">{current.label}</span>
-          <ChevronDown className="size-3.5 shrink-0 text-ink-3" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className="w-[268px] rounded-xl border-border bg-paper p-1 shadow-soft-lg"
-      >
-        {ACCENT_OPTIONS.map((opt) => {
-          const active = opt.value === value
-          return (
-            <DropdownMenuItem
-              key={opt.value}
-              onSelect={() => onChange(opt.value)}
-              className={cn(
-                'flex items-center gap-2.5 rounded-lg px-2.5 py-2',
-                active && 'bg-brand-soft/60 text-brand',
-              )}
-            >
-              <span
-                aria-hidden
-                className="size-[14px] shrink-0 rounded-full border border-border"
-                style={{ background: opt.swatch }}
-              />
-              <div className="min-w-0 flex-1 leading-tight">
-                <p className="truncate text-[13px] font-semibold">{opt.label}</p>
-                <p className="truncate text-[11px] text-ink-3">{opt.hint}</p>
-              </div>
-              {active ? <Check className="size-3.5 text-brand" /> : null}
-            </DropdownMenuItem>
-          )
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
-function FontSelect({ value, onChange }) {
-  const current = FONT_OPTIONS.find((o) => o.value === value) ?? FONT_OPTIONS[0]
-  const previewFont = (v) =>
-    v === 'cormorant'
-      ? '"Cormorant Garamond", Georgia, serif'
-      : v === 'system'
-        ? '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif'
-        : '"Fraunces", Georgia, serif'
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            'inline-flex w-full items-center gap-2.5 rounded-lg border border-border bg-paper px-3 py-2 text-left',
-            'text-[13px] text-ink transition-colors hover:border-brand/40',
-          )}
-        >
-          <span
-            aria-hidden
-            className="grid size-[22px] shrink-0 place-items-center rounded-md border border-border bg-muted text-[14px] font-semibold leading-none text-ink"
-            style={{ fontFamily: previewFont(current.value) }}
-          >
-            Aa
-          </span>
-          <span className="min-w-0 flex-1 truncate font-semibold">{current.label}</span>
-          <ChevronDown className="size-3.5 shrink-0 text-ink-3" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className="w-[268px] rounded-xl border-border bg-paper p-1 shadow-soft-lg"
-      >
-        {FONT_OPTIONS.map((opt) => {
-          const active = opt.value === value
-          return (
-            <DropdownMenuItem
-              key={opt.value}
-              onSelect={() => onChange(opt.value)}
-              className={cn(
-                'flex items-center gap-2.5 rounded-lg px-2.5 py-2',
-                active && 'bg-brand-soft/60 text-brand',
-              )}
-            >
-              <span
-                aria-hidden
-                className="grid size-[26px] shrink-0 place-items-center rounded-md border border-border bg-muted text-[15px] font-semibold leading-none"
-                style={{ fontFamily: previewFont(opt.value) }}
-              >
-                Aa
-              </span>
-              <div className="min-w-0 flex-1 leading-tight">
-                <p
-                  className="truncate text-[13px] font-semibold"
-                  style={{ fontFamily: previewFont(opt.value) }}
-                >
-                  {opt.label}
-                </p>
-                <p className="truncate text-[11px] text-ink-3">{opt.hint}</p>
-              </div>
-              {active ? <Check className="size-3.5 text-brand" /> : null}
-            </DropdownMenuItem>
-          )
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
-// Four-step font-size selector. Each step renders its own preview
-// "Aa" at the actual scale factor so the user reads the choice
-// before applying it. Layout mirrors the theme toggle so the menu
-// reads as one consistent control system.
-function FontScaleSelect({ value, onChange }) {
-  return (
-    <div className="grid grid-cols-4 gap-1 rounded-xl border border-border bg-muted/50 p-1">
-      {FONT_SCALE_OPTIONS.map((opt) => {
+    <div className="grid grid-cols-3 gap-2">
+      {ACCENT_OPTIONS.map((opt) => {
         const active = opt.value === value
         return (
           <button
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
-            title={`${opt.label} — ${opt.hint}`}
             className={cn(
-              'group/scale relative inline-flex flex-col items-center justify-center gap-1 rounded-lg px-2 py-2.5 text-[11px] font-semibold transition-colors',
+              'group relative flex flex-col items-center gap-1.5 rounded-xl border-[0.5px] px-2 py-3 text-center transition-all',
               active
-                ? 'border border-brand/25 bg-paper text-brand shadow-soft'
-                : 'text-ink-3 hover:bg-paper/50 hover:text-ink',
+                ? 'border-ink/30 bg-paper shadow-[0_0_0_2px_var(--brand)]'
+                : 'border-border bg-secondary/40 hover:bg-secondary',
             )}
-            aria-pressed={active}
-            aria-label={opt.label}
+            title={opt.hint}
           >
             <span
-              aria-hidden
-              className={cn(
-                'font-display font-semibold leading-none transition-colors',
-                active ? 'text-brand' : 'text-ink',
-              )}
-              style={{ fontSize: `${opt.factor * 19}px` }}
-            >
-              {opt.sample}
+              className="size-6 rounded-full shadow-sm ring-2 ring-paper"
+              style={{ background: opt.swatch }}
+            />
+            <span className={cn('text-[11px] font-medium leading-none', active ? 'text-ink' : 'text-ink-3')}>
+              {opt.label}
             </span>
-            <span className="text-[10px] uppercase tracking-[0.06em]">
-              {opt.label.split(' ')[0]}
+            {active ? (
+              <span className="absolute right-1.5 top-1.5 grid size-4 place-items-center rounded-full bg-brand text-paper">
+                <Check className="size-2.5" strokeWidth={2.5} />
+              </span>
+            ) : null}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Background color swatches ──────────────────────────────────────
+function PageBgGrid({ value, onChange, isDark }) {
+  return (
+    <div className="grid grid-cols-4 gap-2">
+      {PAGE_BG_OPTIONS.map((opt) => {
+        const active = opt.value === value
+        const swatch = isDark ? opt.swatchDark : opt.swatch
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              'flex flex-col items-center gap-1.5 rounded-xl border-[0.5px] px-2 py-2.5 transition-all',
+              active
+                ? 'border-brand/50 shadow-[0_0_0_1.5px_var(--brand)]'
+                : 'border-border hover:border-ink/30',
+            )}
+            title={opt.hint}
+          >
+            <span
+              className="size-8 rounded-lg border border-border/60 shadow-sm"
+              style={{ background: swatch }}
+            />
+            <span className={cn('text-[10.5px] font-medium leading-none', active ? 'text-brand' : 'text-ink-3')}>
+              {opt.label}
             </span>
           </button>
         )
@@ -273,10 +170,11 @@ function FontScaleSelect({ value, onChange }) {
   )
 }
 
-function DensityToggle({ value, onChange }) {
+// ─── Corner radius ──────────────────────────────────────────────────
+function RadiusPicker({ value, onChange }) {
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-xl border border-border bg-muted/50 p-1">
-      {DENSITY_OPTIONS.map((opt) => {
+    <div className="grid grid-cols-3 gap-1.5">
+      {RADIUS_OPTIONS.map((opt) => {
         const active = opt.value === value
         return (
           <button
@@ -284,12 +182,163 @@ function DensityToggle({ value, onChange }) {
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              'inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
+              'flex flex-col items-center gap-2 rounded-xl border-[0.5px] px-3 py-3 transition-all',
               active
-                ? 'border border-brand/25 bg-paper text-brand shadow-soft'
-                : 'text-ink-3 hover:text-ink',
+                ? 'border-brand/40 bg-paper shadow-[0_0_0_1.5px_var(--brand)]'
+                : 'border-border bg-secondary/40 hover:bg-secondary',
             )}
             title={opt.hint}
+          >
+            {/* Visual preview of the radius */}
+            <span
+              className="size-8 border-2 border-ink/30 bg-transparent"
+              style={{ borderRadius: opt.preview }}
+            />
+            <span className={cn('text-[11px] font-semibold leading-none', active ? 'text-brand' : 'text-ink-3')}>
+              {opt.label}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Font size ──────────────────────────────────────────────────────
+function FontScaleRow({ value, onChange }) {
+  return (
+    <div className="grid grid-cols-4 gap-1 rounded-xl border-[0.5px] border-border bg-secondary/50 p-1">
+      {FONT_SCALE_OPTIONS.map((opt) => {
+        const active = opt.value === value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            title={opt.hint}
+            className={cn(
+              'flex flex-col items-center gap-1 rounded-lg px-2 py-2.5 transition-all',
+              active
+                ? 'bg-paper text-brand shadow-[0_0_0_0.5px_var(--border)]'
+                : 'text-ink-3 hover:text-ink',
+            )}
+          >
+            <span
+              className="font-display font-semibold leading-none"
+              style={{ fontSize: `${opt.factor * 18}px` }}
+            >
+              A
+            </span>
+            <span className="text-[9.5px] uppercase tracking-wider">{opt.label.charAt(0)}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Display font ───────────────────────────────────────────────────
+function FontRow({ value, onChange }) {
+  const previewFont = (v) =>
+    v === 'cormorant'
+      ? '"Cormorant Garamond", Georgia, serif'
+      : v === 'system'
+        ? '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+        : '"Fraunces", Georgia, serif'
+
+  return (
+    <div className="space-y-1">
+      {FONT_OPTIONS.map((opt) => {
+        const active = opt.value === value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-xl border-[0.5px] px-3 py-2.5 transition-all',
+              active
+                ? 'border-brand/40 bg-paper shadow-[0_0_0_0.5px_var(--border)]'
+                : 'border-transparent hover:border-border hover:bg-secondary/50',
+            )}
+          >
+            <span
+              className="shrink-0 text-[22px] font-semibold leading-none text-ink"
+              style={{ fontFamily: previewFont(opt.value) }}
+            >
+              Aa
+            </span>
+            <div className="min-w-0 flex-1 text-left leading-tight">
+              <p className="text-[13px] font-semibold text-ink" style={{ fontFamily: previewFont(opt.value) }}>
+                {opt.label}
+              </p>
+              <p className="text-[11px] text-ink-3">{opt.hint}</p>
+            </div>
+            {active ? <Check className="size-3.5 shrink-0 text-brand" /> : null}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Line height ────────────────────────────────────────────────────
+function LineHeightRow({ value, onChange }) {
+  return (
+    <div className="grid grid-cols-3 gap-1 rounded-xl border-[0.5px] border-border bg-secondary/50 p-1">
+      {LINE_HEIGHT_OPTIONS.map((opt) => {
+        const active = opt.value === value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            title={opt.hint}
+            className={cn(
+              'flex flex-col items-center gap-1.5 rounded-lg px-2 py-2.5 transition-all',
+              active
+                ? 'bg-paper text-brand shadow-[0_0_0_0.5px_var(--border)]'
+                : 'text-ink-3 hover:text-ink',
+            )}
+          >
+            {/* Visual preview — 3 lines with varying spacing */}
+            <span className="flex flex-col gap-0 w-6" style={{ rowGap: `${(opt.factor - 1) * 10}px` }}>
+              {[6, 5, 4].map((w, i) => (
+                <span
+                  key={i}
+                  className={cn('h-[2px] rounded-full', active ? 'bg-brand' : 'bg-ink-3')}
+                  style={{ width: `${w * 4}px` }}
+                />
+              ))}
+            </span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider leading-none">
+              {opt.label}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Density ────────────────────────────────────────────────────────
+function DensityRow({ value, onChange }) {
+  return (
+    <div className="grid grid-cols-2 gap-1 rounded-xl border-[0.5px] border-border bg-secondary/50 p-1">
+      {DENSITY_OPTIONS.map((opt) => {
+        const active = opt.value === value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            title={opt.hint}
+            className={cn(
+              'flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all',
+              active
+                ? 'bg-paper text-ink shadow-[0_0_0_0.5px_var(--border)]'
+                : 'text-ink-3 hover:text-ink',
+            )}
           >
             {opt.label}
           </button>
@@ -299,42 +348,34 @@ function DensityToggle({ value, onChange }) {
   )
 }
 
-// iOS-style switch row. Used for boolean tweaks (reduced motion).
+// ─── iOS-style switch ───────────────────────────────────────────────
 function SwitchRow({ label, hint, checked, onChange, icon: Icon }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={cn(
-        'flex w-full items-center gap-3 rounded-xl border border-border bg-paper px-3 py-2.5 text-left',
-        'transition-colors hover:border-brand/40',
-      )}
+      className="flex w-full items-center gap-3 rounded-xl border-[0.5px] border-border bg-secondary/30 px-3 py-2.5 text-left transition-colors hover:bg-secondary/60"
       aria-pressed={checked}
     >
       {Icon ? (
         <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-muted text-ink-2">
-          <Icon className="size-[15px]" strokeWidth={1.7} />
+          <Icon className="size-[15px]" strokeWidth={1.6} />
         </span>
       ) : null}
       <div className="min-w-0 flex-1 leading-tight">
-        <p className="truncate text-[13px] font-semibold text-ink">{label}</p>
-        {hint ? (
-          <p className="truncate text-[11.5px] text-ink-3">{hint}</p>
-        ) : null}
+        <p className="text-[13px] font-semibold text-ink">{label}</p>
+        {hint ? <p className="mt-0.5 text-[11px] text-ink-3">{hint}</p> : null}
       </div>
       <span
-        aria-hidden
         className={cn(
-          'relative inline-flex h-[22px] w-[36px] shrink-0 items-center rounded-full border transition-colors',
-          checked
-            ? 'border-brand/40 bg-brand'
-            : 'border-border bg-muted',
+          'relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full border transition-colors',
+          checked ? 'border-brand bg-brand' : 'border-border bg-muted',
         )}
       >
         <span
           className={cn(
-            'pointer-events-none absolute left-[2px] top-[2px] grid size-[16px] place-items-center rounded-full bg-paper shadow-soft transition-transform',
-            checked && 'translate-x-[14px]',
+            'pointer-events-none absolute left-[2px] size-[16px] rounded-full bg-paper shadow-sm transition-transform',
+            checked && 'translate-x-[16px]',
           )}
         />
       </span>
@@ -342,41 +383,34 @@ function SwitchRow({ label, hint, checked, onChange, icon: Icon }) {
   )
 }
 
+// ─── Main menu ──────────────────────────────────────────────────────
 export function TweaksMenu({ trigger }) {
   const {
-    theme,
-    accent,
-    displayFont,
-    fontScale,
-    density,
-    reducedMotion,
-    setTheme,
-    setAccent,
-    setDisplayFont,
-    setFontScale,
-    setDensity,
-    setReducedMotion,
-    reset,
+    theme, accent, displayFont, fontScale, density,
+    pageBg, radius, lineHeight, reducedMotion, isDark,
+    setTheme, setAccent, setDisplayFont, setFontScale, setDensity,
+    setPageBg, setRadius, setLineHeight, setReducedMotion, reset,
   } = useTweaks()
 
   return (
     <Popover>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent>
-        <div className="mb-3 flex items-center justify-between">
+        {/* ── Header ─────────────────────────────────────────── */}
+        <div className="flex items-center justify-between border-b-[0.5px] border-border px-5 py-4">
           <div>
-            <p className="font-display text-[15px] font-semibold leading-none tracking-[-0.012em] text-ink">
-              Tweaks
+            <p className="font-display text-[16px] font-semibold leading-none tracking-[-0.012em] text-ink">
+              Appearance
             </p>
-            <p className="mt-1 text-[11.5px] text-ink-3">
-              Personalize the look. Saved on this device.
+            <p className="mt-0.5 text-[11.5px] text-ink-3">
+              Saved on this device
             </p>
           </div>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="text-ink-3 hover:text-ink"
+            className="rounded-lg text-ink-3 hover:text-ink"
             onClick={reset}
             title="Reset to defaults"
           >
@@ -384,59 +418,87 @@ export function TweaksMenu({ trigger }) {
           </Button>
         </div>
 
-        <div className="space-y-3.5">
+        {/* ── Controls ───────────────────────────────────────── */}
+        <div className="space-y-5 p-4">
+
+          {/* Theme */}
           <div>
             <SectionLabel icon={Sun}>Theme</SectionLabel>
             <ThemeToggle value={theme} onChange={setTheme} />
           </div>
 
+          {/* Accent */}
           <div>
-            <SectionLabel icon={ALargeSmall}>Font size</SectionLabel>
-            <FontScaleSelect value={fontScale} onChange={setFontScale} />
+            <SectionLabel icon={Palette}>Accent colour</SectionLabel>
+            <AccentGrid value={accent} onChange={setAccent} />
           </div>
 
+          {/* Background */}
+          <div>
+            <SectionLabel icon={Layers}>Background</SectionLabel>
+            <PageBgGrid value={pageBg} onChange={setPageBg} isDark={isDark} />
+          </div>
+
+          {/* Corner radius */}
+          <div>
+            <SectionLabel icon={Palette}>Corner style</SectionLabel>
+            <RadiusPicker value={radius} onChange={setRadius} />
+          </div>
+
+          {/* Font size */}
+          <div>
+            <SectionLabel icon={ALargeSmall}>Text size</SectionLabel>
+            <FontScaleRow value={fontScale} onChange={setFontScale} />
+          </div>
+
+          {/* Display font */}
           <div>
             <SectionLabel icon={Type}>Display font</SectionLabel>
-            <FontSelect value={displayFont} onChange={setDisplayFont} />
+            <FontRow value={displayFont} onChange={setDisplayFont} />
           </div>
 
+          {/* Line height */}
           <div>
-            <SectionLabel icon={Palette}>Accent</SectionLabel>
-            <AccentSelect value={accent} onChange={setAccent} />
+            <SectionLabel icon={AlignJustify}>Line spacing</SectionLabel>
+            <LineHeightRow value={lineHeight} onChange={setLineHeight} />
           </div>
 
+          {/* Density */}
           <div>
             <SectionLabel icon={Rows3}>Density</SectionLabel>
-            <DensityToggle value={density} onChange={setDensity} />
+            <DensityRow value={density} onChange={setDensity} />
           </div>
 
+          {/* Motion */}
           <div>
-            <SectionLabel icon={Wind}>Motion</SectionLabel>
+            <SectionLabel icon={Wind}>Accessibility</SectionLabel>
             <SwitchRow
               icon={Wind}
               label="Reduce motion"
-              hint="Calm down transitions and animations"
+              hint="Calms transitions and animations"
               checked={reducedMotion}
               onChange={setReducedMotion}
             />
           </div>
 
-          {/* Live sample */}
-          <div className="mt-1 rounded-xl border border-dashed border-border bg-muted/40 px-3 py-2.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand">
+          {/* Live preview */}
+          <div className="rounded-xl border-[0.5px] border-dashed border-border bg-secondary/30 p-4">
+            <p className="mb-2 font-mono text-[9.5px] uppercase tracking-[0.18em] text-brand">
               Preview
             </p>
-            <p className="mt-1 font-display text-[18px] font-semibold leading-[1.15] tracking-[-0.018em] text-ink">
+            <p className="font-display text-[19px] font-semibold leading-[1.15] tracking-[-0.018em] text-ink">
               What scholars are reading today.
             </p>
-            <p className="mt-1 text-[11.5px] text-ink-3">
-              Body text stays in the system sans for clarity.
+            <p className="mt-1 text-[12px] text-ink-3">
+              Body text uses the system sans for clarity and legibility across languages.
             </p>
+            <div className="mt-3 flex gap-2">
+              <span className="rx pointer-events-none text-[12px]">♡ Like</span>
+              <span className="rx pointer-events-none text-[12px]">💬 Comment</span>
+            </div>
           </div>
         </div>
       </PopoverContent>
     </Popover>
   )
 }
-
-export { PopoverAnchor }

@@ -1,192 +1,214 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { FileText, Loader2, RefreshCw, Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/app/empty-state'
 import { PostCard } from '@/components/app/post-card'
 import { QuestionFeedCard } from '@/components/app/question-feed-card'
 import { ResearchCard } from '@/components/app/research-card'
 import { useAuth } from '@/features/auth/auth-context'
-import { getFeed, getForYouFeed } from '@/features/posts/posts.api'
-import { getResearchFeed } from '@/features/research/research.api'
-import { getQuestions } from '@/features/qna/qna.api'
+import {
+  getFeedCursor,
+  getFollowingFeedCursor,
+  getForYouFeed,
+} from '@/features/posts/posts.api'
+import {
+  getResearchFeed,
+  getResearchFollowingFeed,
+} from '@/features/research/research.api'
+import {
+  getQuestionsCursor,
+  getQuestionsFollowing,
+} from '@/features/qna/qna.api'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
 
-const FILTERS = [
-  { value: 'ALL', label: 'Everything' },
-  { value: 'POSTS', label: 'Posts' },
-  { value: 'RESEARCH', label: 'Research' },
-  { value: 'QUESTIONS', label: 'Q&A' },
+// ─── Tab definitions ────────────────────────────────────────────────
+//
+// Each tab encodes three signals:
+//   • which posts API to call
+//   • which content kinds to include (posts / research / questions)
+//   • whether the tab requires an authenticated viewer
+const TABS = [
+  {
+    value: 'FOR_YOU',
+    label: 'For you',
+    kinds: ['post', 'research', 'question'],
+    posts: 'public',   // all people's posts (public chronological)
+    res: 'public',
+    qna: 'public',
+  },
+  {
+    value: 'FOLLOWING',
+    label: 'Following',
+    authOnly: true,
+    kinds: ['post', 'research', 'question'],
+    posts: 'following',
+    res: 'following',
+    qna: 'following',
+  },
 ]
 
-// Backend's FeedRankingService scores posts and caches the ordering in
-// Redis for 60 s — only available to signed-in viewers (it needs the
-// viewer id to compute the relationship signal). Guests fall back to
-// the chronological public feed automatically.
-const FEED_MODES = [
-  { value: 'FOR_YOU', label: 'For you', authOnly: true },
-  { value: 'LATEST',  label: 'Latest' },
-]
-const FOR_YOU_LIMIT = 25
 const PAGE_SIZE = 10
+const FOR_YOU_LIMIT = 25
 
 function timestampOf(entry) {
   const item = entry.data
-  const when =
-    item.publishedAt ??
-    item.createdAt ??
-    item.updatedAt ??
-    null
+  const when = item.publishedAt ?? item.createdAt ?? item.updatedAt ?? null
   return when ? new Date(when).getTime() : 0
 }
 
 function FeedSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-0">
       {[0, 1, 2].map((key) => (
-        <Card key={key} className="border">
-          <CardContent className="space-y-3 p-5">
-            <div className="flex items-center gap-3">
-              <Skeleton className="size-10 rounded-full" />
-              <div className="flex-1 space-y-1.5">
-                <Skeleton className="h-3.5 w-32" />
-                <Skeleton className="h-3 w-20" />
-              </div>
+        <div key={key} className="border-b-[0.5px] border-border bg-paper py-5">
+          <div className="flex items-start gap-4 px-0">
+            <Skeleton className="size-10 shrink-0 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3.5 w-36" />
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="mt-3 h-5 w-full" />
+              <Skeleton className="h-5 w-4/5" />
             </div>
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-4/5" />
-            <Skeleton className="h-40 w-full rounded-lg" />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ))}
     </div>
   )
 }
 
-/**
- * Home feed that merges posts, research publications, and questions into a
- * single chronological stream. When the user is authenticated we use the
- * following-only endpoints; guests see the public feeds.
- */
+// ─── Data fetcher per tab ───────────────────────────────────────────
+async function fetchTabPage(tab, cursors, append) {
+  const results = { posts: null, research: null, questions: null }
+
+  const promises = []
+
+  if (tab.posts === 'for-you') {
+    promises.push(
+      getForYouFeed({ limit: FOR_YOU_LIMIT })
+        .then((data) => { results.posts = { items: data?.items ?? [], hasMore: data?.hasMore ?? false, nextCursor: null } })
+        .catch(() => { results.posts = { items: [], hasMore: false, nextCursor: null } }),
+    )
+  } else if (tab.posts === 'following') {
+    promises.push(
+      getFollowingFeedCursor({ cursor: append ? cursors.posts : null, limit: PAGE_SIZE })
+        .then((data) => { results.posts = { items: data?.items ?? data?.content ?? [], hasMore: data?.hasMore ?? false, nextCursor: data?.nextCursor ?? null } })
+        .catch(() => { results.posts = { items: [], hasMore: false, nextCursor: null } }),
+    )
+  } else if (tab.posts === 'public') {
+    promises.push(
+      getFeedCursor({ cursor: append ? cursors.posts : null, limit: PAGE_SIZE })
+        .then((data) => { results.posts = { items: data?.items ?? data?.content ?? [], hasMore: data?.hasMore ?? false, nextCursor: data?.nextCursor ?? null } })
+        .catch(() => { results.posts = { items: [], hasMore: false, nextCursor: null } }),
+    )
+  }
+
+  if (tab.res === 'following') {
+    promises.push(
+      getResearchFollowingFeed({ page: append ? cursors.resPage : 0, size: PAGE_SIZE })
+        .then((data) => { results.research = { items: data?.content ?? [], hasMore: !data?.last } })
+        .catch(() => { results.research = { items: [], hasMore: false } }),
+    )
+  } else if (tab.res === 'public') {
+    promises.push(
+      getResearchFeed({ page: append ? cursors.resPage : 0, size: PAGE_SIZE })
+        .then((data) => { results.research = { items: data?.content ?? [], hasMore: !data?.last } })
+        .catch(() => { results.research = { items: [], hasMore: false } }),
+    )
+  }
+
+  if (tab.qna === 'following') {
+    promises.push(
+      getQuestionsFollowing({ page: append ? cursors.qnaPage : 0, size: PAGE_SIZE })
+        .then((data) => { results.questions = { items: data?.content ?? [], hasMore: !data?.last } })
+        .catch(() => { results.questions = { items: [], hasMore: false } }),
+    )
+  } else if (tab.qna === 'public') {
+    promises.push(
+      getQuestionsCursor({ cursor: append ? cursors.questions : null, limit: PAGE_SIZE })
+        .then((data) => { results.questions = { items: data?.items ?? data?.content ?? [], hasMore: data?.hasMore ?? false, nextCursor: data?.nextCursor ?? null } })
+        .catch(() => { results.questions = { items: [], hasMore: false, nextCursor: null } }),
+    )
+  }
+
+  await Promise.all(promises)
+  return results
+}
+
 export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
   const { isAuthenticated } = useAuth()
   const toast = useToast()
+
+  const defaultTab = 'FOR_YOU'
+  const [activeTab, setActiveTab] = useState(defaultTab)
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(false)
   const [initializing, setInitializing] = useState(true)
-  const [pages, setPages] = useState({ posts: 0, research: 0, questions: 0 })
+  // Cursors — posts/questions use ISO cursors, research uses page index
+  const cursors = useRef({ posts: null, questions: null, resPage: 0, qnaPage: 0 })
   const [hasMore, setHasMore] = useState({ posts: true, research: true, questions: true })
-  const [filter, setFilter] = useState('ALL')
-  // Default to the ranked For-You feed for signed-in viewers; guests
-  // see chronological "Latest". Stored in component state so users can
-  // flip between the two without rebuilding the page.
-  const [mode, setMode] = useState(isAuthenticated ? 'FOR_YOU' : 'LATEST')
 
-  const fetchPage = useCallback(
-    (pageIndex) => {
-      // For-You is a single-shot ranked endpoint (no per-page index —
-      // the server caches the top-N in Redis and returns the same
-      // ordering for 60 s). We fetch it on the first page and request
-      // an empty list on subsequent pages so the ranked top-N stays
-      // pinned at the top while pagination falls through to the
-      // chronological streams below it.
-      const wantForYou = mode === 'FOR_YOU' && isAuthenticated && pageIndex === 0
-      const postPromise = wantForYou
-        ? getForYouFeed({ limit: FOR_YOU_LIMIT })
-            .then((data) => ({
-              // Normalize the ranked response shape ({items, hasMore})
-              // into the page shape the rest of this function expects
-              // (`content`/`last`), so the downstream merge code stays
-              // unchanged.
-              data: { content: data?.items ?? [], last: !data?.hasMore },
-              ok: true,
-            }))
-            .catch((error) => ({ error, ok: false }))
-        : getFeed({ page: pageIndex, size: PAGE_SIZE })
-            .then((data) => ({ data, ok: true }))
-            .catch((error) => ({ error, ok: false }))
-      return Promise.all([
-        postPromise,
-        getResearchFeed({ page: pageIndex, size: PAGE_SIZE })
-          .then((data) => ({ data, ok: true }))
-          .catch((error) => ({ error, ok: false })),
-        getQuestions({ page: pageIndex, size: PAGE_SIZE })
-          .then((data) => ({ data, ok: true }))
-          .catch((error) => ({ error, ok: false })),
-      ])
-    },
-    [mode, isAuthenticated],
-  )
+  const currentTab = TABS.find((t) => t.value === activeTab) ?? TABS[0]
 
   const load = useCallback(
-    async ({ append } = { append: false }) => {
+    async ({ append = false } = {}) => {
       setLoading(true)
-      const ranked = mode === 'FOR_YOU' && isAuthenticated
       try {
-        const pageIndex = append
-          ? { posts: pages.posts + 1, research: pages.research + 1, questions: pages.questions + 1 }
-          : { posts: 0, research: 0, questions: 0 }
+        const tab = TABS.find((t) => t.value === activeTab) ?? TABS[0]
+        const result = await fetchTabPage(tab, cursors.current, append)
 
         const postEntries = []
         const otherEntries = []
         const nextHasMore = { ...hasMore }
 
-        const [postResult, researchResult, questionResult] = await fetchPage(
-          append
-            ? Math.max(pageIndex.posts, pageIndex.research, pageIndex.questions)
-            : 0,
-        )
-
-        if (postResult.ok) {
-          const posts = postResult.data?.content ?? []
-          // In ranked mode the server caches the top-N in Redis for
-          // 60 s — there's no "next page" to ask for, so hasMore is
-          // pinned false after the first load.
-          nextHasMore.posts = ranked
-            ? false
-            : !postResult.data?.last && posts.length === PAGE_SIZE
-          posts.forEach((p) => postEntries.push({ kind: 'post', id: `post:${p.id}`, data: p }))
+        if (result.posts) {
+          const { items, hasMore: more, nextCursor } = result.posts
+          nextHasMore.posts = tab.posts === 'for-you' ? false : more
+          items.forEach((p) => postEntries.push({ kind: 'post', id: `post:${p.id}`, data: p }))
+          if (!append) cursors.current.posts = nextCursor
+          else if (nextCursor) cursors.current.posts = nextCursor
         } else {
           nextHasMore.posts = false
         }
 
-        if (researchResult.ok) {
-          const research = researchResult.data?.content ?? []
-          nextHasMore.research = !researchResult.data?.last && research.length === PAGE_SIZE
-          research.forEach((r) => otherEntries.push({ kind: 'research', id: `research:${r.id}`, data: r }))
+        if (result.research) {
+          const { items, hasMore: more } = result.research
+          nextHasMore.research = more
+          items.forEach((r) => otherEntries.push({ kind: 'research', id: `research:${r.id}`, data: r }))
+          if (!append) cursors.current.resPage = 1
+          else cursors.current.resPage += 1
         } else {
           nextHasMore.research = false
         }
 
-        if (questionResult.ok) {
-          const questions = questionResult.data?.content ?? []
-          nextHasMore.questions = !questionResult.data?.last && questions.length === PAGE_SIZE
-          questions.forEach((q) => otherEntries.push({ kind: 'question', id: `question:${q.id}`, data: q }))
+        if (result.questions) {
+          const { items, hasMore: more, nextCursor } = result.questions
+          nextHasMore.questions = more
+          items.forEach((q) => otherEntries.push({ kind: 'question', id: `question:${q.id}`, data: q }))
+          if (!append) cursors.current.questions = nextCursor
+          else if (nextCursor) cursors.current.questions = nextCursor
+          if (!append) cursors.current.qnaPage = 1
+          else cursors.current.qnaPage += 1
         } else {
           nextHasMore.questions = false
         }
 
-        // Ranked mode: keep the server's ordering for posts (the score
-        // is meaningful) and slot research + questions chronologically
-        // among themselves. Chronological mode: one merged stream.
+        // For-you keeps server's ranking for posts; everything else merges chronologically
         otherEntries.sort((a, b) => timestampOf(b) - timestampOf(a))
-        const nextEntries = ranked
+        const isRanked = tab.posts === 'for-you'
+        const merged = isRanked
           ? [...postEntries, ...otherEntries]
-          : [...postEntries, ...otherEntries].sort(
-              (a, b) => timestampOf(b) - timestampOf(a),
-            )
+          : [...postEntries, ...otherEntries].sort((a, b) => timestampOf(b) - timestampOf(a))
 
-        setPages(pageIndex)
         setHasMore(nextHasMore)
         setEntries((current) => {
-          if (!append) return nextEntries
+          if (!append) return merged
           const seen = new Set(current.map((e) => e.id))
-          return [...current, ...nextEntries.filter((e) => !seen.has(e.id))]
+          return [...current, ...merged.filter((e) => !seen.has(e.id))]
         })
       } catch (error) {
         toast.error(extractApiMessage(error, 'Could not load the feed.'))
@@ -195,180 +217,132 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
         setInitializing(false)
       }
     },
-    [fetchPage, hasMore, pages, toast, mode, isAuthenticated],
+    [activeTab, toast], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  // Re-fetch whenever the viewer flips between signed-in/guest OR
-  // toggles For-You ↔ Latest. The state reset is identical in both
-  // cases, so they share one effect.
+  // Reset + reload whenever tab or auth state changes
   useEffect(() => {
+    cursors.current = { posts: null, questions: null, resPage: 0, qnaPage: 0 }
     setEntries([])
-    setPages({ posts: 0, research: 0, questions: 0 })
     setHasMore({ posts: true, research: true, questions: true })
     setInitializing(true)
     load({ append: false })
-  }, [isAuthenticated, mode])
+  }, [activeTab, isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      insertPost: (post) => {
-        if (!post) return
-        setEntries((current) => addPostToFeed(current, post))
-      },
-      insertResearch: (item) => {
-        if (!item) return
-        const entry = { kind: 'research', id: `research:${item.id}`, data: item }
-        setEntries((current) => [entry, ...current.filter((e) => e.id !== entry.id)])
-      },
-      insertQuestion: (item) => {
-        if (!item) return
-        const entry = { kind: 'question', id: `question:${item.id}`, data: item }
-        setEntries((current) => [entry, ...current.filter((e) => e.id !== entry.id)])
-      },
-      refresh: () => load({ append: false }),
-    }),
-    [load],
-  )
+  useImperativeHandle(ref, () => ({
+    insertPost: (post) => {
+      if (!post) return
+      setEntries((c) => addPostToFeed(c, post))
+    },
+    insertResearch: (item) => {
+      if (!item) return
+      const e = { kind: 'research', id: `research:${item.id}`, data: item }
+      setEntries((c) => [e, ...c.filter((x) => x.id !== e.id)])
+    },
+    insertQuestion: (item) => {
+      if (!item) return
+      const e = { kind: 'question', id: `question:${item.id}`, data: item }
+      setEntries((c) => [e, ...c.filter((x) => x.id !== e.id)])
+    },
+    refresh: () => load({ append: false }),
+  }), [load])
 
   function handlePostChange(updated) {
-    setEntries((current) =>
-      current.map((entry) =>
-        entry.kind === 'post' && entry.data.id === updated.id
-          ? { ...entry, data: { ...entry.data, ...updated } }
-          : entry,
+    setEntries((c) =>
+      c.map((e) =>
+        e.kind === 'post' && e.data.id === updated.id
+          ? { ...e, data: { ...e.data, ...updated } }
+          : e,
       ),
     )
   }
 
   function handlePostDelete(postId) {
-    setEntries((current) =>
-      current.filter((entry) => !(entry.kind === 'post' && entry.data.id === postId)),
-    )
+    setEntries((c) => c.filter((e) => !(e.kind === 'post' && e.data.id === postId)))
   }
 
   function handleRepostCreated(newPost) {
     if (!newPost) return
-    setEntries((current) => addPostToFeed(current, newPost))
+    setEntries((c) => addPostToFeed(c, newPost))
   }
 
-  const visibleEntries = entries.filter((entry) => {
-    if (filter === 'ALL') return true
-    if (filter === 'POSTS') return entry.kind === 'post'
-    if (filter === 'RESEARCH') return entry.kind === 'research'
-    if (filter === 'QUESTIONS') return entry.kind === 'question'
-    return true
+  const canLoadMore = currentTab.kinds.some((k) => {
+    if (k === 'post') return hasMore.posts
+    if (k === 'research') return hasMore.research
+    if (k === 'question') return hasMore.questions
+    return false
   })
 
-  const canLoadMore =
-    filter === 'ALL'
-      ? hasMore.posts || hasMore.research || hasMore.questions
-      : filter === 'POSTS'
-        ? hasMore.posts
-        : filter === 'RESEARCH'
-          ? hasMore.research
-          : hasMore.questions
+  const visibleTabs = TABS.filter((t) => !t.authOnly || isAuthenticated)
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className="space-y-0">
+      {/* ── Feed header ────────────────────────────────────────── */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Sparkles className="size-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Your feed
-          </h2>
+          <Sparkles className="size-3.5 text-ink-3" strokeWidth={1.5} />
+          <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+            Your Feed
+          </span>
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
-          {/* For-You ↔ Latest toggle — only meaningful when signed in
-              (ranking needs the viewer id to compute the relationship
-              signal). Hidden for guests, who always see Latest. */}
-          {isAuthenticated ? (
-            <div className="flex items-center gap-1 rounded-full bg-muted p-1">
-              {FEED_MODES.map((option) => {
-                const active = mode === option.value
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setMode(option.value)}
-                    className={cn(
-                      'relative rounded-full px-3 py-1 text-xs font-semibold transition-colors',
-                      active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
-                    )}
-                    title={
-                      option.value === 'FOR_YOU'
-                        ? 'Ranked by engagement, recency and who you follow'
-                        : 'Newest first across the whole community'
-                    }
-                  >
-                    {active ? (
-                      <motion.span
-                        layoutId="feedModePill"
-                        className="absolute inset-0 rounded-full bg-background shadow-sm"
-                        transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-                      />
-                    ) : null}
-                    <span className="relative">{option.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-          ) : null}
-          <div className="flex items-center gap-1 rounded-full bg-muted p-1">
-            {FILTERS.map((option) => {
-              const active = filter === option.value
+          {/* All tabs in one pill container */}
+          <div className="scrollbar-none flex items-center gap-0.5 overflow-x-auto rounded-full bg-secondary p-1">
+            {visibleTabs.map((tab) => {
+              const active = activeTab === tab.value
               return (
                 <button
-                  key={option.value}
+                  key={tab.value}
                   type="button"
-                  onClick={() => setFilter(option.value)}
+                  onClick={() => setActiveTab(tab.value)}
                   className={cn(
-                    'relative rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                    active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+                    'relative shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors',
+                    active ? 'text-ink' : 'text-ink-3 hover:text-ink',
                   )}
                 >
                   {active ? (
                     <motion.span
-                      layoutId="feedFilterPill"
-                      className="absolute inset-0 rounded-full bg-background shadow-sm"
-                      transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+                      layoutId="feedTabPill"
+                      className="absolute inset-0 rounded-full bg-paper shadow-[0_0_0_0.5px_var(--border)]"
+                      transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                     />
                   ) : null}
-                  <span className="relative">{option.label}</span>
+                  <span className="relative">{tab.label}</span>
                 </button>
               )
             })}
           </div>
-          <Button
+
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 rounded-full text-muted-foreground"
             onClick={() => load({ append: false })}
             disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium text-ink-3 transition-colors hover:bg-secondary hover:text-ink disabled:opacity-50"
           >
-            <RefreshCw className={loading ? 'size-3.5 animate-spin' : 'size-3.5'} />
+            <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} strokeWidth={1.5} />
             Refresh
-          </Button>
+          </button>
         </div>
       </div>
 
+      {/* ── Feed content ───────────────────────────────────────── */}
       {initializing ? (
         <FeedSkeleton />
-      ) : visibleEntries.length === 0 ? (
+      ) : entries.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="Nothing here yet"
           description={
-            filter === 'ALL'
-              ? 'No posts, research, or questions yet — be the first to share.'
-              : 'Try changing the filter or check back soon.'
+            activeTab === 'FOLLOWING'
+              ? 'Follow people to see their posts, research, and questions here.'
+              : 'No content yet — be the first to share something.'
           }
         />
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-0">
           <AnimatePresence initial={false}>
-            {visibleEntries.map((entry, index) => {
+            {entries.map((entry, index) => {
               let child
               if (entry.kind === 'post') {
                 child = (
@@ -388,9 +362,9 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
                 <motion.div
                   key={entry.id}
                   layout="position"
-                  initial={{ opacity: 0, y: 16 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
                   transition={{
                     type: 'spring',
                     stiffness: 300,
@@ -405,20 +379,17 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
           </AnimatePresence>
 
           {canLoadMore ? (
-            <div className="flex justify-center pt-2">
+            <div className="flex justify-center py-6">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="rounded-full"
+                className="rounded-xl"
                 onClick={() => load({ append: true })}
                 disabled={loading}
               >
                 {loading ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Loading
-                  </>
+                  <Loader2 className="size-4 animate-spin" />
                 ) : (
                   'Load more'
                 )}

@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
+  ArrowUpRight,
   Bookmark,
+  Check,
   Clapperboard,
   Copy,
+  Eye,
+  FileText,
   Globe,
   Loader2,
   Lock,
@@ -14,9 +18,9 @@ import {
   MoreHorizontal,
   Pencil,
   Play,
+  Plus,
   Repeat2,
   Share2,
-  Sparkles,
   Trash2,
   Users,
   Volume2,
@@ -57,6 +61,11 @@ import {
   undoRepost,
   unsavePost,
 } from '@/features/posts/posts.api'
+import {
+  followUser,
+  getSocialStatus,
+  unfollowUser,
+} from '@/features/social/social.api'
 import { useInView } from '@/hooks/use-in-view'
 import { usePostStream } from '@/hooks/use-post-stream'
 import { useAuth } from '@/features/auth/auth-context'
@@ -114,6 +123,92 @@ const TYPE_META = {
 const SHORT_TEXT_LIMIT = 140
 const LONG_TEXT_LIMIT = 540
 
+// Per-author social-status cache — keyed by author id. Avoids re-issuing
+// GET /social-status for every card showing the same user in a long feed,
+// and lets a Follow toggle in one card update every other card the
+// author appears in for the rest of the session.
+const followCache = new Map()
+const followSubscribers = new Map()
+
+function readFollowCache(authorId) {
+  if (!authorId) return undefined
+  return followCache.get(authorId)
+}
+
+function writeFollowCache(authorId, value) {
+  if (!authorId) return
+  followCache.set(authorId, value)
+  const subs = followSubscribers.get(authorId)
+  if (subs) for (const fn of subs) fn(value)
+}
+
+function subscribeFollow(authorId, fn) {
+  if (!authorId) return () => {}
+  let set = followSubscribers.get(authorId)
+  if (!set) {
+    set = new Set()
+    followSubscribers.set(authorId, set)
+  }
+  set.add(fn)
+  return () => set.delete(fn)
+}
+
+// "2412" → "2 412" using a narrow no-break space so the digit run can
+// still wrap on small viewports without smearing into the icon. Matches
+// the editorial view-counter rendering in the spec mock.
+function formatViewCount(value) {
+  const num = Number(value ?? 0)
+  if (Number.isNaN(num)) return '0'
+  if (num < 1000) return String(num)
+  return String(num).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+}
+
+function formatFileSize(bytes) {
+  const num = Number(bytes)
+  if (!num || Number.isNaN(num)) return null
+  const units = ['B', 'KB', 'MB', 'GB']
+  let value = num
+  let i = 0
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024
+    i += 1
+  }
+  const rounded = value >= 100 || i === 0 ? Math.round(value) : Math.round(value * 10) / 10
+  return `${rounded} ${units[i]}`
+}
+
+// Tiny markdown-flavoured block parser — splits the post text into
+// paragraph and blockquote runs. Lines that begin with `> ` collapse
+// into a single contiguous blockquote so an author can write a pull
+// quote inline, the same way the design spec renders it. Mentions
+// and whitespace still travel through MentionText.
+function parseTextBlocks(text) {
+  if (!text) return []
+  const lines = text.split('\n')
+  const blocks = []
+  let current = null
+  for (const raw of lines) {
+    const isQuote = /^>\s?/.test(raw)
+    const type = isQuote ? 'quote' : 'text'
+    const content = isQuote ? raw.replace(/^>\s?/, '') : raw
+    if (!current || current.type !== type) {
+      current = { type, lines: [content] }
+      blocks.push(current)
+    } else {
+      current.lines.push(content)
+    }
+  }
+  return blocks
+    .map((block) => ({ type: block.type, text: block.lines.join('\n') }))
+    .filter((block, index, all) => {
+      // Drop empty leading/trailing whitespace runs so spacing doesn't
+      // double up — but keep mid-text blank paragraphs since the author
+      // wrote them deliberately.
+      if (block.text.trim().length > 0) return true
+      return index !== 0 && index !== all.length - 1
+    })
+}
+
 function normalizeAuthor(post) {
   if (post.author) {
     return {
@@ -166,23 +261,36 @@ function MediaItem({ item, className }) {
     )
   }
   if (type === 'DOCUMENT') {
-    const filename = url.split('/').pop()
+    const rawName = (item.altText || url.split('/').pop() || 'document').split('?')[0]
+    const filename = decodeURIComponent(rawName)
+    const ext = filename.includes('.') ? filename.split('.').pop().toLowerCase() : null
+    const sizeLabel = formatFileSize(item.fileSize ?? item.sizeBytes ?? item.bytes)
     return (
       <a
         href={url}
         target="_blank"
         rel="noreferrer"
         className={cn(
-          'flex items-center gap-3 bg-muted/60 p-4 transition-colors hover:bg-muted',
+          'group/doc flex items-center gap-3.5 rounded-xl border-[0.5px] border-border bg-muted/40 px-3.5 py-3 transition-colors hover:bg-muted/70',
           className,
         )}
       >
-        <span className="grid size-10 place-items-center rounded-xl bg-foreground/10 text-foreground">
-          <Sparkles className="size-4" />
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl border-[0.5px] border-border bg-paper text-ink-2">
+          <FileText className="size-5" strokeWidth={1.4} />
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">
-          {item.altText || filename}
+        <span className="min-w-0 flex-1 leading-tight">
+          <span className="block truncate font-display text-[15px] font-medium tracking-[-0.005em] text-ink">
+            {filename}
+          </span>
+          <span className="mt-1 block font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
+            {ext ? `${ext} document` : 'document'}
+            {sizeLabel ? ` · ${sizeLabel}` : ''}
+          </span>
         </span>
+        <ArrowUpRight
+          className="size-4 shrink-0 text-ink-3 transition-transform duration-200 group-hover/doc:-translate-y-0.5 group-hover/doc:translate-x-0.5 group-hover/doc:text-ink"
+          strokeWidth={1.5}
+        />
       </a>
     )
   }
@@ -381,13 +489,22 @@ function ReelPlayer({ media, audioTrackName, postId }) {
 // ─── Text body with show-more ───────────────────────────────────────
 function PostText({ text, postType }) {
   const [expanded, setExpanded] = useState(false)
-  if (!text) return null
-
-  const length = text.length
-  const isVeryShort = postType === 'TEXT' && length <= SHORT_TEXT_LIMIT
+  const source = text ?? ''
+  const length = source.length
   const showToggle = postType === 'TEXT' && length > LONG_TEXT_LIMIT
   const display =
-    showToggle && !expanded ? `${text.slice(0, LONG_TEXT_LIMIT).trimEnd()}…` : text
+    showToggle && !expanded ? `${source.slice(0, LONG_TEXT_LIMIT).trimEnd()}…` : source
+  const blocks = useMemo(() => parseTextBlocks(source), [source])
+  const displayBlocks = useMemo(
+    () => (showToggle && !expanded ? parseTextBlocks(display) : blocks),
+    [blocks, display, expanded, showToggle],
+  )
+
+  if (!text) return null
+
+  const hasQuote = blocks.some((block) => block.type === 'quote')
+  const isVeryShort =
+    postType === 'TEXT' && length <= SHORT_TEXT_LIMIT && !hasQuote
 
   if (isVeryShort) {
     return (
@@ -400,19 +517,30 @@ function PostText({ text, postType }) {
     )
   }
 
+  const paragraphClass = cn(
+    'whitespace-pre-wrap break-words text-pretty text-ink',
+    postType === 'TEXT'
+      ? 'font-display text-[17px] font-normal leading-[1.55] tracking-[-0.005em]'
+      : 'text-[15px] leading-[1.65]',
+  )
+
   return (
-    <div className="space-y-1">
-      <p
-        dir="auto"
-        className={cn(
-          'whitespace-pre-wrap break-words text-pretty text-ink',
-          postType === 'TEXT'
-            ? 'font-display text-[17px] font-normal leading-[1.55] tracking-[-0.005em]'
-            : 'text-[15px] leading-[1.65]',
-        )}
-      >
-        <MentionText text={display} />
-      </p>
+    <div className="space-y-3">
+      {displayBlocks.map((block, index) =>
+        block.type === 'quote' ? (
+          <blockquote
+            key={index}
+            dir="auto"
+            className="border-l-[2px] border-ink-2 pl-4 font-display text-[17px] italic leading-[1.5] tracking-[-0.005em] text-ink-2 sm:text-[18px]"
+          >
+            <MentionText text={block.text} />
+          </blockquote>
+        ) : (
+          <p key={index} dir="auto" className={paragraphClass}>
+            <MentionText text={block.text} />
+          </p>
+        ),
+      )}
       {showToggle ? (
         <button
           type="button"
@@ -423,6 +551,105 @@ function PostText({ text, postType }) {
         </button>
       ) : null}
     </div>
+  )
+}
+
+// ─── Inline follow toggle ───────────────────────────────────────────
+//
+// Spec § Header pattern — a chunky outline pill that flips to a muted
+// "Following" affirmation. Initial state is resolved lazily, once,
+// when the card first enters the viewport, so a 50-post feed doesn't
+// fire 50 GET /social-status calls during the first scroll-stop. The
+// result is fanned out across every other card the same author
+// appears in via `followCache` + `subscribeFollow`.
+function FollowButton({ authorId, inView }) {
+  const toast = useToast()
+  const [state, setState] = useState(
+    () => readFollowCache(authorId)?.isFollowing ?? null,
+  )
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!authorId) return undefined
+    return subscribeFollow(authorId, (value) => {
+      setState(value?.isFollowing ?? null)
+    })
+  }, [authorId])
+
+  useEffect(() => {
+    if (!authorId || !inView) return undefined
+    const cached = readFollowCache(authorId)
+    if (cached) {
+      setState(cached.isFollowing)
+      return undefined
+    }
+    let cancelled = false
+    getSocialStatus(authorId)
+      .then((status) => {
+        if (cancelled) return
+        const value = Boolean(status?.isFollowing ?? status?.following)
+        writeFollowCache(authorId, { isFollowing: value, fetchedAt: Date.now() })
+      })
+      .catch(() => {
+        /* Network blip or 401 — leave the button in its unknown state. */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [authorId, inView])
+
+  async function handleToggle(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    if (busy || state == null) return
+    const previous = state
+    setBusy(true)
+    setState(!previous)
+    writeFollowCache(authorId, { isFollowing: !previous, fetchedAt: Date.now() })
+    try {
+      if (previous) await unfollowUser(authorId)
+      else await followUser(authorId)
+    } catch (error) {
+      setState(previous)
+      writeFollowCache(authorId, {
+        isFollowing: previous,
+        fetchedAt: Date.now(),
+      })
+      toast.error(extractApiMessage(error, 'Could not update follow.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const known = state != null
+  const isFollowing = state === true
+
+  return (
+    <button
+      type="button"
+      onClick={handleToggle}
+      disabled={busy || !known}
+      aria-pressed={isFollowing}
+      className={cn(
+        'inline-flex shrink-0 items-center gap-1 rounded-full border-[0.5px] px-3 py-1.5 text-[12px] font-medium leading-none tracking-tight transition-colors',
+        isFollowing
+          ? 'border-border bg-secondary text-ink-3 hover:bg-muted hover:text-ink'
+          : 'border-ink/85 bg-paper text-ink hover:bg-secondary',
+        (!known || busy) && 'opacity-70',
+      )}
+    >
+      {isFollowing ? (
+        <>
+          <Check className="size-3.5" strokeWidth={2} />
+          Following
+        </>
+      ) : (
+        <>
+          <Plus className="size-3.5" strokeWidth={2} />
+          Follow
+        </>
+      )}
+    </button>
   )
 }
 
@@ -539,7 +766,7 @@ function ShareMenu({ post, onShared, onRepostCreated }) {
           <button
             type="button"
             disabled={busy}
-            className="rx-bare disabled:opacity-50"
+            className="rx disabled:opacity-50"
             aria-label="Share post"
           >
             <Share2 className="size-[14px]" strokeWidth={1.5} />
@@ -857,6 +1084,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
   const storedShareCount = useCounter('post', post.id, 'sh', post.shareCount ?? 0)
   const storedSaveCount = useCounter('post', post.id, 'sv', post.saveCount ?? 0)
   const storedCommentCount = useCounter('post', post.id, 'cm', commentCount)
+  const storedViewCount = useCounter('post', post.id, 'vw', post.viewCount ?? 0)
   // Rate-limit countdown — when the backend's per-user reaction
   // bucket fires 429, the axios interceptor parks the action and
   // this hook ticks down the seconds remaining. We disable the
@@ -1007,12 +1235,12 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
     <article
       ref={composedRef}
       className={cn(
-        'group/post card-hover relative isolate overflow-hidden rounded-xl border-[0.5px] border-border bg-paper',
+        'group/post relative border-b-[0.5px] border-border bg-paper transition-colors duration-150 hover:bg-secondary/30',
       )}
     >
       {/* ── Repost banner — when this card IS a repost ─────── */}
       {(post.isRepost || postType === 'REPOST') && post.sharedPost ? (
-        <div className="flex items-center gap-2 border-b border-border bg-secondary px-4 py-2 text-[12px] text-ink-3 sm:px-6">
+        <div className="flex items-center gap-2 px-4 pb-2 pt-4 text-[12px] text-ink-3 sm:px-6">
           <Repeat2 className="size-[14px] text-brand" strokeWidth={1.5} />
           <Link
             to={`/profile/${authorRoute}`}
@@ -1025,7 +1253,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       ) : null}
 
       {/* ── Header ───────────────────────────────────────────── */}
-      <header className="flex items-start gap-3 px-4 pt-4 sm:px-6 sm:pt-5">
+      <header className="flex items-start gap-3 px-4 pt-5 sm:px-6">
         <Link
           to={`/profile/${authorRoute}`}
           className="shrink-0 transition-opacity hover:opacity-90"
@@ -1034,36 +1262,49 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
         </Link>
 
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <Link
               to={`/profile/${authorRoute}`}
-              className="truncate text-[14px] font-medium tracking-tight text-ink hover:underline"
+              className="truncate font-display text-[16px] font-semibold tracking-[-0.005em] text-ink hover:underline sm:text-[17px]"
             >
               {displayName}
             </Link>
-            {authorHandle ? (
-              <span className="text-[13px] text-ink-3">@{authorHandle}</span>
-            ) : null}
-            {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
-            {typeMeta ? (
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider',
-                  typeMeta.accent,
-                )}
-              >
-                {TypeIcon ? <TypeIcon className="size-3" strokeWidth={1.5} /> : null}
-                {typeMeta.label}
-              </span>
-            ) : null}
+            {author.role ? <RoleBadge role={author.role} size="sm" /> : null}
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[12px] text-ink-3">
+          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
+            {authorHandle ? (
+              <Link
+                to={`/profile/${authorRoute}`}
+                className="lowercase tracking-normal transition-colors hover:text-ink"
+              >
+                @{authorHandle}
+              </Link>
+            ) : null}
+            {authorHandle ? <span aria-hidden>·</span> : null}
             <Link
               to={`/posts/${post.id}`}
               className="transition-colors hover:text-ink"
-              title={post.formattedDate || 'Open post'}
+              title={
+                postStream?.isConnected
+                  ? `${post.formattedDate || 'Open post'} · live updates connected`
+                  : post.formattedDate || 'Open post'
+              }
             >
               <RelativeTime entity={post} />
+              {/* Live pip — kept as a subtle ink-colored dot next to the
+                  timestamp so a reader can still tell at a glance that
+                  the per-post SSE stream is hooked up, without the
+                  prior emerald "LIVE" label competing with the rest of
+                  the metadata. */}
+              <span
+                aria-hidden
+                className={cn(
+                  'ml-1.5 inline-block size-1 rounded-full align-middle transition-colors',
+                  postStream?.isConnected
+                    ? 'bg-emerald-500 animate-pulse'
+                    : 'bg-ink-4/60',
+                )}
+              />
             </Link>
             <span aria-hidden>·</span>
             <span className="inline-flex items-center gap-1" title={visLabel}>
@@ -1073,62 +1314,53 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
             {post.locationName ? (
               <>
                 <span aria-hidden>·</span>
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 normal-case tracking-normal">
                   <MapPin className="size-3" strokeWidth={1.5} />
                   <span className="truncate">{post.locationName}</span>
                 </span>
               </>
             ) : null}
-            {/* Realtime status pip — surfaces the per-post SSE stream
-                state so it's obvious whether live counter updates are
-                flowing. "Live" = handshake confirmed, "Offline" =
-                stream not established (out of view, or the backend
-                blocked / errored the connection). */}
-            <span aria-hidden>·</span>
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 font-mono text-[10.5px] uppercase tracking-wider',
-                postStream?.isConnected ? 'text-emerald-600' : 'text-ink-3/70',
-              )}
-              title={postStream?.isConnected ? 'Live updates connected' : 'Live updates not connected'}
-            >
-              <span
-                className={cn(
-                  'inline-block size-1.5 rounded-full',
-                  postStream?.isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-ink-3/40',
-                )}
-              />
-              {postStream?.isConnected ? 'Live' : 'Offline'}
-            </span>
           </div>
         </div>
 
-        {isMine ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="rounded-full text-muted-foreground opacity-60 transition-opacity hover:opacity-100 group-hover/post:opacity-100"
-              >
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-                <Pencil className="mr-2 size-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={handleDelete}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 size-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {/* Post-type badge — top-right outlined pill (voice, reel, etc.) */}
+          {typeMeta ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-border px-3 py-1 text-[12px] text-ink-3">
+              {TypeIcon ? <TypeIcon className="size-3" strokeWidth={1.5} /> : null}
+              {typeMeta.label}
+            </span>
+          ) : null}
+          {!isMine && isAuthenticated && author?.id ? (
+            <FollowButton authorId={author.id} inView={inView} />
+          ) : null}
+          {isMine ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="rounded-full text-muted-foreground opacity-60 transition-opacity hover:opacity-100 group-hover/post:opacity-100"
+                >
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                  <Pencil className="mr-2 size-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={handleDelete}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 size-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </div>
       </header>
 
       {isMine ? (
@@ -1141,17 +1373,14 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       ) : null}
 
       {/* ── Body ─────────────────────────────────────────────── */}
-      <div className="space-y-3 px-4 pt-3 sm:px-6">
+      <div className="space-y-3 px-4 pt-4 sm:px-6">
         <PostText text={post.textContent} postType={postType} />
 
         {postType === 'VOICE_POST' ? (
           <AudioPlayer
             src={voiceMediaUrl}
-            title={post.audioTrackName || 'Voice note'}
-            subtitle="Voice"
             trackKind="voice"
-            variant="rich"
-            showDownload
+            variant="feed"
           />
         ) : postType === 'REEL' ? (
           <ReelPlayer
@@ -1176,9 +1405,10 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
         {post.sharedPost ? <QuotedPost post={post.sharedPost} /> : null}
       </div>
 
-      {/* ── Action bar — pill reactions on the left, ghost icon
-           counters on the right. Matches the design spec card. ─── */}
-      <div className="mx-4 mt-4 flex flex-wrap items-center gap-1.5 border-t-[0.5px] border-border px-0 py-2.5 sm:mx-6">
+      {/* ── Action bar — every action is a hairline pill on the left,
+           the view counter sits alone on the right.  Matches the
+           "reading-room" card silhouette from the spec mock. ─── */}
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 px-4 pb-4 pt-3 sm:px-6">
         <div className="flex flex-wrap items-center gap-1.5">
           {/* Single-LIKE Instagram heart toggle. One tap likes, another
               tap unlikes; the count animates up/down on either side. */}
@@ -1219,20 +1449,20 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
                   {formatNumber(reactionCount)}
                 </motion.span>
               </AnimatePresence>
-            ) : (
-              <span>Like</span>
-            )}
+            ) : null}
           </motion.button>
-        </div>
 
-        <div className="ml-auto flex items-center gap-0.5">
           <motion.button
             type="button"
             onClick={() => setShowComments((value) => !value)}
             whileTap={{ scale: 0.94 }}
             transition={{ type: 'spring', stiffness: 480, damping: 26 }}
-            className={cn('rx-bare', showComments && 'is-on')}
+            className={cn(
+              'rx',
+              showComments && 'border-ink/40 bg-secondary text-ink',
+            )}
             aria-label="Comments"
+            aria-expanded={showComments}
           >
             <MessageCircle className="size-[14px]" strokeWidth={1.5} />
             {storedCommentCount > 0 ? (
@@ -1252,7 +1482,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
           </motion.button>
 
           {storedShareCount > 0 ? (
-            <span className="rx-bare pointer-events-none">
+            <span className="rx pointer-events-none">
               <Repeat2 className="size-[14px]" strokeWidth={1.5} />
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.span
@@ -1279,7 +1509,10 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
             type="button"
             onClick={handleToggleSave}
             disabled={savingBookmark || saveCooldown > 0}
-            className={cn('rx-bare', isSaved && 'is-on')}
+            className={cn(
+              'rx',
+              isSaved && 'border-ink/40 bg-secondary text-ink',
+            )}
             aria-pressed={isSaved}
             aria-label={
               saveCooldown > 0
@@ -1303,6 +1536,37 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
             ) : null}
           </button>
         </div>
+
+        {/* Right side — post-type label for voice/reel cards, or the
+            live view counter for regular posts. Both use the same mono
+            uppercase dateline style so they read as a single cohesive
+            editorial annotation. */}
+        {typeMeta ? (
+          <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
+            {TypeIcon ? <TypeIcon className="size-3.5" strokeWidth={1.5} /> : null}
+            {typeMeta.label}
+          </span>
+        ) : storedViewCount > 0 ? (
+          <span
+            className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-wider text-ink-3"
+            title={`${storedViewCount.toLocaleString()} ${storedViewCount === 1 ? 'view' : 'views'}`}
+          >
+            <Eye className="size-3.5" strokeWidth={1.5} />
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span
+                key={storedViewCount}
+                initial={{ y: 4, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -4, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 460, damping: 30 }}
+                className="live-flash tabular-nums"
+              >
+                {formatViewCount(storedViewCount)}
+              </motion.span>
+            </AnimatePresence>
+            <span>{storedViewCount === 1 ? 'view' : 'views'}</span>
+          </span>
+        ) : null}
       </div>
 
       {/* ── Comments ─────────────────────────────────────────── */}
@@ -1316,7 +1580,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
             transition={{ type: 'spring', stiffness: 260, damping: 30 }}
             className="overflow-hidden"
           >
-            <div className="border-t-[0.5px] border-border px-4 pb-4 pt-3 sm:px-6 sm:pb-5">
+            <div className="border-t-[0.5px] border-border px-4 pb-5 pt-4 sm:px-6">
               <PostComments
                 ref={commentsRef}
                 postId={post.id}

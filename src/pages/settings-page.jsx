@@ -2,15 +2,21 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   AtSign,
   BellRing,
+  KeyRound,
   Link2,
   Loader2,
+  Lock,
+  LogOut,
   Mail,
   MailCheck,
   Phone,
   Plus,
   Send,
   Settings as SettingsIcon,
+  Shield,
   Trash2,
+  Upload,
+  User,
   Users,
 } from 'lucide-react'
 
@@ -45,6 +51,7 @@ import {
   addLink,
   deleteContact,
   deleteLink,
+  deleteProfileImage,
   updateProfile,
   uploadProfileImage,
 } from '@/features/users/users.api'
@@ -88,16 +95,45 @@ function prettyPlatform(value) {
   return value.replace('_', ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())
 }
 
+// ─── Shared form-row layout ─────────────────────────────────────────
+// Left col: mono uppercase label + italic serif hint.
+// Right col: the input/control.
+function FieldRow({ label, hint, hintMono, children, noBorder = false }) {
+  return (
+    <div
+      className={cn(
+        'grid grid-cols-1 gap-4 py-7 sm:grid-cols-[1fr_1.6fr] sm:gap-10',
+        !noBorder && 'border-b-[0.5px] border-border',
+      )}
+    >
+      <div className="pt-0.5">
+        <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{label}</p>
+        {hint ? (
+          <p className="mt-1 font-display text-[13px] italic leading-[1.5] text-ink-3">
+            {hint}
+            {hintMono ? (
+              <> <code className="font-mono not-italic">{hintMono}</code></>
+            ) : null}
+          </p>
+        ) : null}
+      </div>
+      <div>{children}</div>
+    </div>
+  )
+}
+
 function ProfileForm() {
   const { user, refreshCurrentUser } = useAuth()
   const toast = useToast()
   const [form, setForm] = useState({
     fname: '',
     lname: '',
+    username: '',
     location: '',
-    profileBio: '',
     selfDescriber: '',
+    profileBio: '',
   })
+  const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
 
@@ -106,15 +142,31 @@ function ProfileForm() {
     setForm({
       fname: user.fname ?? '',
       lname: user.lname ?? '',
+      username: user.username ?? '',
       location: user.location ?? '',
-      profileBio: user.profileBio ?? '',
       selfDescriber: user.selfDescriber ?? '',
+      profileBio: user.profileBio ?? '',
     })
+    setDirty(false)
   }, [user])
 
   function handleChange(event) {
     const { name, value } = event.target
     setForm((current) => ({ ...current, [name]: value }))
+    setDirty(true)
+  }
+
+  function handleDiscard() {
+    if (!user) return
+    setForm({
+      fname: user.fname ?? '',
+      lname: user.lname ?? '',
+      username: user.username ?? '',
+      location: user.location ?? '',
+      selfDescriber: user.selfDescriber ?? '',
+      profileBio: user.profileBio ?? '',
+    })
+    setDirty(false)
   }
 
   async function handleSubmit(event) {
@@ -124,6 +176,7 @@ function ProfileForm() {
       await updateProfile(form)
       await refreshCurrentUser()
       toast.success('Profile updated.')
+      setDirty(false)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not update profile.'))
     } finally {
@@ -131,14 +184,14 @@ function ProfileForm() {
     }
   }
 
-  async function handleAvatarChange(event) {
+  async function handleAvatarUpload(event) {
     const file = event.target.files?.[0]
     if (!file) return
     setUploading(true)
     try {
       await uploadProfileImage(file)
       await refreshCurrentUser()
-      toast.success('Profile photo updated.')
+      toast.success('Photo updated.')
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not upload photo.'))
     } finally {
@@ -147,79 +200,171 @@ function ProfileForm() {
     }
   }
 
+  async function handleAvatarRemove() {
+    setUploading(true)
+    try {
+      await deleteProfileImage()
+      await refreshCurrentUser()
+      toast.success('Photo removed.')
+    } catch (error) {
+      toast.error(extractApiMessage(error, 'Could not remove photo.'))
+    } finally {
+      setUploading(false)
+    }
+  }
+
   if (!user) return null
 
   return (
-    <Card>
-      <CardContent className="space-y-6 p-5">
-        <div className="flex flex-wrap items-center gap-4">
-          <UserAvatar user={user} className="size-16 ring-2 ring-gold/40" />
-          <div className="space-y-1.5">
-            <Label htmlFor="avatar" className="text-sm font-medium">
-              Profile photo
-            </Label>
-            <input
-              id="avatar"
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarChange}
-              disabled={uploading}
-              className="block text-sm file:mr-3 file:rounded-full file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-foreground"
-            />
-          </div>
-        </div>
+    <div>
+      {/* Breadcrumb */}
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+        Account · Profile
+      </p>
+      <h2 className="font-display text-[32px] font-semibold leading-[1.05] tracking-[-0.018em] text-ink sm:text-[38px]">
+        Your public profile.
+      </h2>
+      <p className="mt-2 font-display text-[14px] italic leading-[1.6] text-ink-3">
+        All fields on /users/me — name, username, location, bio, self-describer.
+      </p>
 
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="fname">First name</Label>
-              <Input id="fname" name="fname" value={form.fname} onChange={handleChange} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="lname">Last name</Label>
-              <Input id="lname" name="lname" value={form.lname} onChange={handleChange} />
-            </div>
+      <form onSubmit={handleSubmit} className="mt-8">
+        {/* PHOTO */}
+        <FieldRow label="Photo" hint="/users/me/profile-image">
+          <div className="flex items-center gap-4">
+            <UserAvatar user={user} className="size-[72px] rounded-2xl text-[24px]" />
+            <label
+              className={cn(
+                'inline-flex cursor-pointer items-center gap-1.5 rounded-xl border-[0.5px] border-border px-4 py-2.5 text-[13px] font-medium text-ink transition-colors hover:bg-secondary',
+                uploading && 'cursor-not-allowed opacity-50',
+              )}
+            >
+              <Upload className="size-3.5" strokeWidth={1.8} />
+              {uploading ? 'Uploading…' : 'Upload'}
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={handleAvatarUpload}
+                disabled={uploading}
+              />
+            </label>
+            {user.profileImage ? (
+              <button
+                type="button"
+                onClick={handleAvatarRemove}
+                disabled={uploading}
+                className="text-[13px] font-medium text-ink-3 transition-colors hover:text-ink disabled:opacity-50"
+              >
+                Remove
+              </button>
+            ) : null}
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="location">Location</Label>
+        </FieldRow>
+
+        {/* NAME */}
+        <FieldRow label="Name" hint="First and last.">
+          <div className="flex gap-3">
             <Input
-              id="location"
-              name="location"
-              value={form.location}
+              id="fname"
+              name="fname"
+              value={form.fname}
               onChange={handleChange}
-              placeholder="City, Country"
+              placeholder="First"
+              className="rounded-xl"
+            />
+            <Input
+              id="lname"
+              name="lname"
+              value={form.lname}
+              onChange={handleChange}
+              placeholder="Last"
+              className="rounded-xl"
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="profileBio">Bio</Label>
-            <Textarea
-              id="profileBio"
-              name="profileBio"
-              value={form.profileBio}
+        </FieldRow>
+
+        {/* USERNAME */}
+        <FieldRow label="Username" hint="Public handle.">
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] font-medium text-ink-3">
+              @
+            </span>
+            <Input
+              id="username"
+              name="username"
+              value={form.username}
               onChange={handleChange}
-              rows={3}
-              placeholder="A short description shown on your profile."
+              placeholder="yourhandle"
+              className="rounded-xl pl-8"
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="selfDescriber">About</Label>
-            <Textarea
-              id="selfDescriber"
-              name="selfDescriber"
-              value={form.selfDescriber}
-              onChange={handleChange}
-              rows={5}
-              placeholder="Tell the community more about your work, specialisation, and interests."
-            />
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Saving…' : 'Save changes'}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+        </FieldRow>
+
+        {/* SELF-DESCRIBER */}
+        <FieldRow label="Self–Describer" hint="One line." hintMono="selfDescriber">
+          <Input
+            id="selfDescriber"
+            name="selfDescriber"
+            value={form.selfDescriber}
+            onChange={handleChange}
+            placeholder="One sentence about your work."
+            className="rounded-xl"
+          />
+        </FieldRow>
+
+        {/* LOCATION */}
+        <FieldRow label="Location" hint="City, country.">
+          <Input
+            id="location"
+            name="location"
+            value={form.location}
+            onChange={handleChange}
+            placeholder="Palo Alto"
+            className="rounded-xl"
+          />
+        </FieldRow>
+
+        {/* BIO */}
+        <FieldRow label="Bio" hintMono="profileBio" hint="— longer description." noBorder>
+          <Textarea
+            id="profileBio"
+            name="profileBio"
+            value={form.profileBio}
+            onChange={handleChange}
+            rows={5}
+            placeholder="Tell the community about your work, specialisation, and interests."
+            className="rounded-xl"
+          />
+        </FieldRow>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 pt-8">
+          <button
+            type="button"
+            onClick={handleDiscard}
+            disabled={saving || !dirty}
+            className="rounded-xl border-[0.5px] border-border px-6 py-3 text-[14px] font-medium text-ink transition-colors hover:bg-secondary disabled:opacity-40"
+          >
+            Discard
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-xl border-[0.5px] border-ink bg-ink px-6 py-3 text-[14px] font-semibold text-paper transition-colors hover:bg-ink-2 disabled:opacity-50"
+          >
+            {saving ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin" />
+                Saving…
+              </span>
+            ) : (
+              'Save changes'
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
   )
 }
 
@@ -848,38 +993,127 @@ function EmailPreferencesPanel() {
   )
 }
 
-export function SettingsPage() {
+// ─── Sidebar nav ────────────────────────────────────────────────────
+const NAV_SECTIONS = [
+  {
+    label: 'Account',
+    items: [
+      { id: 'profile', label: 'Profile', icon: User },
+      { id: 'links', label: 'Links', icon: Link2 },
+      { id: 'contacts', label: 'Contacts', icon: Phone },
+      { id: 'password', label: 'Password', icon: Lock },
+    ],
+  },
+  {
+    label: 'Notifications',
+    items: [
+      { id: 'email', label: 'Email preferences', icon: Mail },
+    ],
+  },
+  {
+    label: 'Security',
+    items: [
+      { id: 'twofactor', label: 'Two-factor', icon: Shield },
+      { id: 'signout', label: 'Sign out everywhere', icon: LogOut },
+    ],
+  },
+  {
+    label: 'Danger',
+    items: [
+      { id: 'delete', label: 'Delete account', icon: Trash2, danger: true },
+    ],
+  },
+]
+
+function SettingsNav({ active, onSelect }) {
   return (
-    <div className="space-y-6">
-      <PageHeader title="Settings" description="Manage your profile, links, and contact channels." />
-      <Tabs defaultValue="profile">
-        <TabsList>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="links">Links</TabsTrigger>
-          <TabsTrigger value="contacts">Contacts</TabsTrigger>
-          <TabsTrigger value="email">Email</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-        </TabsList>
-        <TabsContent value="profile">
+    <nav className="space-y-6">
+      {NAV_SECTIONS.map((section) => (
+        <div key={section.label}>
+          <p className="mb-2 px-3 font-mono text-[10px] uppercase tracking-wider text-ink-4">
+            {section.label}
+          </p>
+          <ul className="space-y-0.5">
+            {section.items.map((item) => {
+              const Icon = item.icon
+              const isActive = active === item.id
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(item.id)}
+                    className={cn(
+                      'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition-colors',
+                      isActive
+                        ? 'bg-paper text-ink shadow-[0_0_0_0.5px_var(--border)]'
+                        : item.danger
+                          ? 'text-destructive hover:bg-muted/60'
+                          : 'text-ink-3 hover:bg-muted/60 hover:text-ink',
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        'size-4 shrink-0',
+                        isActive ? 'text-ink' : item.danger ? 'text-destructive' : 'text-ink-3',
+                      )}
+                      strokeWidth={1.5}
+                    />
+                    {item.label}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  )
+}
+
+export function SettingsPage() {
+  const [panel, setPanel] = useState('profile')
+
+  return (
+    <div className="flex min-h-[60vh] gap-0 overflow-hidden">
+      {/* ── Sidebar ────────────────────────────────────────────── */}
+      <aside className="w-[220px] shrink-0 border-r-[0.5px] border-border bg-secondary/30 px-4 py-6 sm:w-[240px]">
+        <SettingsNav active={panel} onSelect={setPanel} />
+      </aside>
+
+      {/* ── Main content ───────────────────────────────────────── */}
+      <main className="min-w-0 flex-1 bg-paper px-8 py-8 sm:px-12">
+        {panel === 'profile' ? (
           <ProfileForm />
-        </TabsContent>
-        <TabsContent value="links">
-          <LinksList />
-        </TabsContent>
-        <TabsContent value="contacts">
-          <ContactsList />
-        </TabsContent>
-        <TabsContent value="email">
-          <EmailPreferencesPanel />
-        </TabsContent>
-        <TabsContent value="activity">
-          <Card>
-            <CardContent className="space-y-4 p-5">
-              <ActivityPanel embedded />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        ) : panel === 'links' ? (
+          <>
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Account · Links</p>
+            <h2 className="mb-8 font-display text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
+              Your links.
+            </h2>
+            <LinksList />
+          </>
+        ) : panel === 'contacts' ? (
+          <>
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Account · Contacts</p>
+            <h2 className="mb-8 font-display text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
+              Contact channels.
+            </h2>
+            <ContactsList />
+          </>
+        ) : panel === 'email' ? (
+          <>
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Notifications · Email</p>
+            <h2 className="mb-8 font-display text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
+              Email preferences.
+            </h2>
+            <EmailPreferencesPanel />
+          </>
+        ) : (
+          <div className="flex h-48 items-center justify-center text-[14px] text-ink-3">
+            Coming soon.
+          </div>
+        )}
+      </main>
     </div>
   )
 }
