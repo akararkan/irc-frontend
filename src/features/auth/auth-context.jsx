@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
-import { loginRequest, logoutRequest, registerRequest } from '@/features/auth/auth.api'
+import { changePasswordRequest, loginRequest, logoutRequest, registerRequest } from '@/features/auth/auth.api'
 import {
   clearStoredSession,
   AUTH_SESSION_EVENT,
@@ -145,6 +145,18 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Sends currentPassword + newPassword to the server, which verifies,
+  // re-hashes, revokes every other refresh token, and issues a fresh pair.
+  // We adopt the new tokens immediately so this device stays signed in.
+  async function changePassword({ currentPassword, newPassword }) {
+    const authResponse = await changePasswordRequest({ currentPassword, newPassword })
+    const nextSession = mapAuthResponseToSession(authResponse)
+    saveStoredSession(nextSession)
+    setSession(nextSession)
+    setStatus('authenticated')
+    return nextSession
+  }
+
   async function refreshCurrentUser() {
     const currentUser = await getCurrentUser()
     const currentSession = readStoredSession() ?? session
@@ -171,6 +183,7 @@ export function AuthProvider({ children }) {
     signIn,
     signUp,
     signOut,
+    changePassword,
     refreshCurrentUser,
     updateSession(nextSession) {
       if (!nextSession) {

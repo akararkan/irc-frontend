@@ -88,49 +88,6 @@ const POST_TYPES = [
 // Reels are short-form video — capped at 1:30 to keep the format snappy.
 const MAX_REEL_DURATION_SECONDS = 90
 
-/**
- * Read the duration of a video file by loading metadata only. Resolves with
- * the duration in seconds, or `null` if the browser can't decode it (in
- * which case we let the upload proceed and trust server-side validation).
- */
-function probeVideoDuration(file) {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file)
-    const video = document.createElement('video')
-    video.preload = 'metadata'
-    video.muted = true
-    video.playsInline = true
-
-    function cleanup() {
-      try {
-        video.removeAttribute('src')
-        video.load()
-      } catch {
-        /* element may already be detached */
-      }
-      URL.revokeObjectURL(url)
-    }
-
-    video.addEventListener(
-      'loadedmetadata',
-      () => {
-        const duration = Number.isFinite(video.duration) ? video.duration : null
-        cleanup()
-        resolve(duration)
-      },
-      { once: true },
-    )
-    video.addEventListener(
-      'error',
-      () => {
-        cleanup()
-        resolve(null)
-      },
-      { once: true },
-    )
-    video.src = url
-  })
-}
 
 function fileIsVideo(file) {
   return file.type.startsWith('video/')
@@ -847,19 +804,11 @@ export function PostComposer({
     })
   }
 
-  async function handleReelFile(picked) {
+  function handleReelFile(picked) {
     const file = picked[0]
     if (!file) return
     if (!fileIsVideo(file)) {
       toast.info('Reels need a video file.')
-      return
-    }
-    const duration = await probeVideoDuration(file)
-    if (duration != null && duration > MAX_REEL_DURATION_SECONDS) {
-      toast.error(
-        `Reels must be 1:30 or shorter — this clip is ${formatRecorderTime(duration)}. ` +
-          `Trim it and try again.`,
-      )
       return
     }
     setReelFile(file)

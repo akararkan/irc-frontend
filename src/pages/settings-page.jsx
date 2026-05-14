@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   AtSign,
   BellRing,
+  Eye,
+  EyeOff,
   KeyRound,
   Link2,
   Loader2,
@@ -993,6 +995,169 @@ function EmailPreferencesPanel() {
   )
 }
 
+// ─── Password panel ─────────────────────────────────────────────────
+function PasswordPanel() {
+  const { changePassword } = useAuth()
+  const toast = useToast()
+  const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [show, setShow] = useState({ current: false, next: false, confirm: false })
+  const [saving, setSaving] = useState(false)
+  const [fieldError, setFieldError] = useState(null)
+
+  function handleChange(event) {
+    const { name, value } = event.target
+    setForm((f) => ({ ...f, [name]: value }))
+    setFieldError(null)
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+    if (form.newPassword !== form.confirmPassword) {
+      setFieldError('confirm')
+      toast.error('New passwords do not match.')
+      return
+    }
+    if (form.newPassword.length < 8) {
+      setFieldError('next')
+      toast.error('New password must be at least 8 characters.')
+      return
+    }
+    setSaving(true)
+    try {
+      await changePassword({ currentPassword: form.currentPassword, newPassword: form.newPassword })
+      toast.success('Password updated. Other devices have been signed out.')
+      setForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setFieldError(null)
+    } catch (error) {
+      const code = error?.response?.data?.code ?? error?.code ?? ''
+      if (code === 'AUTH_CURRENT_PASSWORD_INVALID') {
+        setFieldError('current')
+        toast.error('Current password is incorrect.')
+      } else if (code === 'AUTH_NEW_PASSWORD_SAME_AS_CURRENT') {
+        setFieldError('next')
+        toast.error('New password must be different from your current one.')
+      } else {
+        toast.error(extractApiMessage(error, 'Could not change password.'))
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Account · Password</p>
+      <h2 className="font-display text-[32px] font-semibold leading-[1.05] tracking-[-0.018em] text-ink sm:text-[38px]">
+        Change password.
+      </h2>
+      <p className="mt-2 font-display text-[14px] italic leading-[1.6] text-ink-3">
+        Changing your password signs out every other device. You stay logged in here.
+      </p>
+
+      <form onSubmit={handleSubmit} className="mt-8">
+        <FieldRow label="Current password" hint="Your existing password.">
+          <div className="relative">
+            <input
+              type={show.current ? 'text' : 'password'}
+              name="currentPassword"
+              value={form.currentPassword}
+              onChange={handleChange}
+              autoComplete="current-password"
+              required
+              className={cn(
+                'w-full rounded-xl border-[0.5px] border-border bg-paper px-4 py-3 pr-10 text-[15px] text-ink outline-none ring-0 transition-colors focus:border-ink/50 focus:ring-1 focus:ring-ink/20',
+                fieldError === 'current' && 'border-destructive focus:border-destructive',
+              )}
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShow((s) => ({ ...s, current: !s.current }))}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink"
+              tabIndex={-1}
+              aria-label={show.current ? 'Hide password' : 'Show password'}
+            >
+              {show.current ? <EyeOff className="size-4" strokeWidth={1.5} /> : <Eye className="size-4" strokeWidth={1.5} />}
+            </button>
+          </div>
+        </FieldRow>
+
+        <FieldRow label="New password" hint="At least 8 characters.">
+          <div className="relative">
+            <input
+              type={show.next ? 'text' : 'password'}
+              name="newPassword"
+              value={form.newPassword}
+              onChange={handleChange}
+              autoComplete="new-password"
+              required
+              minLength={8}
+              className={cn(
+                'w-full rounded-xl border-[0.5px] border-border bg-paper px-4 py-3 pr-10 text-[15px] text-ink outline-none ring-0 transition-colors focus:border-ink/50 focus:ring-1 focus:ring-ink/20',
+                fieldError === 'next' && 'border-destructive focus:border-destructive',
+              )}
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShow((s) => ({ ...s, next: !s.next }))}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink"
+              tabIndex={-1}
+              aria-label={show.next ? 'Hide password' : 'Show password'}
+            >
+              {show.next ? <EyeOff className="size-4" strokeWidth={1.5} /> : <Eye className="size-4" strokeWidth={1.5} />}
+            </button>
+          </div>
+        </FieldRow>
+
+        <FieldRow label="Confirm new password" hint="Type it again." noBorder>
+          <div className="relative">
+            <input
+              type={show.confirm ? 'text' : 'password'}
+              name="confirmPassword"
+              value={form.confirmPassword}
+              onChange={handleChange}
+              autoComplete="new-password"
+              required
+              className={cn(
+                'w-full rounded-xl border-[0.5px] border-border bg-paper px-4 py-3 pr-10 text-[15px] text-ink outline-none ring-0 transition-colors focus:border-ink/50 focus:ring-1 focus:ring-ink/20',
+                fieldError === 'confirm' && 'border-destructive focus:border-destructive',
+              )}
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShow((s) => ({ ...s, confirm: !s.confirm }))}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink"
+              tabIndex={-1}
+              aria-label={show.confirm ? 'Hide password' : 'Show password'}
+            >
+              {show.confirm ? <EyeOff className="size-4" strokeWidth={1.5} /> : <Eye className="size-4" strokeWidth={1.5} />}
+            </button>
+          </div>
+        </FieldRow>
+
+        <div className="flex justify-end pt-8">
+          <button
+            type="submit"
+            disabled={saving || !form.currentPassword || !form.newPassword || !form.confirmPassword}
+            className="rounded-xl border-[0.5px] border-ink bg-ink px-6 py-3 text-[14px] font-semibold text-paper transition-colors hover:bg-ink-2 disabled:opacity-50"
+          >
+            {saving ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin" />
+                Updating…
+              </span>
+            ) : (
+              'Update password'
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 // ─── Sidebar nav ────────────────────────────────────────────────────
 const NAV_SECTIONS = [
   {
@@ -1084,6 +1249,8 @@ export function SettingsPage() {
       <main className="min-w-0 flex-1 bg-paper px-8 py-8 sm:px-12">
         {panel === 'profile' ? (
           <ProfileForm />
+        ) : panel === 'password' ? (
+          <PasswordPanel />
         ) : panel === 'links' ? (
           <>
             <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Account · Links</p>

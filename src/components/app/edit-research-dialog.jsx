@@ -39,7 +39,7 @@ import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
 import { resolveMediaUrl } from '@/lib/format'
-import { formatDuration, probeVideoDuration } from '@/lib/video'
+import { formatDuration } from '@/lib/video'
 
 const VISIBILITY_OPTIONS = [
   { value: 'PUBLIC', label: 'Public' },
@@ -119,7 +119,8 @@ export function EditResearchDialog({ research, open, onOpenChange, onUpdated }) 
 
   const [videoFile, setVideoFile] = useState(null)
   const [videoPreview, setVideoPreview] = useState(null)
-  const [videoDuration, setVideoDuration] = useState(null)
+  // videoDuration was previously set by client-side probing; now server-extracted
+  const setVideoDuration = () => {}
   const [removeVideo, setRemoveVideo] = useState(false)
 
   const [existingMedia, setExistingMedia] = useState([])
@@ -182,15 +183,8 @@ export function EditResearchDialog({ research, open, onOpenChange, onUpdated }) 
     }
     const url = URL.createObjectURL(videoFile)
     setVideoPreview(url)
-    setVideoDuration(null)
-    let cancelled = false
-    probeVideoDuration(videoFile).then((duration) => {
-      if (!cancelled) setVideoDuration(duration)
-    })
-    return () => {
-      cancelled = true
-      URL.revokeObjectURL(url)
-    }
+    setVideoDuration(null) // duration returned by server after upload
+    return () => URL.revokeObjectURL(url)
   }, [videoFile])
 
   if (!research) return null
@@ -661,18 +655,13 @@ export function EditResearchDialog({ research, open, onOpenChange, onUpdated }) 
                     playsInline
                     className="aspect-[5/3] w-full bg-black object-contain"
                   />
-                  {(() => {
-                    const shownDuration = videoFile
-                      ? videoDuration
-                      : research.videoPromoDurationSeconds
-                    if (shownDuration == null) return null
-                    return (
-                      <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur">
-                        <Clock className="size-2.5" />
-                        {formatDuration(shownDuration)}
-                      </span>
-                    )
-                  })()}
+                  {/* Duration from server only — not computed client-side */}
+                  {!videoFile && research.videoPromoDurationSeconds ? (
+                    <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur">
+                      <Clock className="size-2.5" />
+                      {formatDuration(research.videoPromoDurationSeconds)}
+                    </span>
+                  ) : null}
                   <div className="absolute right-2 top-2 flex gap-1">
                     <button
                       type="button"
@@ -705,15 +694,9 @@ export function EditResearchDialog({ research, open, onOpenChange, onUpdated }) 
                 </button>
               )}
               {videoFile ? (
-                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                   <span className="truncate">{videoFile.name}</span>
-                  {videoDuration != null ? (
-                    <span className="shrink-0 font-medium text-foreground">
-                      {formatDuration(videoDuration)}
-                    </span>
-                  ) : (
-                    <span className="shrink-0">Reading duration…</span>
-                  )}
+                  <span className="shrink-0">· duration extracted server-side</span>
                 </div>
               ) : null}
             </div>

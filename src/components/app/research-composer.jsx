@@ -39,7 +39,7 @@ import { RoleBadge } from '@/components/app/role-badge'
 import { canPublishResearch } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
-import { formatDuration, probeVideoDuration } from '@/lib/video'
+import { formatDuration } from '@/lib/video'
 
 const VISIBILITY_OPTIONS = [
   { value: 'PUBLIC', label: 'Public', description: 'Visible in the global feed.' },
@@ -125,15 +125,8 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
     }
     const url = URL.createObjectURL(videoPromo)
     setVideoPromoPreview(url)
-    setVideoPromoDuration(null)
-    let cancelled = false
-    probeVideoDuration(videoPromo).then((duration) => {
-      if (!cancelled) setVideoPromoDuration(duration)
-    })
-    return () => {
-      cancelled = true
-      URL.revokeObjectURL(url)
-    }
+    setVideoPromoDuration(null) // duration returned by server after upload
+    return () => URL.revokeObjectURL(url)
   }, [videoPromo])
 
   if (!canPublishResearch(user)) return null
@@ -565,15 +558,9 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
                 </button>
               )}
               {videoPromo ? (
-                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                   <span className="truncate">{videoPromo.name}</span>
-                  {videoPromoDuration != null ? (
-                    <span className="shrink-0 font-medium text-foreground">
-                      {formatDuration(videoPromoDuration)}
-                    </span>
-                  ) : (
-                    <span className="shrink-0">Reading duration…</span>
-                  )}
+                  <span className="shrink-0 text-ink-3">· duration extracted server-side</span>
                 </div>
               ) : null}
             </div>
