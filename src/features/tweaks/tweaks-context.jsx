@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import i18n, { applyLangToDocument } from '@/i18n'
 
 const STORAGE_KEY = 'irc.tweaks.v2'
 
@@ -12,6 +13,7 @@ const DEFAULTS = {
   radius:      'default',      // 'sharp' | 'default' | 'round'
   lineHeight:  'comfortable',  // 'tight' | 'comfortable' | 'relaxed'
   reducedMotion: false,
+  lang:        'en',           // 'en' | 'ar' | 'ckb'
 }
 
 export const ACCENT_OPTIONS = [
@@ -85,6 +87,12 @@ export function applyToDocument(tweaks) {
   root.dataset.lineHeight = tweaks.lineHeight ?? 'comfortable'
   root.dataset.reducedMotion = tweaks.reducedMotion ? 'true' : 'false'
 
+  // Language + directionality
+  if (tweaks.lang && i18n.language !== tweaks.lang) {
+    i18n.changeLanguage(tweaks.lang)
+  }
+  applyLangToDocument(tweaks.lang ?? 'en')
+
   const factor = FONT_SCALE_OPTIONS.find((o) => o.value === tweaks.fontScale)?.factor ?? 1
   root.style.setProperty('--font-scale', String(factor))
 
@@ -111,13 +119,14 @@ export function TweaksProvider({ children }) {
   const setRadius       = useCallback((radius)       => setTweaks((t) => ({ ...t, radius })), [])
   const setLineHeight   = useCallback((lineHeight)   => setTweaks((t) => ({ ...t, lineHeight })), [])
   const setReducedMotion = useCallback((reducedMotion) => setTweaks((t) => ({ ...t, reducedMotion })), [])
+  const setLang         = useCallback((lang)         => setTweaks((t) => ({ ...t, lang })), [])
   const reset = useCallback(() => setTweaks(DEFAULTS), [])
 
   return (
     <TweaksContext.Provider value={{
       ...tweaks,
       setTheme, setAccent, setDisplayFont, setFontScale,
-      setDensity, setPageBg, setRadius, setLineHeight, setReducedMotion,
+      setDensity, setPageBg, setRadius, setLineHeight, setReducedMotion, setLang,
       reset,
       isDark: tweaks.theme === 'dark',
     }}>

@@ -86,6 +86,7 @@ import {
   getRawUsername,
   resolveMediaUrl,
 } from '@/lib/format'
+import { FRONTEND_URL } from '@/config/env'
 
 // ─── Helpers ────────────────────────────────────────────────────────
 function normalizeAuthor(post) {
@@ -980,7 +981,7 @@ function ShareSheet({ open, onOpenChange, reel, onChange }) {
 
   useEffect(() => {
     if (!open || !reel?.id) return
-    setShareLink(reel.shareLink || `${window.location.origin}/reels?id=${reel.id}`)
+    setShareLink(reel.shareLink || `${FRONTEND_URL}/reels?id=${reel.id}`)
     setCaption('')
   }, [open, reel?.id, reel?.shareLink])
 

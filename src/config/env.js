@@ -28,3 +28,12 @@ function resolveApiUrl() {
 export const API_URL = resolveApiUrl()
 
 export const AUTH_STORAGE_KEY = 'irc-auth-session'
+
+/**
+ * The public frontend URL — used to build share links and email CTAs
+ * so they always point at the Vercel deployment, not the current window origin.
+ * Falls back to window.location.origin so local dev still works.
+ */
+export const FRONTEND_URL =
+  import.meta.env.VITE_FRONTEND_URL?.replace(/\/+$/, '') ||
+  (typeof window !== 'undefined' ? window.location.origin : '')

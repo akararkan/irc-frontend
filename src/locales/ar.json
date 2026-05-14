@@ -1,0 +1,175 @@
+{
+  "nav": {
+    "home": "الرئيسية",
+    "research": "البحوث",
+    "questions": "الأسئلة",
+    "reels": "الريلز",
+    "notifications": "الإشعارات",
+    "saved": "المحفوظات",
+    "people": "الأشخاص",
+    "profile": "الملف الشخصي",
+    "myResearch": "بحوثي",
+    "settings": "الإعدادات",
+    "publishResearch": "نشر بحث",
+    "researchNetwork": "شبكة البحث"
+  },
+  "actions": {
+    "post": "نشر",
+    "like": "إعجاب",
+    "liked": "معجب",
+    "unlike": "إلغاء الإعجاب",
+    "comment": "تعليق",
+    "share": "مشاركة",
+    "save": "حفظ",
+    "saved": "محفوظ",
+    "follow": "متابعة",
+    "following": "تتابع",
+    "unfollow": "إلغاء المتابعة",
+    "send": "إرسال",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "refresh": "تحديث",
+    "loadMore": "تحميل المزيد",
+    "loading": "جارٍ التحميل",
+    "submit": "إرسال",
+    "close": "إغلاق",
+    "back": "رجوع",
+    "search": "ابحث عن علماء، بحوث، أسئلة، #وسوم…",
+    "markAllRead": "تحديد الكل كمقروء",
+    "discard": "تجاهل",
+    "saveChanges": "حفظ التغييرات",
+    "upload": "رفع",
+    "remove": "إزالة",
+    "writeAnswer": "اكتب إجابة",
+    "askQuestion": "اطرح سؤالاً",
+    "browseByTag": "تصفح بالوسوم",
+    "publishResearch": "نشر بحث",
+    "signIn": "تسجيل الدخول",
+    "signOut": "تسجيل الخروج",
+    "createAccount": "إنشاء حساب"
+  },
+  "feed": {
+    "yourFeed": "ملفك",
+    "forYou": "لك",
+    "following": "المتابَعون",
+    "latest": "الأحدث",
+    "nothingYet": "لا شيء هنا بعد",
+    "nothingYetDesc": "لا توجد منشورات أو بحوث أو أسئلة بعد — كن أول من يشارك.",
+    "followingEmpty": "تابع أشخاصاً لترى منشوراتهم وبحوثهم وأسئلتهم هنا.",
+    "sharePlaceholder": "شارك فكرة أو مرجعاً أو اكتشافاً…",
+    "public": "عام",
+    "followers": "المتابعون",
+    "onlyMe": "أنا فقط"
+  },
+  "pages": {
+    "home": {
+      "title": "الرئيسية"
+    },
+    "research": {
+      "eyebrow": "البحوث",
+      "title": "أحدث الدراسات.",
+      "description": "بحوث منشورة ومسودات وملاحظات ميدانية من أنحاء الشبكة."
+    },
+    "questions": {
+      "eyebrow": "الأسئلة والأجوبة",
+      "title": "اطرح سؤالاً. انتظر الإجابة الصحيحة.",
+      "description": "مساحة للأسئلة والأجوبة تُقيِّم فيها الإجابات مجتمعياً ويراجعها العلماء المؤهلون.",
+      "questions": "أسئلة",
+      "answers": "أجوبة",
+      "filterAll": "الكل",
+      "filterUnanswered": "غير مُجابة",
+      "filterSealed": "مختومة",
+      "filterFollowedTags": "الوسوم المتابَعة",
+      "filterBounty": "مكافأة",
+      "sortHottest": "الأكثر نشاطاً",
+      "sortNewest": "الأحدث",
+      "everyone": "الجميع",
+      "myQuestions": "أسئلتي"
+    },
+    "notifications": {
+      "title": "الإشعارات",
+      "markAllRead": "تحديد الكل كمقروء",
+      "tabs": {
+        "all": "الكل",
+        "posts": "المنشورات",
+        "qna": "الأسئلة",
+        "research": "البحوث",
+        "mentions": "الإشارات",
+        "social": "الاجتماعي",
+        "system": "النظام"
+      }
+    },
+    "saved": {
+      "eyebrow": "القسم ١١",
+      "title": "المحفوظات.",
+      "description": "المنشورات والبحوث والأسئلة التي حفظتها عبر الشبكة.",
+      "tabs": {
+        "posts": "المنشورات",
+        "research": "البحوث",
+        "questions": "الأسئلة"
+      }
+    },
+    "people": {
+      "eyebrow": "اكتشف",
+      "title": "أشخاص تستحق معرفتهم.",
+      "description": "علماء وباحثون ومفكرون في مجالك."
+    },
+    "settings": {
+      "profile": "الملف الشخصي",
+      "links": "الروابط",
+      "contacts": "جهات الاتصال",
+      "password": "كلمة المرور",
+      "emailPreferences": "إعدادات البريد",
+      "twoFactor": "التحقق الثنائي",
+      "signOutEverywhere": "تسجيل الخروج من كل الأجهزة",
+      "deleteAccount": "حذف الحساب",
+      "sections": {
+        "account": "الحساب",
+        "notifications": "الإشعارات",
+        "security": "الأمان",
+        "danger": "خطر"
+      }
+    }
+  },
+  "tweaks": {
+    "title": "المظهر",
+    "savedOnDevice": "محفوظ على هذا الجهاز",
+    "reset": "إعادة التعيين",
+    "theme": "السمة",
+    "light": "فاتح",
+    "dark": "داكن",
+    "accent": "لون التمييز",
+    "background": "الخلفية",
+    "cornerStyle": "شكل الزوايا",
+    "textSize": "حجم النص",
+    "displayFont": "خط العناوين",
+    "lineSpacing": "تباعد الأسطر",
+    "density": "الكثافة",
+    "accessibility": "إمكانية الوصول",
+    "reduceMotion": "تقليل الحركة",
+    "reduceMotionHint": "تهدئة الانتقالات والرسوم المتحركة",
+    "language": "اللغة",
+    "preview": "معاينة",
+    "previewText": "ما يقرأه العلماء اليوم.",
+    "previewBody": "يستخدم نص المحتوى خطاً بلا أسنان لوضوح أفضل.",
+    "languages": {
+      "en": "English",
+      "ar": "العربية",
+      "ckb": "کوردی"
+    }
+  },
+  "errors": {
+    "couldNotLoad": "تعذّر التحميل",
+    "notFound": "غير موجود",
+    "signInRequired": "سجّل دخولك للمتابعة"
+  },
+  "empty": {
+    "noPostsYet": "لا توجد منشورات بعد",
+    "noResearchYet": "لا توجد بحوث بعد",
+    "noQuestionsYet": "لا توجد أسئلة بعد",
+    "noReelsYet": "لا توجد ريلز بعد",
+    "noPeopleYet": "لم يُعثر على أشخاص"
+  }
+}

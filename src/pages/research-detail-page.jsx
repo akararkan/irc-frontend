@@ -84,6 +84,7 @@ import {
   startsWithRtl,
 } from '@/lib/format'
 import { RelativeTime } from '@/components/app/relative-time'
+import { useTranslation } from 'react-i18next'
 import { bumpCounter, setCounter } from '@/lib/counter-store'
 import { useCooldown } from '@/lib/rate-limit-cooldown'
 import {
@@ -296,10 +297,10 @@ function ReadingTabs({ sourcesCount, citationsCount, commentsCount }) {
   )
 }
 
-// ─── Abstract block — drop-cap on the first paragraph, optional
-// "Show full abstract" toggle when the text overflows the preview. ──
+// ─── Abstract block — drop-cap on English-only first paragraph. ─────
 function AbstractBlock({ text }) {
   const [expanded, setExpanded] = useState(false)
+  const { i18n } = useTranslation()
   const paragraphs = useMemo(
     () =>
       String(text || '')
@@ -312,18 +313,19 @@ function AbstractBlock({ text }) {
   const long = paragraphs.length > 1
   const visible = expanded || !long ? paragraphs : paragraphs.slice(0, 1)
 
+  // Drop-cap is an English/Latin print convention only.
+  // For Arabic or Kurdish — or any RTL paragraph — render straight body copy.
+  const uiIsEnglish = i18n.language === 'en'
+
   return (
     <div>
       <div className="space-y-4 font-serif text-[17.5px] leading-[1.78] text-ink">
         {visible.map((paragraph, index) => {
-          // Drop caps are a Latin print convention — Arabic letters
-          // connect to one another so isolating the first letter
-          // looks broken, and the 80-px scale jars next to the
-          // Arabic naskh body type. Skip the flourish entirely on
-          // RTL paragraphs and render straight serif body copy
-          // instead.
           const isRtl = startsWithRtl(paragraph)
-          if (isRtl) {
+          // Show drop-cap only on the first paragraph, only when the UI
+          // language is English AND the paragraph itself starts in LTR.
+          const showDropCap = index === 0 && uiIsEnglish && !isRtl
+          if (!showDropCap) {
             return (
               <p
                 key={index}
@@ -1851,15 +1853,16 @@ export function ResearchDetailPage() {
   const downloadsEnabled = research.downloadsEnabled !== false
 
   const description = research.description ?? ''
-  // Drop cap is Latin-only. Arabic / Kurdish letters connect to one
-  // another, so isolating the first character renders it in its
-  // standalone form — visually broken and out of place against
-  // naskh body type. Skip the flourish when the article opens in RTL.
+  // Drop-cap is an English/Latin print convention only.
+  // Never show it in Arabic or Kurdish UI mode, or when the paragraph
+  // itself opens with a RTL character (Arabic/Kurdish/Hebrew content).
+  const { i18n: i18nInst } = useTranslation()
   const descriptionIsRtl = startsWithRtl(description)
-  const dropCap = descriptionIsRtl ? '' : description.trim().charAt(0)
-  const descriptionRest = descriptionIsRtl
-    ? description.trim()
-    : description.trim().slice(1)
+  const uiIsEnglish = i18nInst.language === 'en'
+  const dropCap = (uiIsEnglish && !descriptionIsRtl) ? description.trim().charAt(0) : ''
+  const descriptionRest = dropCap
+    ? description.trim().slice(1)
+    : description.trim()
 
   return (
     <article ref={articleRef} className="relative space-y-8 pb-20 lg:pb-12">

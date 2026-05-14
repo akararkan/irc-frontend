@@ -1,0 +1,175 @@
+{
+  "nav": {
+    "home": "Home",
+    "research": "Research",
+    "questions": "Questions",
+    "reels": "Reels",
+    "notifications": "Notifications",
+    "saved": "Saved",
+    "people": "People",
+    "profile": "Profile",
+    "myResearch": "My research",
+    "settings": "Settings",
+    "publishResearch": "Publish research",
+    "researchNetwork": "Research network"
+  },
+  "actions": {
+    "post": "Post",
+    "like": "Like",
+    "liked": "Liked",
+    "unlike": "Unlike",
+    "comment": "Comment",
+    "share": "Share",
+    "save": "Save",
+    "saved": "Saved",
+    "follow": "Follow",
+    "following": "Following",
+    "unfollow": "Unfollow",
+    "send": "Send",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "refresh": "Refresh",
+    "loadMore": "Load more",
+    "loading": "Loading",
+    "submit": "Submit",
+    "close": "Close",
+    "back": "Back",
+    "search": "Search scholars, research, questions, #tags…",
+    "markAllRead": "Mark all read",
+    "discard": "Discard",
+    "saveChanges": "Save changes",
+    "upload": "Upload",
+    "remove": "Remove",
+    "writeAnswer": "Write an answer",
+    "askQuestion": "Ask a question",
+    "browseByTag": "Browse by tag",
+    "publishResearch": "Publish research",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "createAccount": "Create account"
+  },
+  "feed": {
+    "yourFeed": "Your feed",
+    "forYou": "For you",
+    "following": "Following",
+    "latest": "Latest",
+    "nothingYet": "Nothing here yet",
+    "nothingYetDesc": "No posts, research, or questions yet — be the first to share.",
+    "followingEmpty": "Follow people to see their posts, research, and questions here.",
+    "sharePlaceholder": "Share a thought, citation, or finding…",
+    "public": "Public",
+    "followers": "Followers",
+    "onlyMe": "Only me"
+  },
+  "pages": {
+    "home": {
+      "title": "Home"
+    },
+    "research": {
+      "eyebrow": "Research",
+      "title": "Latest scholarship.",
+      "description": "Published research, preprints, and field notes from across the network."
+    },
+    "questions": {
+      "eyebrow": "Questions & answers",
+      "title": "Ask a question. Wait for the right answer.",
+      "description": "A focused Q&A space where every answer is rated by the community and reviewed by qualified scholars before earning a gilt seal.",
+      "questions": "Questions",
+      "answers": "Answers",
+      "filterAll": "All",
+      "filterUnanswered": "Unanswered",
+      "filterSealed": "Sealed",
+      "filterFollowedTags": "Followed tags",
+      "filterBounty": "Bounty",
+      "sortHottest": "Hottest",
+      "sortNewest": "Newest",
+      "everyone": "Everyone",
+      "myQuestions": "My questions"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "markAllRead": "Mark all read",
+      "tabs": {
+        "all": "All",
+        "posts": "Posts",
+        "qna": "Q&A",
+        "research": "Research",
+        "mentions": "Mentions",
+        "social": "Social",
+        "system": "System"
+      }
+    },
+    "saved": {
+      "eyebrow": "Section 11",
+      "title": "Saved.",
+      "description": "Posts, research, and questions you've bookmarked across the network.",
+      "tabs": {
+        "posts": "Posts",
+        "research": "Research",
+        "questions": "Questions"
+      }
+    },
+    "people": {
+      "eyebrow": "Discover",
+      "title": "People worth knowing.",
+      "description": "Scholars, researchers, and thinkers in your field."
+    },
+    "settings": {
+      "profile": "Profile",
+      "links": "Links",
+      "contacts": "Contacts",
+      "password": "Password",
+      "emailPreferences": "Email preferences",
+      "twoFactor": "Two-factor",
+      "signOutEverywhere": "Sign out everywhere",
+      "deleteAccount": "Delete account",
+      "sections": {
+        "account": "Account",
+        "notifications": "Notifications",
+        "security": "Security",
+        "danger": "Danger"
+      }
+    }
+  },
+  "tweaks": {
+    "title": "Appearance",
+    "savedOnDevice": "Saved on this device",
+    "reset": "Reset to defaults",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "accent": "Accent colour",
+    "background": "Background",
+    "cornerStyle": "Corner style",
+    "textSize": "Text size",
+    "displayFont": "Display font",
+    "lineSpacing": "Line spacing",
+    "density": "Density",
+    "accessibility": "Accessibility",
+    "reduceMotion": "Reduce motion",
+    "reduceMotionHint": "Calms transitions and animations",
+    "language": "Language",
+    "preview": "Preview",
+    "previewText": "What scholars are reading today.",
+    "previewBody": "Body text uses the system sans for clarity and legibility across languages.",
+    "languages": {
+      "en": "English",
+      "ar": "العربية",
+      "ckb": "کوردی"
+    }
+  },
+  "errors": {
+    "couldNotLoad": "Could not load",
+    "notFound": "Not found",
+    "signInRequired": "Sign in to continue"
+  },
+  "empty": {
+    "noPostsYet": "No posts yet",
+    "noResearchYet": "No research yet",
+    "noQuestionsYet": "No questions yet",
+    "noReelsYet": "No reels yet",
+    "noPeopleYet": "No people found"
+  }
+}

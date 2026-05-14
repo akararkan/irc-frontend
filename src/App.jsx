@@ -1,3 +1,4 @@
+import './i18n'
 import { TweaksProvider } from '@/features/tweaks/tweaks-context'
 import { AppRouter } from '@/routes/app-router'
 

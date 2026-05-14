@@ -3,6 +3,7 @@ import {
   ALargeSmall,
   AlignJustify,
   Check,
+  Languages,
   Layers,
   Moon,
   Palette,
@@ -24,6 +25,7 @@ import {
   RADIUS_OPTIONS,
   useTweaks,
 } from '@/features/tweaks/tweaks-context'
+import { LANGUAGES } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 const Popover = PopoverPrimitive.Root
@@ -383,13 +385,51 @@ function SwitchRow({ label, hint, checked, onChange, icon: Icon }) {
   )
 }
 
+// ─── Language picker ────────────────────────────────────────────────
+function LanguagePicker({ value, onChange }) {
+  return (
+    <div className="grid grid-cols-3 gap-1.5">
+      {LANGUAGES.map((lang) => {
+        const active = value === lang.code
+        return (
+          <button
+            key={lang.code}
+            type="button"
+            onClick={() => onChange(lang.code)}
+            className={cn(
+              'flex flex-col items-center gap-1.5 rounded-xl border-[0.5px] px-2 py-3 transition-all',
+              active
+                ? 'border-brand/40 bg-paper shadow-[0_0_0_1.5px_var(--brand)]'
+                : 'border-border bg-secondary/40 hover:bg-secondary',
+            )}
+            title={lang.label}
+            dir={lang.dir}
+          >
+            <span className={cn('text-[18px] font-semibold leading-none', active ? 'text-brand' : 'text-ink')}>
+              {lang.code === 'en' ? 'A' : lang.code === 'ar' ? 'ع' : 'ک'}
+            </span>
+            <span className={cn('text-[11px] font-medium leading-none', active ? 'text-brand' : 'text-ink-3')}>
+              {lang.nativeLabel}
+            </span>
+            {active ? (
+              <span className="absolute right-1.5 top-1.5 grid size-3.5 place-items-center rounded-full bg-brand text-paper">
+                <Check className="size-2.5" strokeWidth={2.5} />
+              </span>
+            ) : null}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Main menu ──────────────────────────────────────────────────────
 export function TweaksMenu({ trigger }) {
   const {
     theme, accent, displayFont, fontScale, density,
-    pageBg, radius, lineHeight, reducedMotion, isDark,
+    pageBg, radius, lineHeight, reducedMotion, isDark, lang,
     setTheme, setAccent, setDisplayFont, setFontScale, setDensity,
-    setPageBg, setRadius, setLineHeight, setReducedMotion, reset,
+    setPageBg, setRadius, setLineHeight, setReducedMotion, setLang, reset,
   } = useTweaks()
 
   return (
@@ -479,6 +519,12 @@ export function TweaksMenu({ trigger }) {
               checked={reducedMotion}
               onChange={setReducedMotion}
             />
+          </div>
+
+          {/* Language */}
+          <div className="relative">
+            <SectionLabel icon={Languages}>Language · زمان · زمان</SectionLabel>
+            <LanguagePicker value={lang ?? 'en'} onChange={setLang} />
           </div>
 
           {/* Live preview */}

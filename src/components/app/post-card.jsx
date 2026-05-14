@@ -98,6 +98,7 @@ import {
   getUsername,
   resolveMediaUrl,
 } from '@/lib/format'
+import { FRONTEND_URL } from '@/config/env'
 
 const VISIBILITY = {
   PUBLIC: { Icon: Globe, label: 'Public' },
@@ -673,8 +674,7 @@ function ShareMenu({ post, onShared, onRepostCreated }) {
   // Fallback used only if the new /copy-link endpoint fails — never
   // bumps a counter, just gives the user *something* to paste.
   function fallbackLink() {
-    if (typeof window === 'undefined') return ''
-    return `${window.location.origin}/posts/${post.id}`
+    return `${FRONTEND_URL}/posts/${post.id}`
   }
 
   async function handleCopy() {

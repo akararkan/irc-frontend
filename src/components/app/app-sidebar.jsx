@@ -21,21 +21,19 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useNotifications } from '@/features/notifications/notifications-context'
 import { cn } from '@/lib/utils'
 import { getFullName, getHandle } from '@/lib/format'
+import { useTranslation } from 'react-i18next'
 
-// IRC Scholar spec §02 — App shell. Sidebar organises by *type of thinking*:
-// Home (the unified Posts + Research + Q&A feed), then Research, Questions,
-// Reels, then a Social cluster.
-const PRIMARY_ITEMS = [
-  { to: '/', icon: Sparkles, label: 'Home', end: true },
-  { to: '/research', icon: BookOpenText, label: 'Research' },
-  { to: '/questions', icon: MessageCircleQuestion, label: 'Questions' },
-  { to: '/reels', icon: Clapperboard, label: 'Reels' },
+const PRIMARY_ROUTES = [
+  { to: '/', icon: Sparkles, key: 'nav.home', end: true },
+  { to: '/research', icon: BookOpenText, key: 'nav.research' },
+  { to: '/questions', icon: MessageCircleQuestion, key: 'nav.questions' },
+  { to: '/reels', icon: Clapperboard, key: 'nav.reels' },
 ]
 
-const SOCIAL_ITEMS = [
-  { to: '/notifications', icon: Bell, label: 'Notifications', badge: 'notifications' },
-  { to: '/saved', icon: BookMarked, label: 'Saved' },
-  { to: '/people', icon: Users, label: 'People' },
+const SOCIAL_ROUTES = [
+  { to: '/notifications', icon: Bell, key: 'nav.notifications', badge: 'notifications' },
+  { to: '/saved', icon: BookMarked, key: 'nav.saved' },
+  { to: '/people', icon: Users, key: 'nav.people' },
 ]
 
 function SectionLabel({ children }) {
@@ -88,6 +86,7 @@ export function AppSidebar({ onNavigate }) {
   }
 
   const profileHref = user?.username ? `/profile/${user.username}` : null
+  const { t } = useTranslation()
 
   return (
     <aside className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
@@ -104,21 +103,21 @@ export function AppSidebar({ onNavigate }) {
           <p className="truncate font-display text-[15px] font-medium tracking-[-0.01em] text-ink">
             Scholar
           </p>
-          <p className="truncate text-[11px] text-ink-3">Research network</p>
+          <p className="truncate text-[11px] text-ink-3">{t('nav.researchNetwork')}</p>
         </div>
       </Link>
 
       {/* ── Nav ───────────────────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto px-3 pb-2">
         <div className="space-y-[2px]">
-          {PRIMARY_ITEMS.map((item) => (
-            <NavItem key={item.to} item={item} onNavigate={onNavigate} />
+          {PRIMARY_ROUTES.map((item) => (
+            <NavItem key={item.to} item={{ ...item, label: t(item.key) }} onNavigate={onNavigate} />
           ))}
         </div>
 
         <div className="space-y-[2px]">
-          {SOCIAL_ITEMS.map((item) => (
-            <NavItem key={item.to} item={item} onNavigate={onNavigate} />
+          {SOCIAL_ROUTES.map((item) => (
+            <NavItem key={item.to} item={{ ...item, label: t(item.key) }} onNavigate={onNavigate} />
           ))}
         </div>
 
@@ -128,18 +127,18 @@ export function AppSidebar({ onNavigate }) {
             <div className="space-y-[2px]">
               {profileHref ? (
                 <NavItem
-                  item={{ to: profileHref, icon: User2, label: 'Profile' }}
+                  item={{ to: profileHref, icon: User2, label: t('nav.profile') }}
                   onNavigate={onNavigate}
                 />
               ) : null}
               {canPublishResearch(user) ? (
                 <NavItem
-                  item={{ to: '/my-research', icon: BookMarked, label: 'My research' }}
+                  item={{ to: '/my-research', icon: BookMarked, label: t('nav.myResearch') }}
                   onNavigate={onNavigate}
                 />
               ) : null}
               <NavItem
-                item={{ to: '/settings', icon: Settings, label: 'Settings' }}
+                item={{ to: '/settings', icon: Settings, label: t('nav.settings') }}
                 onNavigate={onNavigate}
               />
             </div>
