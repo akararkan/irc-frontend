@@ -499,7 +499,17 @@ const ReelCard = forwardRef(function ReelCard(
     if (!wasReacting) bumpCounter('post', reel.id, 'rx', railReactionCount, +1)
     setWorking(true)
     try {
-      await reactToPost(reel.id, type)
+      // Reconcile against the server's authoritative PostResponse —
+      // see post-card.jsx for the rationale (idempotent re-click,
+      // delayed SSE echo, store/heart drift).
+      const updated = await reactToPost(reel.id, type)
+      if (updated?.id) {
+        onChange?.(updated)
+        if (updated.reactionCount != null) {
+          setCounter('post', reel.id, 'rx', updated.reactionCount)
+        }
+        seedFromResponse('post', updated, { authoritative: true })
+      }
     } catch (error) {
       onChange?.(previous)
       forgetReaction('post', reel.id)
@@ -522,7 +532,17 @@ const ReelCard = forwardRef(function ReelCard(
     bumpCounter('post', reel.id, 'rx', railReactionCount, -1)
     setWorking(true)
     try {
-      await removePostReaction(reel.id)
+      // DELETE now returns 200 with the full PostResponse — trust it
+      // over the optimistic decrement so the rail's count stays exact
+      // even when another viewer's reaction is in flight.
+      const updated = await removePostReaction(reel.id)
+      if (updated?.id) {
+        onChange?.(updated)
+        if (updated.reactionCount != null) {
+          setCounter('post', reel.id, 'rx', updated.reactionCount)
+        }
+        seedFromResponse('post', updated, { authoritative: true })
+      }
     } catch (error) {
       onChange?.(previous)
       if (previousCached) rememberReaction('post', reel.id, previousCached)
@@ -1341,10 +1361,11 @@ function ReelsLoadingSkeleton() {
 
 // ─── Page ───────────────────────────────────────────────────────────
 export function ReelsPage() {
-  // Auth state is intentionally not consulted at this level — guests
-  // see the same scroll feed as signed-in viewers. Per-reel gates
-  // (FollowChip, ReelCard's react / clearReaction, ShareSheet's
-  // copyLink) consult useAuth themselves where signed-in matters.
+  // Auth state is mostly delegated to per-reel gates (FollowChip,
+  // ReelCard's react / clearReaction, ShareSheet's copyLink) — but we
+  // do read the viewer id here for the own-actor SSE filter so own
+  // save/react echoes don't fight optimistic updates inside cards.
+  const { user: currentUser } = useAuth()
   const toast = useToast()
   const [reels, setReels] = useState([])
   const [page, setPage] = useState(null)
@@ -1559,7 +1580,11 @@ export function ReelsPage() {
     SAVE_COUNT_UPDATED: (payload) => {
       const id = payload?.postId ?? payload?.id ?? activeReel?.id
       const next = payload?.postSaveCount ?? payload?.saveCount
-      if (id && next != null) setCounter('post', id, 'sv', next)
+      if (!id || next == null) return
+      // Own-actor guard — optimistic + HTTP-response reconciliation
+      // in handleToggleSave already wrote the right number.
+      if (currentUser?.id && payload?.actorId === currentUser.id) return
+      setCounter('post', id, 'sv', next)
     },
     COMMENT_CREATED: (payload) => {
       const id = payload?.postId ?? payload?.id ?? activeReel?.id

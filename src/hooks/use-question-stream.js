@@ -34,6 +34,10 @@ export const QUESTION_REALTIME_EVENTS = [
   // per viewer (Redis SET NX EX, 1h) so the count moves at the same
   // rate as the post / research view broadcasts.
   'VIEW_COUNT_UPDATED',
+  // Save / bookmark counter — payload carries `questionSaveCount`.
+  // Fires on every save/unsave (idempotent on the server side, but
+  // only emits when the state actually changed).
+  'SAVE_COUNT_UPDATED',
 ]
 
 /**

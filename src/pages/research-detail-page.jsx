@@ -1465,22 +1465,33 @@ export function ResearchDetailPage() {
         toast.info('This research was removed by its author.')
         navigate('/research', { replace: true })
       },
+      // Own-actor guard: when the SSE echoes the viewer's own toggle,
+      // the optimistic update + DELETE-response reconciliation in
+      // handlePickReaction / handleClearReaction already wrote the
+      // authoritative count locally. Adopting payload.reactionCount
+      // here would clobber that with whatever number the backend
+      // snapshotted at broadcast time (which can lag the read-after-
+      // write). Other viewers' reactions still update the count live.
       REACTION_ADDED: (payload) => {
         const id = research?.id
         if (!payload || !id) return
+        if (currentUser?.id && payload.actorId === currentUser.id) return
         const next = payload.reactionCount
-        if (next != null) setCounter('research', id, 'rx', next)
+        if (next == null) return
+        setCounter('research', id, 'rx', next)
         setResearch((current) =>
-          current ? { ...current, reactionCount: next ?? current.reactionCount } : current,
+          current ? { ...current, reactionCount: next } : current,
         )
       },
       REACTION_REMOVED: (payload) => {
         const id = research?.id
         if (!payload || !id) return
+        if (currentUser?.id && payload.actorId === currentUser.id) return
         const next = payload.reactionCount
-        if (next != null) setCounter('research', id, 'rx', next)
+        if (next == null) return
+        setCounter('research', id, 'rx', next)
         setResearch((current) =>
-          current ? { ...current, reactionCount: next ?? current.reactionCount } : current,
+          current ? { ...current, reactionCount: next } : current,
         )
       },
       COMMENT_CREATED: (payload) => {
@@ -1545,6 +1556,9 @@ export function ResearchDetailPage() {
       SAVE_COUNT_UPDATED: (payload) => {
         const id = research?.id
         if (!id || payload?.saveCount == null) return
+        // Own-actor guard: handleToggleSave already wrote the
+        // authoritative count from the HTTP response.
+        if (currentUser?.id && payload.actorId === currentUser.id) return
         setCounter('research', id, 'sv', payload.saveCount)
         setResearch((current) =>
           current ? { ...current, saveCount: payload.saveCount } : current,
@@ -1639,7 +1653,17 @@ export function ResearchDetailPage() {
     bumpCounter('research', research.id, 'rx', previousReactionCount, -1)
     setWorking(true)
     try {
-      await removeResearchReaction(research.id)
+      // DELETE now returns 200 with the full ResearchResponse — adopt
+      // the authoritative reactionCount + currentUserReacted:false in
+      // case the optimistic decrement lagged behind another viewer's
+      // concurrent reaction.
+      const updated = await removeResearchReaction(research.id)
+      if (updated?.id) {
+        setResearch((current) => (current ? { ...current, ...updated } : updated))
+        if (updated.reactionCount != null) {
+          setCounter('research', research.id, 'rx', updated.reactionCount)
+        }
+      }
     } catch (error) {
       setResearch(previous)
       setReacted(
@@ -1660,30 +1684,40 @@ export function ResearchDetailPage() {
       toast.info('Sign in to save research.')
       return
     }
+    const previous = research
     const wasSaved = Boolean(research.currentUserSaved)
     const previousSaveCount = research?.saveCount ?? 0
+    // Optimistic flip first so the toggle feels instant.
+    setResearch((current) => ({
+      ...current,
+      currentUserSaved: !wasSaved,
+      saveCount: wasSaved
+        ? Math.max(0, (current?.saveCount ?? 0) - 1)
+        : (current?.saveCount ?? 0) + 1,
+    }))
+    setSaved('research', research.id, !wasSaved)
+    bumpCounter('research', research.id, 'sv', previousSaveCount, wasSaved ? -1 : +1)
     try {
-      if (wasSaved) {
-        await unsaveResearch(research.id)
-        setResearch((current) => ({
-          ...current,
-          currentUserSaved: false,
-          saveCount: Math.max(0, (current?.saveCount ?? 0) - 1),
-        }))
-        setSaved('research', research.id, false)
-        bumpCounter('research', research.id, 'sv', previousSaveCount, -1)
-      } else {
-        await saveResearch(research.id)
-        setResearch((current) => ({
-          ...current,
-          currentUserSaved: true,
-          saveCount: (current?.saveCount ?? 0) + 1,
-        }))
-        setSaved('research', research.id, true)
-        bumpCounter('research', research.id, 'sv', previousSaveCount, +1)
-        toast.success('Saved to your library.')
+      // Both endpoints return the updated ResearchResponse — reconcile
+      // against authoritative saveCount + currentUserSaved so the
+      // optimistic delta never drifts under concurrent savers.
+      const updated = wasSaved
+        ? await unsaveResearch(research.id)
+        : await saveResearch(research.id)
+      if (updated?.id) {
+        setResearch((current) => (current ? { ...current, ...updated } : updated))
+        if (updated.saveCount != null) {
+          setCounter('research', research.id, 'sv', updated.saveCount)
+        }
+        if (updated.currentUserSaved != null) {
+          setSaved('research', research.id, Boolean(updated.currentUserSaved))
+        }
       }
+      if (!wasSaved) toast.success('Saved to your library.')
     } catch (error) {
+      setResearch(previous)
+      setSaved('research', research.id, wasSaved)
+      setCounter('research', research.id, 'sv', previousSaveCount)
       toast.error(extractApiMessage(error, 'Could not update save state.'))
     }
   }

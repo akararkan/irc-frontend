@@ -168,6 +168,7 @@
   --danger-bg:#FBE5E5;  --danger-fg:#791C1C;
   --mute-bg:  #ECEAE3;  --mute-fg:  #43403A;
   --purple-bg:#ECEAFA;  --purple-fg:#3C3489;
+  --love-bg:  #FFE4E6;  --love-fg:  #BE123C;  /* heart-liked state — rose-100 / rose-700 */
 
   /* In-content accents — kept for back-compat with components */
   --accent-rust:   #B57417;
@@ -240,6 +241,7 @@
   --danger-bg: rgba(216, 90, 48, 0.18);--danger-fg: #F0A88E;
   --mute-bg: rgba(229, 220, 196, 0.08);--mute-fg: #D8D2BF;
   --purple-bg: rgba(160, 152, 220, 0.18);--purple-fg: #C0B8E8;
+  --love-bg: rgba(244, 63, 94, 0.16); --love-fg: #FDA4AF;
 
   --accent-rust:   #D88A4A;
   --accent-sage:   #5BBA9C;
@@ -584,9 +586,16 @@
   }
   .rx:hover { background: var(--secondary); }
   .rx.is-on {
-    background: var(--info-bg);
-    border-color: var(--info-fg);
-    color: var(--info-fg);
+    background: var(--love-bg);
+    border-color: color-mix(in oklab, var(--love-fg) 38%, transparent);
+    color: var(--love-fg);
+  }
+  .rx.is-on > svg { animation: rx-pop 280ms cubic-bezier(.34,1.56,.64,1); }
+  @keyframes rx-pop {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.22); }
+    70%  { transform: scale(0.95); }
+    100% { transform: scale(1); }
   }
   .rx-bare {
     display: inline-flex;

@@ -314,7 +314,11 @@ function CommentItem({
     })
     setWorking(true)
     try {
-      await removeResearchCommentReaction(researchId, comment.id)
+      // DELETE now returns 200 with the updated CommentResponse —
+      // adopt likeCount + myReaction:null so a concurrent reactor's
+      // change is reflected without waiting for the SSE echo.
+      const updated = await removeResearchCommentReaction(researchId, comment.id)
+      if (updated?.id) onChange?.({ ...comment, ...updated })
     } catch (error) {
       onChange?.({
         ...comment,
@@ -520,8 +524,11 @@ function CommentItem({
           </>
         )}
 
-        {/* Single-LIKE heart toggle — same UX as posts / QnA. */}
-        <div className="mt-2 flex items-start gap-5 text-[11.5px] text-ink-3">
+        {/* Single-LIKE heart toggle + Reply — unified `.rx` pill so
+            research comments, post comments, and QnA replies share the
+            same affordance. The pill turns rose when liked and pops on
+            toggle via the .rx.is-on keyframe. */}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {isAuthenticated ? (
             <button
               type="button"
@@ -531,18 +538,18 @@ function CommentItem({
               disabled={working}
               aria-pressed={Boolean(myReaction)}
               aria-label={myReaction ? 'Unlike' : 'Like'}
-              className={cn(
-                'inline-flex flex-col items-center gap-0.5 transition-colors active:scale-95',
-                myReaction ? 'text-rose-600' : 'hover:text-ink',
-              )}
+              className={cn('rx', myReaction && 'is-on', 'active:scale-95')}
             >
               <Heart
-                className={cn('size-[14px]', myReaction && 'fill-current')}
-                strokeWidth={1.6}
+                className="size-[14px]"
+                strokeWidth={1.5}
+                fill={myReaction ? 'currentColor' : 'none'}
               />
-              <span className="tabular-nums">
-                {reactionCount > 0 ? formatNumber(reactionCount) : 'Like'}
-              </span>
+              {reactionCount > 0 ? (
+                <span className="tabular-nums">{formatNumber(reactionCount)}</span>
+              ) : (
+                <span>Like</span>
+              )}
             </button>
           ) : null}
 
@@ -550,13 +557,12 @@ function CommentItem({
             <button
               type="button"
               onClick={() => setShowReplyBox((v) => !v)}
-              className="inline-flex flex-col items-center gap-0.5 transition-colors hover:text-ink"
+              className="rx-bare"
             >
               <MessageCircle className="size-[14px]" strokeWidth={1.6} />
               <span>Reply</span>
             </button>
           ) : null}
-
         </div>
 
         {showReplyBox ? (
@@ -836,12 +842,18 @@ export const ResearchComments = forwardRef(function ResearchComments(
             // deprecated `commentLikeCount` for older SSE clients.
             const nextCount =
               payload.commentReactionCount ?? payload.commentLikeCount
+            const isOwnActor =
+              currentUser?.id && payload.actorId === currentUser.id
             const patch = {}
-            if (nextCount != null) patch.likeCount = nextCount
+            // Own-actor count race: the optimistic update + DELETE
+            // response body already wrote the right likeCount locally.
+            // Adopting payload count here would risk clobbering it
+            // with a stale broadcast snapshot. Skip for own-actor.
+            if (nextCount != null && !isOwnActor) patch.likeCount = nextCount
             // Cross-device sync: when the actor is the current viewer,
             // reflect the reaction switch / removal in our own UI so a
             // tap on device A repaints the heart on device B.
-            if (currentUser?.id && payload.actorId === currentUser.id) {
+            if (isOwnActor) {
               patch.myReaction =
                 type === 'COMMENT_REACTION_REMOVED'
                   ? null

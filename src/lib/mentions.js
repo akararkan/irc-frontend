@@ -11,7 +11,14 @@ const FOLLOWERS_TOKEN = 'followers'
 
 // Negative lookbehind for an alphanumeric or `_` `.` so emails / URLs don't match.
 // Using `(?<![A-Za-z0-9._])` keeps parity with the backend's word-boundary rule.
-const MENTION_REGEX = /(?<![A-Za-z0-9._])@([a-zA-Z0-9_.]{2,50})/g
+//
+// The optional `(?:@[A-Za-z0-9.-]+\.[A-Za-z]{2,})?` tail swallows an email
+// domain when one is glued directly to the mention (e.g. a user typed
+// `@bob@gmail.com` because their account uses the email as username).
+// The local-part stays the captured group used for lookup/display; the
+// domain part is consumed silently so the rendered comment shows just
+// the chip, not a trailing `@gmail.com` floating in body text.
+const MENTION_REGEX = /(?<![A-Za-z0-9._])@([a-zA-Z0-9_.]{2,50})(?:@[A-Za-z0-9.-]+\.[A-Za-z]{2,})?/g
 
 /**
  * Tokenize text into an array of segments:

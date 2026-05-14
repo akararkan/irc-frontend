@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { suggestMentions } from '@/features/mentions/mentions.api'
 import { getUserByUsername } from '@/features/users/users.api'
 
 /**
@@ -83,12 +84,26 @@ export function hasCachedUser(username) {
  * Drop a freshly-known user into the cache. Accepts the various shapes
  * the rest of the codebase passes around — UserResponse, search hit,
  * mention picker option — and normalizes to a record with `username`.
+ *
+ * When the username is email-shaped (`name@host`), we ALSO seed under
+ * the local-part key so a mention chip parsed by the FE regex (which
+ * only ever captures the local-part) resolves to the same record. Without
+ * this dual-keying, a user whose stored username is the email would
+ * have their `@akar.arkanf19` mentions stuck on the handle fallback
+ * because `useResolvedUser('akar.arkanf19')` would miss.
  */
 export function seedUserCache(user) {
   if (!user) return
-  const key = keyOf(user.username ?? user.authorUsername ?? user.lastActorUsername)
-  if (!key) return
-  setEntry(key, user)
+  const raw = user.username ?? user.authorUsername ?? user.lastActorUsername
+  const primary = keyOf(raw)
+  if (!primary) return
+  setEntry(primary, user)
+  // Mirror under the local-part so handle-shaped mention tokens hit.
+  if (typeof raw === 'string' && raw.includes('@')) {
+    const localPart = raw.split('@')[0]
+    const alias = keyOf(localPart)
+    if (alias && alias !== primary) setEntry(alias, user)
+  }
 }
 
 /**
@@ -114,15 +129,43 @@ export async function fetchUserByUsername(username) {
   const promise = (async () => {
     try {
       const user = await getUserByUsername(key)
-      setEntry(key, user ?? null)
-      return user ?? null
+      if (user) {
+        // Use seedUserCache so the email-shaped alias also fills in.
+        seedUserCache(user)
+        return user
+      }
     } catch {
-      setEntry(key, null)
-      return null
-    } finally {
-      inflight.delete(key)
+      // fall through to the suggest fallback
     }
-  })()
+    // Fallback: the backend lookup is exact-match on `username`, so a
+    // mention `@akar.arkanf19` whose actual stored username is
+    // `akar.arkanf19@gmail.com` 404s. The mention-suggest endpoint
+    // does prefix matching, so we use it to pick up the email-shaped
+    // record by its local-part. Top result is the most relevant by
+    // backend ranking; we only accept it when the local-part actually
+    // matches what we asked for (avoids returning a sibling like
+    // `akar.arkanf20` when the query had a typo).
+    try {
+      const suggestions = await suggestMentions({ q: key, limit: 5 })
+      const match = suggestions.find((u) => {
+        const candidate = (u.username ?? '').toString().toLowerCase()
+        if (!candidate) return false
+        if (candidate === key) return true
+        const localPart = candidate.split('@')[0]
+        return localPart === key
+      })
+      if (match) {
+        seedUserCache(match)
+        return match
+      }
+    } catch {
+      // ignore — fall through to the negative cache
+    }
+    setEntry(key, null)
+    return null
+  })().finally(() => {
+    inflight.delete(key)
+  })
   inflight.set(key, promise)
   return promise
 }

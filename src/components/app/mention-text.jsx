@@ -10,8 +10,9 @@ import { getFullName, getHandle } from '@/lib/format'
  * Single mention chip — Facebook-style.
  *
  *   - Renders the user's display name in brand color, no `@` prefix.
- *   - Falls back to the literal username while the cache is hydrating
- *     so the chip never blinks empty.
+ *   - Falls back to the sanitized handle while the cache is hydrating
+ *     so the chip never blinks empty, and an email-shaped username
+ *     never leaks `@domain` onto the screen.
  *   - Click opens the profile.
  *
  * The cache fetch fires once per username per session via
@@ -20,13 +21,12 @@ import { getFullName, getHandle } from '@/lib/format'
  */
 function MentionLink({ username, className }) {
   const resolved = useResolvedUser(username)
-  // Display-safe handle: an email-shaped username never lands on screen
-  // as a literal address — getHandle strips it to the local-part.
   const fallbackHandle = getHandle({ username })
   const display = resolved
     ? getFullName(resolved) || getHandle(resolved)
     : null
   const label = display || fallbackHandle || username
+  const tooltipHandle = getHandle(resolved) || fallbackHandle || username
   return (
     <Link
       to={`/profile/${username}`}
@@ -34,7 +34,7 @@ function MentionLink({ username, className }) {
         'font-semibold text-brand transition-colors hover:underline',
         className,
       )}
-      title={getHandle(resolved) ? `@${getHandle(resolved)}` : `@${fallbackHandle || username}`}
+      title={`@${tooltipHandle}`}
     >
       {label}
     </Link>

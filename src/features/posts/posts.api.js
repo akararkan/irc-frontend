@@ -13,11 +13,6 @@ export async function getFeed({ page = 0, size = 20 } = {}) {
   return response.data
 }
 
-export async function getFollowingFeed({ page = 0, size = 20 } = {}) {
-  const response = await api.get('/api/v1/posts/feed/following', { params: { page, size } })
-  return response.data
-}
-
 /**
  * Cursor-paginated public feed. Preferred for infinite scroll — performance
  * stays flat as the user scrolls (offset pagination degrades past page ~50).
@@ -34,6 +29,21 @@ export async function getFeedCursor({ cursor, limit = 20 } = {}) {
   const params = { limit }
   if (cursor) params.cursor = cursor
   const response = await api.get('/api/v1/posts/feed/cursor', { params })
+  return response.data
+}
+
+/**
+ * Cursor-paginated following feed — same shape as {@link getFeedCursor}.
+ * Stable under concurrent inserts: a new post landing while the user
+ * scrolls doesn't shift the page boundary like offset pagination does.
+ * Auth required.
+ *
+ * Response: { items: PostResponse[], nextCursor: string|null, hasMore: boolean }
+ */
+export async function getFollowingFeedCursor({ cursor, limit = 20 } = {}) {
+  const params = { limit }
+  if (cursor) params.cursor = cursor
+  const response = await api.get('/api/v1/posts/feed/following/cursor', { params })
   return response.data
 }
 
@@ -146,11 +156,15 @@ export async function reactToPost(postId, reactionType) {
   return response.data
 }
 
+// Backend returns 200 with the updated PostResponse body (the
+// authoritative reactionCount + myReaction:null), so we surface it
+// here for callers to reconcile their optimistic state against.
 export async function removePostReaction(postId) {
-  await api.delete(
+  const response = await api.delete(
     `/api/v1/posts/${postId}/react`,
     idempotencyHeaders(newIdempotencyKey()),
   )
+  return response.data
 }
 
 // ── Repost / Reshare (Facebook-style) ──────────────────────────
@@ -221,23 +235,28 @@ export async function copyPostShareLink(postId) {
 /**
  * POST /api/v1/posts/{postId}/save — idempotent bookmark.
  * `collection` is optional; backend defaults to "Default".
+ * Returns the updated PostResponse (authoritative isSaved + saveCount).
  */
 export async function savePost(postId, collection) {
   const headers = idempotencyHeaders(newIdempotencyKey())
-  await api.post(
+  const response = await api.post(
     `/api/v1/posts/${postId}/save`,
     null,
     collection
       ? { params: { collection }, headers: headers?.headers }
       : headers,
   )
+  return response.data
 }
 
+// DELETE returns 200 with the updated PostResponse — surface it so
+// callers can reconcile their optimistic state against the server.
 export async function unsavePost(postId) {
-  await api.delete(
+  const response = await api.delete(
     `/api/v1/posts/${postId}/save`,
     idempotencyHeaders(newIdempotencyKey()),
   )
+  return response.data
 }
 
 /** GET /api/v1/posts/me/saved — paged PostResponse. */

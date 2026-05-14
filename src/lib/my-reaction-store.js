@@ -29,7 +29,14 @@ import { useEffect, useState } from 'react'
  * vice versa.
  */
 
-const KINDS = new Set(['post', 'postComment', 'research', 'researchComment', 'answer'])
+const KINDS = new Set([
+  'post',
+  'postComment',
+  'research',
+  'researchComment',
+  'answer',
+  'question',
+])
 
 const reacted = new Map() // key → boolean
 const saved = new Map() // key → boolean

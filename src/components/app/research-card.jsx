@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom'
 
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
+import { useAuth } from '@/features/auth/auth-context'
 import { useInView } from '@/hooks/use-in-view'
 import { useResearchStream } from '@/hooks/use-research-stream'
 import { cn } from '@/lib/utils'
@@ -46,6 +47,7 @@ const STATUS_META = {
  * change so the reader's eye registers the bump.
  */
 export function ResearchCard({ item: incoming }) {
+  const { user: currentUser } = useAuth()
   // Local mirror so SSE-driven counter updates re-render the card
   // without forcing every caller to thread an `onChange` prop.
   const [item, setItem] = useState(incoming)
@@ -89,6 +91,7 @@ export function ResearchCard({ item: incoming }) {
       },
       SAVE_COUNT_UPDATED: (payload) => {
         if (payload?.saveCount == null) return
+        if (currentUser?.id && payload.actorId === currentUser.id) return
         patch({ saveCount: payload.saveCount })
       },
       SHARE_COUNT_UPDATED: (payload) => {
@@ -99,12 +102,18 @@ export function ResearchCard({ item: incoming }) {
         if (payload?.citationCount == null) return
         patch({ citationCount: payload.citationCount })
       },
+      // Own-actor guard: when the card is showing the viewer's own
+      // reaction echo, skip the count patch — the optimistic update
+      // and DELETE-response reconciliation upstream already wrote the
+      // correct number. Other viewers' events still update live.
       REACTION_ADDED: (payload) => {
         if (payload == null) return
+        if (currentUser?.id && payload.actorId === currentUser.id) return
         patch({ reactionCount: payload.reactionCount ?? item.reactionCount })
       },
       REACTION_REMOVED: (payload) => {
         if (payload == null) return
+        if (currentUser?.id && payload.actorId === currentUser.id) return
         patch({ reactionCount: payload.reactionCount ?? item.reactionCount })
       },
       COMMENT_CREATED: (payload) => {

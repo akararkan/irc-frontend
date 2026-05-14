@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -281,8 +282,13 @@ function CommentItem({
    *  top-level parent's loaded replies list. Lets nested replies
    *  host their own "Reply" button without spawning a depth-2 tree. */
   onSiblingReplyAdded,
+  /** Depth-0 only: registers a per-parent patcher that PostComments
+   *  invokes when a COMMENT_REACTION_* SSE arrives for one of this
+   *  comment's loaded replies. Returns an unsubscribe fn. */
+  registerReplyPatcher,
 }) {
   const { user: currentUser, isAuthenticated } = useAuth()
+  const currentUserId = currentUser?.id ?? null
   const toast = useToast()
   const [working, setWorking] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -293,6 +299,34 @@ function CommentItem({
   const [repliesLoaded, setRepliesLoaded] = useState(false)
   const [repliesOpen, setRepliesOpen] = useState(false)
   const [loadingReplies, setLoadingReplies] = useState(false)
+
+  // Subscribe to per-reply reaction patches from the parent
+  // PostComments' SSE handler. We only attach at depth=0 since
+  // re-replies (depth=1) live inside this same `replies` array
+  // and are reachable from this patcher too.
+  useEffect(() => {
+    if (depth !== 0 || !registerReplyPatcher) return undefined
+    return registerReplyPatcher(comment.id, ({ commentId, reactionCount, reactionType, actorId, added }) => {
+      setReplies((current) =>
+        current.map((reply) => {
+          if (reply.id !== commentId) return reply
+          const actorIsMe = currentUserId != null && actorId === currentUserId
+          // Same own-actor race as the top-level handler: trust the
+          // optimistic count we already wrote when the event is the
+          // viewer's own echo, otherwise adopt the SSE count.
+          return {
+            ...reply,
+            reactionCount: actorIsMe
+              ? reply.reactionCount
+              : (reactionCount ?? reply.reactionCount),
+            myReaction: actorIsMe
+              ? (added ? (reactionType ?? 'LIKE') : null)
+              : reply.myReaction,
+          }
+        }),
+      )
+    })
+  }, [comment.id, depth, registerReplyPatcher, currentUserId])
 
   const author = normalizeAuthor(comment)
   const commentAuthorId = comment.author?.id ?? comment.authorId
@@ -701,11 +735,29 @@ export const PostComments = forwardRef(function PostComments(
   { postId, initialCount = 0, onCountChange, postAuthorId, postAuthorUsername },
   ref,
 ) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user: currentUser } = useAuth()
+  const currentUserId = currentUser?.id ?? null
   const toast = useToast()
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(true)
   const [count, setCount] = useState(initialCount)
+
+  // Registry of per-parent reply patchers — each depth-0 CommentItem
+  // registers the function that updates its own loaded replies tree.
+  // When a COMMENT_REACTION_* SSE arrives for a reply (not a top-level
+  // comment), the imperative handler walks this registry so the nested
+  // count + heart state stay in sync. Without this, replies show their
+  // optimistic value forever and drift away from the server's truth
+  // when another viewer reacts concurrently.
+  const replyPatchersRef = useRef(new Map())
+  const registerReplyPatcher = useCallback((parentCommentId, patcher) => {
+    if (!parentCommentId || typeof patcher !== 'function') return () => {}
+    replyPatchersRef.current.set(parentCommentId, patcher)
+    return () => {
+      const current = replyPatchersRef.current.get(parentCommentId)
+      if (current === patcher) replyPatchersRef.current.delete(parentCommentId)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -880,24 +932,71 @@ export const PostComments = forwardRef(function PostComments(
           case 'COMMENT_REACTION_ADDED':
           case 'COMMENT_REACTION_REMOVED': {
             if (!commentId) return
+            // When the actor matches the current viewer, the SSE is
+            // confirming the viewer's own toggle — sync myReaction in
+            // addition to the count. This is the safety net for the
+            // scenario where the listing endpoint failed to hydrate
+            // myReaction (older deploy, cache miss, cross-device) and
+            // the click hit the backend's idempotent re-react path:
+            // without this, the heart would stay empty even though the
+            // viewer already had a reaction, and the next click would
+            // delete that reaction while looking like a "fresh like".
+            const actorIsMe =
+              type === 'COMMENT_REACTION_ADDED' &&
+              currentUserId != null &&
+              payload.actorId === currentUserId
+            const actorIsMeRemove =
+              type === 'COMMENT_REACTION_REMOVED' &&
+              currentUserId != null &&
+              payload.actorId === currentUserId
+            // When the actor is the current viewer, the optimistic
+            // update in handleReact/handleClearReaction already wrote
+            // the correct reactionCount locally. The backend's SSE
+            // echo for the viewer's own toggle sometimes carries a
+            // count snapshotted before the write committed (race
+            // between the broadcast and the read-after-write), which
+            // would clobber a correct optimistic +1 with a stale -1
+            // value. So for own-actor events we keep our local count
+            // and only adopt payload.commentReactionCount when the
+            // event came from a different viewer.
+            const ownActor = actorIsMe || actorIsMeRemove
             setComments((current) =>
               current.map((item) =>
                 item.id === commentId
                   ? {
                       ...item,
-                      reactionCount:
-                        payload.commentReactionCount ?? item.reactionCount,
+                      reactionCount: ownActor
+                        ? item.reactionCount
+                        : (payload.commentReactionCount ?? item.reactionCount),
+                      myReaction: actorIsMe
+                        ? payload.reactionType ?? 'LIKE'
+                        : actorIsMeRemove
+                          ? null
+                          : item.myReaction,
                     }
                   : item,
               ),
             )
+            // Propagate to any loaded reply trees — replies aren't in
+            // the top-level `comments` array, so the map above misses
+            // them. Each depth-0 CommentItem registered a patcher that
+            // walks its own `replies` state.
+            for (const patcher of replyPatchersRef.current.values()) {
+              patcher({
+                commentId,
+                reactionCount: payload.commentReactionCount,
+                reactionType: payload.reactionType,
+                actorId: payload.actorId,
+                added: type === 'COMMENT_REACTION_ADDED',
+              })
+            }
             break
           }
           default:
         }
       },
     }),
-    [onCountChange],
+    [onCountChange, currentUserId],
   )
 
   return (
@@ -922,6 +1021,7 @@ export const PostComments = forwardRef(function PostComments(
                 onRemove={handleRemove}
                 postAuthorId={postAuthorId}
                 postAuthorUsername={postAuthorUsername}
+                registerReplyPatcher={registerReplyPatcher}
               />
             ))}
           </AnimatePresence>

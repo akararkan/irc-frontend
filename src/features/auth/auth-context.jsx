@@ -11,6 +11,7 @@ import {
 import { getCurrentUser } from '@/features/users/users.api'
 import { clearReactionCache, setReactionCacheUser } from '@/lib/reaction-cache'
 import { setCurrentUserId } from '@/lib/my-reaction-store'
+import { seedUserCache } from '@/lib/user-cache'
 
 const AuthContext = createContext(null)
 
@@ -27,7 +28,19 @@ export function AuthProvider({ children }) {
     const id = session?.user?.id ?? null
     setReactionCacheUser(id)
     setCurrentUserId(id)
-  }, [session?.user?.id])
+    // Seed the resolver cache so every `@<self>` mention chip renders
+    // the viewer's display name immediately — both directly (e.g.
+    // `akar.arkanf19@gmail.com`) and via its email-local-part alias
+    // (`akar.arkanf19`), which is what the mention regex captures.
+    if (session?.user) seedUserCache(session.user)
+  }, [
+    session?.user?.id,
+    session?.user?.username,
+    session?.user?.fullName,
+    session?.user?.firstName,
+    session?.user?.lastName,
+    session?.user?.avatarUrl,
+  ])
 
   useEffect(() => {
     let isMounted = true

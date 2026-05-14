@@ -58,11 +58,13 @@ import {
   getAnswers,
   getQuestion,
   lockAnswers,
+  saveQuestion,
   setAnswerLimit,
   reactToAnswer,
   removeAnswerReaction,
   unacceptAnswer,
   unlockAnswers,
+  unsaveQuestion,
   unvoteBestAnswer,
   voteBestAnswer,
 } from '@/features/qna/qna.api'
@@ -76,7 +78,9 @@ import { useCooldown } from '@/lib/rate-limit-cooldown'
 import {
   seedFromResponse,
   setReacted,
+  setSaved,
   useDidIReact,
+  useDidISave,
 } from '@/lib/my-reaction-store'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
@@ -147,7 +151,7 @@ function sortAnswers(list) {
 }
 
 // ─── Question header — tight editorial design (no card) ───────────
-function QuestionHeader({ question }) {
+function QuestionHeader({ question, onToggleSave }) {
   const author = authorOf(question)
   const status = STATUS_META[question.status] ?? STATUS_META.OPEN
   const authorRoute = getRawUsername(author)
@@ -158,26 +162,41 @@ function QuestionHeader({ question }) {
     question.scholarVoteCount ??
     (question.hasAcceptedAnswer ? 1 : 0)
   const sealed = sealVotes > 0 || Boolean(question.hasAcceptedAnswer)
+  // Save state — primary source is the prop, fallback to the in-memory
+  // store so the bookmark stays correct across refreshes / cross-tab.
+  const storeSaysSaved = useDidISave('question', question.id, false)
+  const isSaved = question.isSaved ?? storeSaysSaved
 
   return (
-    <section className="rounded-xl border-[0.5px] border-border bg-paper p-6 sm:p-7">
-      {/* Top status row — spec §07 question card */}
-      <div className="flex flex-wrap items-center gap-2 text-[12px]">
+    <section className="relative overflow-hidden rounded-2xl border-[0.5px] border-border bg-paper px-7 py-8 shadow-[0_1px_0_rgba(0,0,0,0.02)] sm:px-10 sm:py-10">
+      {/* Manuscript-style hairline ornament at the top edge — a soft
+          brand gradient that fades into the paper. Sets the page apart
+          as the opening of a discussion rather than just another card. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand/55 to-transparent"
+      />
+
+      {/* Meta strip — status / answers / views / seals / lock, with the
+          relative timestamp set as a small uppercase dateline on the far
+          right. Tighter pill padding + slightly tracked typography reads
+          as editorial rather than chip-y. */}
+      <div className="flex flex-wrap items-center gap-1.5">
         <span
           className={cn(
-            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium leading-none',
+            'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium leading-none',
             status.className,
           )}
         >
           <HelpCircle className="size-3" strokeWidth={1.5} />
           {status.label}
         </span>
-        <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2 py-0.5 text-[11px] font-medium">
+        <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2.5 py-1 text-[11px] font-medium">
           {formatNumber(question.answerCount ?? 0)}{' '}
           {(question.answerCount ?? 0) === 1 ? 'answer' : 'answers'}
         </span>
         {question.viewCount != null ? (
-          <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2 py-0.5 text-[11px] font-medium">
+          <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2.5 py-1 text-[11px] font-medium">
             <Eye className="size-3" strokeWidth={1.5} />
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.span
@@ -196,7 +215,7 @@ function QuestionHeader({ question }) {
         ) : null}
         {sealed ? (
           <span
-            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium"
             style={{ background: 'var(--gold-soft)', color: 'var(--gold-2)' }}
             title={`${sealVotes} ${sealVotes === 1 ? 'scholar has' : 'scholars have'} sealed an answer`}
           >
@@ -205,20 +224,20 @@ function QuestionHeader({ question }) {
           </span>
         ) : null}
         {question.answersLocked ? (
-          <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2 py-0.5 text-[11px] font-medium">
+          <span className="inline-flex items-center gap-1 rounded-full pill-mute px-2.5 py-1 text-[11px] font-medium">
             <Lock className="size-3" strokeWidth={1.5} />
             Locked
           </span>
         ) : null}
-        <span className="ml-auto font-mono text-[11px] text-ink-3">
+        <span className="ml-auto font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink-3">
           <RelativeTime entity={question} />
         </span>
       </div>
 
-      {/* Title — Newsreader, generous */}
+      {/* Title — Newsreader, dramatic */}
       <h1
         dir="auto"
-        className="mt-4 font-display text-[28px] font-medium leading-[1.18] tracking-[-0.018em] text-ink text-balance sm:text-[34px]"
+        className="mt-6 font-display text-[30px] font-medium leading-[1.12] tracking-[-0.022em] text-ink text-balance sm:text-[40px]"
       >
         {question.title}
       </h1>
@@ -227,28 +246,32 @@ function QuestionHeader({ question }) {
       {question.body ? (
         <p
           dir="auto"
-          className="mt-3 max-w-prose whitespace-pre-wrap text-[15px] leading-[1.65] text-ink-2"
+          className="mt-3.5 max-w-[68ch] whitespace-pre-wrap text-[15.5px] leading-[1.7] text-ink-2"
         >
           <MentionText text={question.body} />
         </p>
       ) : null}
 
-      {/* Asker row — hairline above, save/share on the right */}
-      <div className="mt-5 flex flex-wrap items-center gap-3 border-t-[0.5px] border-border pt-4">
+      {/* Asker byline — no hard separator above; whitespace alone carries
+          the break so the card breathes. Role pill sits inline with the
+          name; secondary meta flows underneath in mono. */}
+      <div className="mt-8 flex flex-wrap items-center gap-3.5">
         <Link to={`/profile/${authorRoute}`} className="shrink-0">
-          <UserAvatar user={author} className="size-[34px]" />
+          <UserAvatar user={author} className="size-[38px] ring-1 ring-border" />
         </Link>
         <div className="min-w-0 flex-1 leading-tight">
-          <Link
-            to={`/profile/${authorRoute}`}
-            className="block truncate text-[14px] font-medium text-ink hover:underline"
-          >
-            {authorName}
-          </Link>
-          <div className="mt-0.5 flex items-center gap-1.5 font-mono text-[11px] text-ink-3">
+          <div className="flex items-center gap-1.5">
+            <Link
+              to={`/profile/${authorRoute}`}
+              className="truncate text-[14px] font-medium text-ink hover:underline"
+            >
+              {authorName}
+            </Link>
             {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
+          </div>
+          <div className="mt-1 font-mono text-[11px] text-ink-3">
             {authorHandle ? <span>@{authorHandle}</span> : null}
-            <span aria-hidden>·</span>
+            {authorHandle ? <span className="mx-1.5" aria-hidden>·</span> : null}
             <span>
               Asked <RelativeTime entity={question} />
               {question.updatedAt && question.updatedAt !== question.createdAt
@@ -258,9 +281,19 @@ function QuestionHeader({ question }) {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button className="rx-bare" type="button" title="Save">
-            <Bookmark className="size-[14px]" strokeWidth={1.5} />
-            Save
+          <button
+            type="button"
+            onClick={onToggleSave}
+            title={isSaved ? 'Remove from saved' : 'Save question'}
+            aria-pressed={isSaved}
+            className={cn('rx-bare', isSaved && 'is-on text-brand')}
+          >
+            <Bookmark
+              className="size-[14px]"
+              strokeWidth={1.5}
+              fill={isSaved ? 'currentColor' : 'none'}
+            />
+            {isSaved ? 'Saved' : 'Save'}
           </button>
           <button className="rx-bare" type="button" title="Share">
             <Share2 className="size-[14px]" strokeWidth={1.5} />
@@ -368,15 +401,28 @@ function AnswerReactionRow({
     bumpCounter('answer', answer.id, 'rx', reactionCount, liked ? -1 : +1)
     setWorking(true)
     try {
-      // Fire the write — don't merge the response body. AnswerResponse
-      // echoes a stale reactionCount through Hibernate's L1 cache, so
-      // spreading it would clobber our optimistic +1. The
-      // ANSWER_REACTION_ADDED / ANSWER_REACTION_REMOVED SSE event
-      // arrives a tick later with the authoritative count.
-      if (liked) {
-        await removeAnswerReaction(questionId, answer.id)
-      } else {
-        await reactToAnswer(questionId, answer.id, 'LIKE')
+      // Both POST and DELETE now return 200 with the authoritative
+      // QuestionAnswerResponse (server pipeline: row write → JPQL
+      // UPDATE → em.refresh → response), so we reconcile the optimistic
+      // delta against the server number on resolve. The own-actor SSE
+      // guard upstream means the broadcast echo won't fight this write.
+      const updated = liked
+        ? await removeAnswerReaction(questionId, answer.id)
+        : await reactToAnswer(questionId, answer.id, 'LIKE')
+      if (updated?.id != null && updated.reactionCount != null) {
+        onPatch?.({
+          id: updated.id,
+          parentAnswerId: answer.parentAnswerId,
+          myReaction: updated.myReaction ?? null,
+          reactionCount: updated.reactionCount,
+        })
+        setCounter('answer', answer.id, 'rx', updated.reactionCount)
+        setReacted(
+          'answer',
+          answer.id,
+          updated.myReaction != null,
+          updated.myReaction ?? null,
+        )
       }
     } catch (error) {
       onPatch?.({
@@ -493,25 +539,32 @@ function AnswerCard({
   const isVoted = bestVoteCount > 0
   const [voteBusy, setVoteBusy] = useState(false)
 
-  // Spec §07 — answers are *always* expanded. The reader sees the full
-  // body, sources, reactions, asker feedback, and the entire reply
-  // thread at a glance. No accordion, no lazy collapse.
   const [showReanswerComposer, setShowReanswerComposer] = useState(false)
+  // Reply thread is collapsed by default and expands on click — keeps
+  // the answer body the focal point and stops a long, busy answer page
+  // from feeling like a wall of text. Lazy-loads on first expand so we
+  // don't pay the fetch cost for collapsed sub-trees.
+  const [showReplies, setShowReplies] = useState(false)
 
   const replyCount = repliesLoaded
     ? (replies?.length ?? 0)
     : (answer.replyCount ?? 0)
 
-  // Always pull replies the first time we mount with any reply count.
+  // Fetch on first expand (or when the composer is opened to add a
+  // reply against an empty thread). We keep the bucket cached on the
+  // page so subsequent toggles are instant.
   useEffect(() => {
-    if (
-      !repliesLoaded
-      && !repliesLoading
-      && (answer.replyCount ?? 0) > 0
-    ) {
-      onLoadReplies?.(answer.id)
-    }
-  }, [repliesLoaded, repliesLoading, answer.id, answer.replyCount, onLoadReplies])
+    if (!showReplies && !showReanswerComposer) return
+    if (repliesLoaded || repliesLoading) return
+    onLoadReplies?.(answer.id)
+  }, [
+    showReplies,
+    showReanswerComposer,
+    repliesLoaded,
+    repliesLoading,
+    answer.id,
+    onLoadReplies,
+  ])
 
   return (
     <motion.article
@@ -521,14 +574,33 @@ function AnswerCard({
       exit={{ opacity: 0, y: -6, scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 320, damping: 28 }}
       className={cn(
-        'group/answer relative isolate rounded-xl bg-paper transition-colors',
+        'group/answer relative isolate overflow-hidden rounded-2xl bg-paper transition-all duration-200',
         // Spec §07: accepted answers get the only 1.5px-border + green
-        // ring treatment. Everything else uses the 0.5px hairline.
+        // ring treatment. Everything else uses the 0.5px hairline, plus
+        // a tiny hover lift so cards feel tactile rather than flat.
         isAccepted
           ? 'border-[1.5px] border-ok-fg shadow-[0_0_0_4px_var(--ok-bg)]'
-          : 'border-[0.5px] border-border card-hover',
+          : 'border-[0.5px] border-border hover:-translate-y-[1px] hover:border-border/80 hover:shadow-[0_4px_18px_-12px_rgba(20,17,12,0.18)]',
       )}
     >
+      {/* Top-edge accent — gold for scholar-voted "best", sky for expert
+          answers, brand-tinted for the rest. A 1px gradient hairline
+          rather than a heavy ribbon, so it reads as a typographic mark
+          rather than UI furniture. */}
+      {!isAccepted ? (
+        <span
+          aria-hidden
+          className={cn(
+            'pointer-events-none absolute inset-x-0 top-0 h-px',
+            isVoted
+              ? 'bg-gradient-to-r from-transparent via-gold-2/55 to-transparent'
+              : expert
+                ? 'bg-gradient-to-r from-transparent via-accent-sky/45 to-transparent'
+                : 'bg-gradient-to-r from-transparent via-brand/30 to-transparent',
+          )}
+        />
+      ) : null}
+
       {/* Floating green tick for accepted answers — spec ::before mark */}
       {isAccepted ? (
         <span
@@ -768,14 +840,6 @@ function AnswerCard({
                   isAuthenticated={isAuthenticated}
                   onPatch={onAnswerPatch}
                 />
-                {(answer.reactionCount ?? 0) > 0 ? (
-                  <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-muted-foreground">
-                    <Heart className="size-3.5 fill-current text-rose-600" strokeWidth={1.6} />
-                    <span className="tabular-nums">
-                      {formatNumber(answer.reactionCount)}
-                    </span>
-                  </span>
-                ) : null}
 
                 {/* Multi-scholar best-answer vote — only for top-level
                     answers, only when the viewer is allowed to vote.
@@ -841,19 +905,49 @@ function AnswerCard({
                 ) : null}
               </div>
 
-              {/* Reanswers — always visible reply thread (spec §07). */}
+              {/* Reanswers — collapsed-by-default thread with a dropdown
+                  toggle. Visual hierarchy: header strip with count +
+                  chevron, then the tree drops into a softly-tinted well
+                  so the reply branch reads as a sub-discussion rather
+                  than more of the answer body. */}
               <div className="border-t-[0.5px] border-border pt-4">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
-                    <span>{formatNumber(replyCount)} {replyCount === 1 ? 'reply' : 'replies'}</span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowReplies((v) => !v)}
+                    disabled={replyCount === 0 && !allowedToAnswer}
+                    aria-expanded={showReplies}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-[0.12em] transition-colors',
+                      showReplies
+                        ? 'bg-secondary text-ink'
+                        : 'text-ink-3 hover:bg-secondary hover:text-ink',
+                      replyCount === 0 && !allowedToAnswer && 'cursor-default opacity-60 hover:bg-transparent',
+                    )}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'size-3 transition-transform duration-200',
+                        showReplies && 'rotate-180',
+                      )}
+                      strokeWidth={2}
+                    />
+                    <span>
+                      {replyCount === 0
+                        ? 'No replies yet'
+                        : `${showReplies ? 'Hide' : 'Show'} ${formatNumber(replyCount)} ${replyCount === 1 ? 'reply' : 'replies'}`}
+                    </span>
                     {repliesLoading ? (
                       <Loader2 className="size-3 animate-spin" />
                     ) : null}
-                  </div>
+                  </button>
                   {allowedToAnswer ? (
                     <button
                       type="button"
-                      onClick={() => setShowReanswerComposer((v) => !v)}
+                      onClick={() => {
+                        setShowReanswerComposer((v) => !v)
+                        if (!showReplies) setShowReplies(true)
+                      }}
                       className={cn('rx-bare', showReanswerComposer && 'is-on')}
                     >
                       <CornerDownRight className="size-3.5" strokeWidth={1.5} />
@@ -862,61 +956,81 @@ function AnswerCard({
                   ) : null}
                 </div>
 
-                {showReanswerComposer ? (
-                  <div className="mb-3">
-                    <ReanswerComposer
-                      questionId={questionId}
-                      parentAnswerId={answer.id}
-                      parentAuthor={author}
-                      onCreated={(reply) => {
-                        onReanswerCreated?.(answer.id, reply)
-                        setShowReanswerComposer(false)
-                      }}
-                      onCancel={() => setShowReanswerComposer(false)}
-                    />
-                  </div>
-                ) : null}
+                <AnimatePresence initial={false}>
+                  {showReplies ? (
+                    <motion.div
+                      key="reply-tree"
+                      layout
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-3 rounded-xl border-[0.5px] border-border/70 bg-secondary/30 p-4">
+                        {showReanswerComposer ? (
+                          <div className="mb-4">
+                            <ReanswerComposer
+                              questionId={questionId}
+                              parentAnswerId={answer.id}
+                              parentAuthor={author}
+                              onCreated={(reply) => {
+                                onReanswerCreated?.(answer.id, reply)
+                                setShowReanswerComposer(false)
+                              }}
+                              onCancel={() => setShowReanswerComposer(false)}
+                            />
+                          </div>
+                        ) : null}
 
-                {repliesLoaded && replies && replies.length > 0 ? (
-                  <div className="space-y-4">
-                    <AnimatePresence initial={false}>
-                      {replies.map((reply, index) => (
-                        <ReanswerItem
-                          key={reply.id}
-                          questionId={questionId}
-                          question={question}
-                          reply={reply}
-                          parentAnswerId={answer.id}
-                          currentUser={user}
-                          isAuthenticated={isAuthenticated}
-                          allowedToAnswer={allowedToAnswer}
-                          canManageAnswer={
-                            canManageAnswerFn?.(user, question, reply) ?? false
-                          }
-                          onEdit={onEdit}
-                          onDelete={(replyId) =>
-                            onReanswerDelete?.(answer.id, replyId)
-                          }
-                          onAnswerPatch={onAnswerPatch}
-                          repliesByAnswer={repliesByAnswer}
-                          onLoadReplies={onLoadReplies}
-                          onReanswerCreated={onReanswerCreated}
-                          onReanswerDelete={onReanswerDelete}
-                          depth={0}
-                          isLast={index === replies.length - 1}
-                        />
-                      ))}
-                    </AnimatePresence>
-                  </div>
-                ) : repliesLoaded && !repliesLoading ? (
-                  <p className="font-display text-[13px] italic text-ink-3">
-                    {showReanswerComposer
-                      ? 'Be the first to reply.'
-                      : allowedToAnswer
-                        ? 'No replies yet — open the conversation.'
-                        : 'No replies yet.'}
-                  </p>
-                ) : null}
+                        {repliesLoaded && replies && replies.length > 0 ? (
+                          <div className="space-y-4">
+                            <AnimatePresence initial={false}>
+                              {replies.map((reply, index) => (
+                                <ReanswerItem
+                                  key={reply.id}
+                                  questionId={questionId}
+                                  question={question}
+                                  reply={reply}
+                                  parentAnswerId={answer.id}
+                                  currentUser={user}
+                                  isAuthenticated={isAuthenticated}
+                                  allowedToAnswer={allowedToAnswer}
+                                  canManageAnswer={
+                                    canManageAnswerFn?.(user, question, reply) ?? false
+                                  }
+                                  onEdit={onEdit}
+                                  onDelete={(replyId) =>
+                                    onReanswerDelete?.(answer.id, replyId)
+                                  }
+                                  onAnswerPatch={onAnswerPatch}
+                                  repliesByAnswer={repliesByAnswer}
+                                  onLoadReplies={onLoadReplies}
+                                  onReanswerCreated={onReanswerCreated}
+                                  onReanswerDelete={onReanswerDelete}
+                                  depth={0}
+                                  isLast={index === replies.length - 1}
+                                />
+                              ))}
+                            </AnimatePresence>
+                          </div>
+                        ) : repliesLoaded && !repliesLoading ? (
+                          <p className="font-display text-[13px] italic text-ink-3">
+                            {showReanswerComposer
+                              ? 'Be the first to reply.'
+                              : allowedToAnswer
+                                ? 'No replies yet — open the conversation.'
+                                : 'No replies yet.'}
+                          </p>
+                        ) : repliesLoading ? (
+                          <p className="font-mono text-[11px] text-ink-3">
+                            Loading replies…
+                          </p>
+                        ) : null}
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </div>
             </div>
       </div>
@@ -1249,18 +1363,6 @@ function ReanswerItem({
                 {showReplyBox ? 'Cancel' : 'Reply'}
               </button>
             ) : null}
-
-            {(reply.reactionCount ?? 0) > 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-paper px-1.5 py-0.5 text-[10.5px]">
-                <Heart
-                  className="size-3 fill-current text-rose-600"
-                  strokeWidth={1.6}
-                />
-                <span className="tabular-nums text-muted-foreground">
-                  {formatNumber(reply.reactionCount)}
-                </span>
-              </span>
-            ) : null}
           </div>
 
           {depth === 0 && showReplyBox ? (
@@ -1276,10 +1378,13 @@ function ReanswerItem({
           ) : null}
 
           {/* Nested level — always visible (no toggle), recurses with
-              depth 1. Loading state surfaces inline while the bucket
-              hydrates so the spine still reads as an active thread. */}
-          {depth === 0 ? (
-            <div className="relative mt-4 space-y-4">
+              depth 1. Loading state surfaces inline while the spine
+              hydrates. A soft left rail (gradient from brand-tint to
+              transparent) gives the nested branch a clear visual
+              attachment back to its depth-0 parent — proper tree
+              indentation rather than a flat list. */}
+          {depth === 0 && (nested.length > 0 || loadingNested) ? (
+            <div className="relative mt-4 space-y-4 pl-5 before:absolute before:bottom-3 before:left-0 before:top-0 before:w-px before:bg-gradient-to-b before:from-brand/35 before:via-border before:to-transparent">
               {loadingNested && nested.length === 0 ? (
                 <div className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-ink-3">
                   <Loader2 className="size-3 animate-spin" />
@@ -1491,28 +1596,6 @@ function NestedReplyItem({
             ) : null}
           </div>
 
-          {/* Floating reaction-summary chip pinned to bottom-right of
-              the bubble — the conventional comment treatment. */}
-          <AnimatePresence>
-            {(reply.reactionCount ?? 0) > 0 ? (
-              <motion.span
-                key={`nested-reaction-${reply.reactionCount}`}
-                initial={{ opacity: 0, scale: 0.5, y: 4 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.5 }}
-                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                className="absolute -bottom-2 right-2 inline-flex items-center gap-0.5 rounded-full border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium shadow-sm"
-              >
-                <Heart
-                  className="size-3 fill-current text-rose-600"
-                  strokeWidth={1.6}
-                />
-                <span className="tabular-nums text-muted-foreground">
-                  {formatNumber(reply.reactionCount)}
-                </span>
-              </motion.span>
-            ) : null}
-          </AnimatePresence>
         </div>
 
         {/* Action row — React picker + Reply (flat re-reply). Time
@@ -1753,9 +1836,26 @@ export function QuestionDetailPage() {
     // unifies the field name doesn't silently break this handler.
     const next = payload.answerReactionCount ?? payload.reactionCount
     if (next == null) return
-    setCounter('answer', id, 'rx', next)
-    const patch = { id, reactionCount: next }
+    // Own-actor count race: when the SSE event came from this viewer's
+    // own toggle, the optimistic update already wrote the correct
+    // count. The backend's echo for the viewer's own action sometimes
+    // races with the read-after-write and carries a stale value (e.g.
+    // a re-like sends back the pre-like count, which would clobber the
+    // optimistic +1 back down). Skip the count overwrite for own-actor
+    // events; still patch myReaction so heart/count stay coherent.
+    const isOwnActor = Boolean(user?.id && payload.actorId === user.id)
+    if (!isOwnActor) setCounter('answer', id, 'rx', next)
+    const patch = { id }
+    if (!isOwnActor) patch.reactionCount = next
     if (payload.parentAnswerId) patch.parentAnswerId = payload.parentAnswerId
+    if (isOwnActor) {
+      const eventType = payload.eventType ?? payload.type
+      if (eventType === 'ANSWER_REACTION_REMOVED') {
+        patch.myReaction = null
+      } else if (eventType === 'ANSWER_REACTION_ADDED') {
+        patch.myReaction = payload.reactionType ?? 'LIKE'
+      }
+    }
     applyAnswerPatch(patch)
   }
 
@@ -1887,6 +1987,20 @@ export function QuestionDetailPage() {
         current ? { ...current, viewCount: next } : current,
       )
     },
+    // Save / bookmark counter. Own-actor guard mirrors the post /
+    // research streams: the HTTP-response reconciliation in
+    // handleToggleSave already wrote the correct count for the
+    // current viewer's own toggle, so we let other viewers' echoes
+    // drive count changes here.
+    SAVE_COUNT_UPDATED: (payload) => {
+      const next = payload?.questionSaveCount ?? payload?.saveCount
+      if (next == null) return
+      if (user?.id && payload?.actorId === user.id) return
+      setCounter('question', questionId, 'sv', next)
+      setQuestion((current) =>
+        current ? { ...current, saveCount: next } : current,
+      )
+    },
     ANSWER_CREATED: (payload) => {
       if (!payload?.id) return
       setAnswers((current) =>
@@ -2000,8 +2114,10 @@ export function QuestionDetailPage() {
       if (!payload?.id) return
       applyAnswerPatch({ ...payload, accepted: false })
     },
-    ANSWER_REACTION_ADDED: patchAnswerReactionFromEvent,
-    ANSWER_REACTION_REMOVED: patchAnswerReactionFromEvent,
+    ANSWER_REACTION_ADDED: (payload) =>
+      patchAnswerReactionFromEvent({ ...payload, eventType: 'ANSWER_REACTION_ADDED' }),
+    ANSWER_REACTION_REMOVED: (payload) =>
+      patchAnswerReactionFromEvent({ ...payload, eventType: 'ANSWER_REACTION_REMOVED' }),
     ANSWER_FEEDBACK_ADDED: (payload) => {
       const id = payload?.answerId ?? payload?.id
       if (!id) return
@@ -2283,6 +2399,52 @@ export function QuestionDetailPage() {
     }
   }
 
+  async function handleToggleSave() {
+    if (!question) return
+    if (!isAuthenticated) {
+      toast.info('Sign in to save this question.')
+      return
+    }
+    const previous = question
+    const wasSaved = Boolean(question.isSaved)
+    const previousSaveCount = question.saveCount ?? 0
+    setQuestion((current) =>
+      current
+        ? {
+            ...current,
+            isSaved: !wasSaved,
+            saveCount: wasSaved
+              ? Math.max(0, (current.saveCount ?? 0) - 1)
+              : (current.saveCount ?? 0) + 1,
+          }
+        : current,
+    )
+    setSaved('question', question.id, !wasSaved)
+    bumpCounter('question', question.id, 'sv', previousSaveCount, wasSaved ? -1 : +1)
+    try {
+      // Both endpoints return the updated QuestionResponse — adopt the
+      // authoritative saveCount + isSaved.
+      const updated = wasSaved
+        ? await unsaveQuestion(question.id)
+        : await saveQuestion(question.id)
+      if (updated?.id) {
+        setQuestion((current) => (current ? { ...current, ...updated } : updated))
+        if (updated.saveCount != null) {
+          setCounter('question', question.id, 'sv', updated.saveCount)
+        }
+        if (updated.isSaved != null) {
+          setSaved('question', question.id, Boolean(updated.isSaved))
+        }
+      }
+      if (!wasSaved) toast.success('Saved to your library.')
+    } catch (error) {
+      setQuestion(previous)
+      setSaved('question', question.id, wasSaved)
+      setCounter('question', question.id, 'sv', previousSaveCount)
+      toast.error(extractApiMessage(error, 'Could not update save state.'))
+    }
+  }
+
   async function handleToggleLock() {
     if (!question) return
     setWorking(true)
@@ -2418,7 +2580,7 @@ export function QuestionDetailPage() {
       </div>
 
       {/* Editorial header — no card, tight rhythm */}
-      <QuestionHeader question={question} />
+      <QuestionHeader question={question} onToggleSave={handleToggleSave} />
 
       {/* Inline owner controls (lock / limit) — only for author/admin */}
       {canManage ? (
@@ -2430,31 +2592,35 @@ export function QuestionDetailPage() {
         />
       ) : null}
 
-      {/* Subtle divider — separates header from answers */}
-      <span aria-hidden className="block h-px w-full bg-border" />
+      {/* Section break — gentle gradient hairline rather than a hard
+          rule, mirroring the ornament at the top of the question card.
+          Reads as a turn in the manuscript, not a wall. */}
+      <span
+        aria-hidden
+        className="block h-px w-full bg-gradient-to-r from-transparent via-border to-transparent"
+      />
 
       {/* Answers section */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="size-3.5 text-muted-foreground" />
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Answers
-          </h2>
-          <span className="text-[11px] text-muted-foreground">
-            · {formatNumber(question.answerCount ?? sortedAnswers.length)}
-          </span>
-          {question.maxAnswers != null ? (
-            <span className="text-[11px] text-muted-foreground">
-              / {question.maxAnswers}
+      <section className="space-y-5">
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
+          <div className="flex items-baseline gap-2.5">
+            <h2 className="font-display text-[20px] font-medium tracking-[-0.015em] text-ink sm:text-[22px]">
+              Answers
+            </h2>
+            <span className="font-mono text-[12px] tabular-nums text-ink-3">
+              {formatNumber(question.answerCount ?? sortedAnswers.length)}
+              {question.maxAnswers != null
+                ? ` / ${question.maxAnswers}`
+                : null}
             </span>
-          ) : null}
+          </div>
           {sortedAnswers.some((a) => a.accepted) ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_oklch,var(--accent-sage)_14%,transparent)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-sage">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_oklch,var(--accent-sage)_14%,transparent)] px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-accent-sage">
               <CheckCircle2 className="size-3" />
               {formatNumber(sortedAnswers.filter((a) => a.accepted).length)} accepted
             </span>
           ) : null}
-          <span className="ml-2 h-px flex-1 bg-border" aria-hidden />
+          <span className="ml-auto h-px flex-1 self-center bg-gradient-to-r from-border via-border/40 to-transparent" aria-hidden />
         </div>
 
         {/* Composer */}
@@ -2493,11 +2659,21 @@ export function QuestionDetailPage() {
             <Loader2 className="size-4 animate-spin" />
           </div>
         ) : sortedAnswers.length === 0 ? (
-          <EmptyState
-            icon={MessageCircleQuestion}
-            title="No answers yet"
-            description="Be the first to share a thoughtful answer."
-          />
+          <div className="relative overflow-hidden rounded-2xl border-[0.5px] border-dashed border-border bg-paper px-8 py-10 text-center">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand/40 to-transparent"
+            />
+            <span className="mx-auto grid size-12 place-items-center rounded-full bg-secondary text-ink-2">
+              <MessageCircleQuestion className="size-5" strokeWidth={1.5} />
+            </span>
+            <h3 className="mt-4 font-display text-[18px] font-medium tracking-[-0.012em] text-ink">
+              No answers yet
+            </h3>
+            <p className="mx-auto mt-1.5 max-w-[42ch] text-[13.5px] leading-[1.6] text-ink-3">
+              Be the first to share a thoughtful answer — citations welcome.
+            </p>
+          </div>
         ) : (
           <div className="space-y-4">
             <AnimatePresence initial={false}>

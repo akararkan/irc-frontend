@@ -743,25 +743,38 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       POST_DELETED: () => {
         onDelete?.(post.id)
       },
+      // Own-actor guard: when the SSE event came from the current
+      // viewer's own toggle, the optimistic update (and the HTTP
+      // response reconciliation in handlePickReaction /
+      // handleClearReaction) already wrote the authoritative count
+      // locally. The SSE echo for the viewer's own action sometimes
+      // races with the read-after-write and carries the pre-toggle
+      // count — adopting it here would flip a correct +1 back to the
+      // stale value. So for own-actor events we let the local count
+      // stand; for other viewers' events we adopt the payload count.
       REACTION_ADDED: (payload) => {
-        if (payload?.postReactionCount != null) {
-          setCounter('post', post.id, 'rx', payload.postReactionCount)
-        }
+        if (payload?.postReactionCount == null) return
+        if (currentUser?.id && payload.actorId === currentUser.id) return
+        setCounter('post', post.id, 'rx', payload.postReactionCount)
       },
       REACTION_REMOVED: (payload) => {
-        if (payload?.postReactionCount != null) {
-          setCounter('post', post.id, 'rx', payload.postReactionCount)
-        }
+        if (payload?.postReactionCount == null) return
+        if (currentUser?.id && payload.actorId === currentUser.id) return
+        setCounter('post', post.id, 'rx', payload.postReactionCount)
       },
       SHARE_COUNT_UPDATED: (payload) => {
         if (payload?.postShareCount != null) {
           setCounter('post', post.id, 'sh', payload.postShareCount)
         }
       },
+      // Own-actor guard: when the SSE echoes this viewer's own
+      // save/unsave, the HTTP response reconciliation already wrote
+      // the right number locally. Skip the count adoption for
+      // own-actor events; other viewers' saves still update live.
       SAVE_COUNT_UPDATED: (payload) => {
-        if (payload?.postSaveCount != null) {
-          setCounter('post', post.id, 'sv', payload.postSaveCount)
-        }
+        if (payload?.postSaveCount == null) return
+        if (currentUser?.id && payload.actorId === currentUser.id) return
+        setCounter('post', post.id, 'sv', payload.postSaveCount)
       },
       VIEW_COUNT_UPDATED: (payload) => {
         if (payload?.postViewCount != null) {
@@ -871,7 +884,20 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
     if (!wasReacting) bumpCounter('post', post.id, 'rx', reactionCount, +1)
     setWorking(true)
     try {
-      await reactToPost(post.id, type)
+      const updated = await reactToPost(post.id, type)
+      // Reconcile against the server's authoritative numbers — the
+      // POST response is the full PostResponse. Without this, an
+      // idempotent re-click (already-liked, returns the same count)
+      // could leave a stale optimistic +1 if the SSE echo is delayed
+      // or dropped, and the heart could disagree with myReaction if
+      // the store wasn't seeded.
+      if (updated?.id) {
+        onChange?.(updated)
+        if (updated.reactionCount != null) {
+          setCounter('post', post.id, 'rx', updated.reactionCount)
+        }
+        seedFromResponse('post', updated, { authoritative: true })
+      }
     } catch (error) {
       onChange?.(previous)
       forgetReaction('post', post.id)
@@ -894,7 +920,18 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
     bumpCounter('post', post.id, 'rx', reactionCount, -1)
     setWorking(true)
     try {
-      await removePostReaction(post.id)
+      // DELETE now returns 200 with the full PostResponse — use the
+      // authoritative reactionCount + myReaction:null instead of
+      // trusting only the optimistic decrement, which would drift
+      // whenever another viewer's reaction landed between paints.
+      const updated = await removePostReaction(post.id)
+      if (updated?.id) {
+        onChange?.(updated)
+        if (updated.reactionCount != null) {
+          setCounter('post', post.id, 'rx', updated.reactionCount)
+        }
+        seedFromResponse('post', updated, { authoritative: true })
+      }
     } catch (error) {
       onChange?.(previous)
       if (previousCached) rememberReaction('post', post.id, previousCached)
@@ -938,12 +975,22 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
     bumpCounter('post', post.id, 'sv', storedSaveCount, isSaved ? -1 : +1)
     setSavingBookmark(true)
     try {
-      if (isSaved) {
-        await unsavePost(post.id)
-      } else {
-        await savePost(post.id)
-        toast.success('Saved to your library.')
+      // Both endpoints return the full PostResponse (POST→201, DELETE→
+      // 200) — reconcile against authoritative isSaved + saveCount so
+      // the optimistic toggle never drifts under concurrent reactors.
+      const updated = isSaved
+        ? await unsavePost(post.id)
+        : await savePost(post.id)
+      if (updated?.id) {
+        onChange?.(updated)
+        if (updated.saveCount != null) {
+          setCounter('post', post.id, 'sv', updated.saveCount)
+        }
+        if (updated.isSaved != null) {
+          setSaved('post', post.id, Boolean(updated.isSaved))
+        }
       }
+      if (!isSaved) toast.success('Saved to your library.')
     } catch (error) {
       onChange?.(previous)
       setSaved('post', post.id, previousSaved)

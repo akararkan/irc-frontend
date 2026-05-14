@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/app/empty-state'
 import { PostCard } from '@/components/app/post-card'
 import { useAuth } from '@/features/auth/auth-context'
-import { getFeedCursor, getFollowingFeed } from '@/features/posts/posts.api'
+import { getFeedCursor, getFollowingFeedCursor } from '@/features/posts/posts.api'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
@@ -52,9 +52,8 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
   const { isAuthenticated } = useAuth()
   const toast = useToast()
   const [posts, setPosts] = useState([])
-  // FOLLOWING is page-based (no cursor endpoint exists for it yet);
-  // PUBLIC uses cursor pagination so performance stays flat as the user scrolls.
-  const [page, setPage] = useState(0)
+  // Both PUBLIC and FOLLOWING use cursor pagination — stable under
+  // concurrent inserts, flat performance past the first ~50 rows.
   const [cursor, setCursor] = useState(null)
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
@@ -65,23 +64,14 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
     async (filterValue) => {
       const chosenFilter = filterValue ?? filter
       const useFollowing = chosenFilter === 'FOLLOWING' && isAuthenticated
+      const fetcher = useFollowing ? getFollowingFeedCursor : getFeedCursor
       setLoading(true)
       try {
-        if (useFollowing) {
-          const data = await getFollowingFeed({ page: 0, size: PAGE_SIZE })
-          const items = data?.content ?? []
-          setPosts(items)
-          setHasMore(!(data?.last ?? items.length < PAGE_SIZE))
-          setPage(0)
-          setCursor(null)
-        } else {
-          const data = await getFeedCursor({ limit: PAGE_SIZE })
-          const items = data?.items ?? []
-          setPosts(items)
-          setHasMore(Boolean(data?.hasMore))
-          setCursor(data?.nextCursor ?? null)
-          setPage(0)
-        }
+        const data = await fetcher({ limit: PAGE_SIZE })
+        const items = data?.items ?? []
+        setPosts(items)
+        setHasMore(Boolean(data?.hasMore))
+        setCursor(data?.nextCursor ?? null)
       } catch (error) {
         toast.error(extractApiMessage(error, 'Could not load the feed.'))
       } finally {
@@ -93,33 +83,25 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
   )
 
   const loadMore = useCallback(async () => {
+    if (!cursor) {
+      setHasMore(false)
+      return
+    }
     const useFollowing = filter === 'FOLLOWING' && isAuthenticated
+    const fetcher = useFollowing ? getFollowingFeedCursor : getFeedCursor
     setLoading(true)
     try {
-      if (useFollowing) {
-        const next = page + 1
-        const data = await getFollowingFeed({ page: next, size: PAGE_SIZE })
-        const items = data?.content ?? []
-        setPosts((current) => [...current, ...items])
-        setHasMore(!(data?.last ?? items.length < PAGE_SIZE))
-        setPage(next)
-      } else {
-        if (!cursor) {
-          setHasMore(false)
-          return
-        }
-        const data = await getFeedCursor({ cursor, limit: PAGE_SIZE })
-        const items = data?.items ?? []
-        setPosts((current) => [...current, ...items])
-        setHasMore(Boolean(data?.hasMore))
-        setCursor(data?.nextCursor ?? null)
-      }
+      const data = await fetcher({ cursor, limit: PAGE_SIZE })
+      const items = data?.items ?? []
+      setPosts((current) => [...current, ...items])
+      setHasMore(Boolean(data?.hasMore))
+      setCursor(data?.nextCursor ?? null)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not load more posts.'))
     } finally {
       setLoading(false)
     }
-  }, [filter, isAuthenticated, page, cursor, toast])
+  }, [filter, isAuthenticated, cursor, toast])
 
   useEffect(() => {
     setInitializing(true)

@@ -203,11 +203,16 @@ export async function reactToResearch(researchId, reactionType) {
   )
 }
 
+// Backend returns 200 with the updated ResearchResponse body
+// (authoritative reactionCount + currentUserReacted:false). Surfacing
+// it here lets callers reconcile their optimistic state against the
+// server number on resolve instead of waiting for the SSE echo.
 export async function removeResearchReaction(researchId) {
-  await api.delete(
+  const response = await api.delete(
     `/api/v1/researches/${researchId}/react`,
     idempotencyHeaders(newIdempotencyKey()),
   )
+  return response.data
 }
 
 export async function getResearchReactionBreakdown(researchId) {
@@ -276,11 +281,14 @@ export async function reactToResearchComment(researchId, commentId, reactionType
   )
 }
 
+// Backend returns 200 with the updated CommentResponse — myReaction is
+// null and likeCount has the post-decrement value.
 export async function removeResearchCommentReaction(researchId, commentId) {
-  await api.delete(
+  const response = await api.delete(
     `/api/v1/researches/${researchId}/comments/${commentId}/reactions`,
     idempotencyHeaders(newIdempotencyKey()),
   )
+  return response.data
 }
 
 // Back-compat facades — the backend keeps these idempotent endpoints
@@ -298,9 +306,13 @@ export function unlikeResearchComment(researchId, commentId) {
 
 // ── Saves / bookmarks ──────────────────────────────────────────
 
+// Backend is now idempotent (was throwing on duplicate save) and
+// returns the updated ResearchResponse with authoritative saveCount +
+// currentUserSaved. Surface it so the call site reconciles instead of
+// relying purely on local optimistic math.
 export async function saveResearch(researchId, collection) {
   const key = newIdempotencyKey()
-  await api.post(
+  const response = await api.post(
     `/api/v1/researches/${researchId}/save`,
     null,
     {
@@ -308,13 +320,16 @@ export async function saveResearch(researchId, collection) {
       ...(collection ? { params: { collection } } : {}),
     },
   )
+  return response.data
 }
 
+// DELETE returns 200 with the updated ResearchResponse.
 export async function unsaveResearch(researchId) {
-  await api.delete(
+  const response = await api.delete(
     `/api/v1/researches/${researchId}/save`,
     idempotencyHeaders(newIdempotencyKey()),
   )
+  return response.data
 }
 
 export async function getSavedResearch({ page = 0, size = 20 } = {}) {

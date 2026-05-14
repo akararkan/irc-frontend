@@ -309,11 +309,67 @@ export async function reactToAnswer(questionId, answerId, reactionType) {
   return response.data
 }
 
+// Backend returns 200 with the updated QuestionAnswerResponse —
+// authoritative reactionCount (post-decrement) + myReaction:null.
 export async function removeAnswerReaction(questionId, answerId) {
-  await api.delete(
+  const response = await api.delete(
     `/api/v1/questions/${questionId}/answers/${answerId}/react`,
     idempotencyHeaders(newIdempotencyKey()),
   )
+  return response.data
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SAVES / BOOKMARKS
+//  Mirrors the post/research save contract — POST is idempotent,
+//  both POST and DELETE return the updated QuestionResponse with
+//  authoritative isSaved + saveCount.
+// ══════════════════════════════════════════════════════════════
+
+export async function saveQuestion(questionId, collection) {
+  const key = newIdempotencyKey()
+  const response = await api.post(
+    `/api/v1/questions/${questionId}/save`,
+    null,
+    {
+      headers: { 'Idempotency-Key': key },
+      ...(collection ? { params: { collection } } : {}),
+    },
+  )
+  return response.data
+}
+
+export async function unsaveQuestion(questionId) {
+  const response = await api.delete(
+    `/api/v1/questions/${questionId}/save`,
+    idempotencyHeaders(newIdempotencyKey()),
+  )
+  return response.data
+}
+
+export async function getSavedQuestions({ page = 0, size = 20 } = {}) {
+  const response = await api.get('/api/v1/questions/me/saved', {
+    params: { page, size },
+  })
+  return response.data
+}
+
+export async function getSavedQuestionsByCollection(name, { page = 0, size = 20 } = {}) {
+  const response = await api.get('/api/v1/questions/me/saved/collection', {
+    params: { name, page, size },
+  })
+  return response.data
+}
+
+export async function getSavedQuestionCollections() {
+  const response = await api.get('/api/v1/questions/me/saved/collections')
+  return Array.isArray(response.data) ? response.data : []
+}
+
+export async function renameSavedQuestionCollection(oldName, newName) {
+  await api.patch('/api/v1/questions/me/saved/collections', null, {
+    params: { oldName, newName },
+  })
 }
 
 // ══════════════════════════════════════════════════════════════
