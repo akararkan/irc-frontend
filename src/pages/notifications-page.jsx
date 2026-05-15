@@ -79,15 +79,15 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
   }
 
   const containerClass = cn(
-    'group/notif relative flex items-start gap-4 border-b-[0.5px] border-border px-0 py-5 transition-colors',
-    'hover:bg-secondary/40',
+    'group/notif relative flex items-start gap-3 border-b-[0.5px] border-border px-1 py-4 transition-colors sm:gap-4 sm:px-0 sm:py-5',
+    'hover:bg-secondary/40 active:bg-secondary/60',
     unread && 'bg-paper',
   )
 
   const inner = (
     <>
-      {/* Unread dot — left gutter */}
-      <div className="flex w-5 shrink-0 justify-center pt-1">
+      {/* Unread dot — left gutter (narrower on mobile) */}
+      <div className="flex w-2.5 shrink-0 justify-center pt-1.5 sm:w-5">
         {unread ? (
           <span
             aria-hidden
@@ -101,7 +101,7 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
 
       {/* Actor avatar */}
       <div className="relative shrink-0">
-        <UserAvatar user={actor ?? {}} className="size-10" />
+        <UserAvatar user={actor ?? {}} className="size-9 sm:size-10" />
         {notification.aggregateCount > 1 ? (
           <span
             aria-hidden
@@ -116,7 +116,7 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
       {/* Content */}
       <div className="min-w-0 flex-1 space-y-1.5">
         {/* Actor name bold + verb italic + resource title */}
-        <p className="text-[15px] leading-[1.5] text-ink">
+        <p className="text-[14px] leading-[1.5] text-ink sm:text-[15px]">
           {actorLink ? (
             <Link
               to={actorLink}
@@ -155,55 +155,36 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
         </div>
       </div>
 
-      {/* Right side — follow-back button or mark-read/delete */}
+      {/* Right side — follow-back button or delete (always visible on touch) */}
       <div
-        className="flex shrink-0 items-center gap-1.5"
+        className="flex shrink-0 items-center gap-1.5 self-center"
         onClick={(e) => e.stopPropagation()}
       >
         {isFollowNotif ? (
           <Link
             to={actorLink ?? '#'}
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1.5 rounded-xl border-[0.5px] border-border px-4 py-2.5 text-[13px] font-medium text-ink transition-colors hover:bg-secondary"
+            className="inline-flex items-center gap-1.5 rounded-xl border-[0.5px] border-border bg-paper px-3 py-2 text-[12.5px] font-medium text-ink transition-colors hover:bg-secondary sm:px-4 sm:py-2.5 sm:text-[13px]"
           >
             <Plus className="size-3.5" strokeWidth={2} />
-            Follow back
+            <span className="hidden xs:inline sm:inline">Follow back</span>
           </Link>
         ) : (
-          <>
-            {unread ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="rounded-md text-ink-3 opacity-0 transition-opacity hover:text-ink group-hover/notif:opacity-100 focus-visible:opacity-100"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  onMarkRead(notification.id)
-                }}
-                title="Mark as read"
-                aria-label="Mark as read"
-              >
-                <Check className="size-3.5" />
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="rounded-md text-ink-3 opacity-0 transition-opacity hover:text-destructive group-hover/notif:opacity-100 focus-visible:opacity-100"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                onDelete(notification.id)
-              }}
-              title="Delete"
-              aria-label="Delete notification"
-            >
-              <X className="size-3.5" />
-            </Button>
-          </>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="rounded-md text-ink-3 transition-opacity hover:text-destructive sm:opacity-0 sm:group-hover/notif:opacity-100 sm:focus-visible:opacity-100"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onDelete(notification.id)
+            }}
+            title="Delete"
+            aria-label="Delete notification"
+          >
+            <X className="size-3.5" />
+          </Button>
         )}
       </div>
     </>
@@ -384,33 +365,37 @@ export function NotificationsPage() {
 
   return (
     <div className="space-y-0">
-      {/* ── Page header ───────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-3 pb-6">
-        <h1 className="font-display text-[28px] font-semibold leading-[1.1] tracking-[-0.016em] text-ink sm:text-[32px]">
-          Notifications
-        </h1>
-        {unreadCount > 0 ? (
-          <span className="inline-flex items-center rounded-full bg-ink px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider text-paper">
-            {unreadCount} New
-          </span>
-        ) : null}
-        <div className="ml-auto flex items-center gap-2">
+      {/* ── Page header — responsive: title row wraps, actions stay compact */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-3 pb-5 sm:pb-6">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-3">
+          <h1 className="font-display text-[26px] font-semibold leading-[1.1] tracking-[-0.016em] text-ink sm:text-[32px]">
+            Notifications
+          </h1>
+          {unreadCount > 0 ? (
+            <span className="inline-flex shrink-0 items-center rounded-full bg-ink px-2.5 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-wider text-paper sm:px-3 sm:text-[11px]">
+              {unreadCount} New
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <SoundToggle />
           <button
             type="button"
             onClick={handleClearCategory}
             disabled={unreadCount === 0}
-            className="inline-flex items-center gap-1.5 rounded-xl border-[0.5px] border-border px-4 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-secondary disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-xl border-[0.5px] border-border bg-paper px-3 py-2 text-[12.5px] font-medium text-ink transition-colors hover:bg-secondary disabled:opacity-40 sm:px-4 sm:text-[13px]"
+            title="Mark all read"
           >
             <Check className="size-3.5" strokeWidth={2} />
-            Mark all read
+            <span className="hidden sm:inline">Mark all read</span>
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-xl border-[0.5px] border-border px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-secondary disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-xl border-[0.5px] border-border bg-paper px-2.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-secondary disabled:opacity-40 sm:px-3"
                 disabled={items.length === 0}
+                title="More"
               >
                 <Sparkles className="size-3.5" />
               </button>

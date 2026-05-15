@@ -386,21 +386,25 @@
 }
 
 /* ─── Page background presets — [data-page-bg] ───────────────
-   Override --background and --page-tint (and card surfaces in
-   dark mode) so the page "paper" changes globally — affects the
-   sidebar, the main feed, and every popover in one shot.       */
+   Override --background, --paper, --card, AND the sidebar tokens
+   so the entire chrome — main feed, popovers, AND the sidebar —
+   reflows to the chosen palette in one shot.                    */
 
 :root[data-page-bg="white"] {
   --background: #FFFFFF;
   --page-tint:  #F8F8F8;
   --paper:      #FFFFFF;
   --card:       #FFFFFF;
+  --sidebar:    #FFFFFF;
+  --sidebar-accent: #F4F4F4;
 }
 .dark[data-page-bg="white"] {
   --background: #0D0D0D;
   --page-tint:  #141414;
   --paper:      #1A1A1A;
   --card:       #1A1A1A;
+  --sidebar:    #0A0A0A;
+  --sidebar-accent: #1A1A1A;
 }
 
 :root[data-page-bg="slate"] {
@@ -408,6 +412,9 @@
   --page-tint:  #E8EDF3;
   --paper:      #FFFFFF;
   --card:       #FFFFFF;
+  --sidebar:    #E2E8F0;
+  --sidebar-accent: #F1F5F9;
+  --sidebar-border: #D5DDE8;
 }
 .dark[data-page-bg="slate"] {
   --background: #0F172A;
@@ -415,6 +422,8 @@
   --paper:      #1E293B;
   --card:       #1E293B;
   --sidebar:    #0B1120;
+  --sidebar-accent: #1E293B;
+  --sidebar-border: rgba(148, 163, 184, 0.18);
 }
 
 :root[data-page-bg="sepia"] {
@@ -422,6 +431,9 @@
   --page-tint:  #F5EED6;
   --paper:      #FFFCF4;
   --card:       #FFFCF4;
+  --sidebar:    #F5EED6;
+  --sidebar-accent: #ECE0BC;
+  --sidebar-border: #E5D7B2;
 }
 .dark[data-page-bg="sepia"] {
   --background: #1C1409;
@@ -429,6 +441,16 @@
   --paper:      #2A1F10;
   --card:       #2A1F10;
   --sidebar:    #150F05;
+  --sidebar-accent: #2A1F10;
+  --sidebar-border: rgba(232, 184, 90, 0.16);
+}
+
+/* Default page-bg → make sidebar match the warm cream background. */
+:root[data-page-bg="default"] {
+  --sidebar: var(--background);
+}
+.dark[data-page-bg="default"] {
+  --sidebar: #100E0A;
 }
 
 /* ─── Border radius presets — [data-radius] ─────────────────
@@ -917,4 +939,81 @@ main {
 [lang="fa"] p,
 [lang="ur"] p {
   font-size: 1.04em;
+}
+
+/* ─── RTL LAYOUT OVERRIDES ─────────────────────────────────────
+   Tailwind physical utilities (ml-*, mr-*, border-l, border-r,
+   left-*, right-*) don't auto-flip in RTL. Logical properties
+   (ms-*, me-*, border-s, border-e, start-*, end-*) do. Since
+   most of the codebase predates the logical helpers, we flip the
+   most common physical utilities here so the whole UI mirrors
+   when the page is in RTL — sidebar slides to the right edge,
+   action bars flow from the right, etc.
+
+   Scope: anywhere in an `[dir="rtl"]` ancestor. */
+
+/* Borders — physical side flipped to opposite side */
+[dir="rtl"] .border-l   { border-left-width: 0;  border-right-width: 1px; }
+[dir="rtl"] .border-r   { border-right-width: 0; border-left-width: 1px;  }
+[dir="rtl"] .border-l-0 { border-right-width: 0; }
+[dir="rtl"] .border-r-0 { border-left-width: 0;  }
+[dir="rtl"] .border-l-\[0\.5px\] { border-left-width: 0; border-right-width: 0.5px; }
+[dir="rtl"] .border-r-\[0\.5px\] { border-right-width: 0; border-left-width: 0.5px; }
+[dir="rtl"] .border-l-2 { border-left-width: 0; border-right-width: 2px; }
+[dir="rtl"] .border-r-2 { border-right-width: 0; border-left-width: 2px; }
+
+/* Margin auto helpers — flip "push to right" / "push to left" */
+[dir="rtl"] .ml-auto { margin-left: 0; margin-right: auto; }
+[dir="rtl"] .mr-auto { margin-right: 0; margin-left: auto; }
+
+/* Text alignment — physical → flipped */
+[dir="rtl"] .text-left  { text-align: right; }
+[dir="rtl"] .text-right { text-align: left;  }
+
+/* Float */
+[dir="rtl"] .float-left  { float: right; }
+[dir="rtl"] .float-right { float: left;  }
+
+/* Order helpers — keep visual flow predictable */
+[dir="rtl"] .order-first { order: -1; }
+[dir="rtl"] .order-last  { order: 999; }
+
+/* Common Tailwind margin / padding directional utilities — the
+   short-hand list keeps it manageable while covering 95% of usage.
+   For RTL: ml-* becomes margin-right, mr-* becomes margin-left. */
+[dir="rtl"] .ml-1   { margin-left: 0; margin-right: 0.25rem; }
+[dir="rtl"] .ml-1\.5{ margin-left: 0; margin-right: 0.375rem;}
+[dir="rtl"] .ml-2   { margin-left: 0; margin-right: 0.5rem;  }
+[dir="rtl"] .ml-2\.5{ margin-left: 0; margin-right: 0.625rem;}
+[dir="rtl"] .ml-3   { margin-left: 0; margin-right: 0.75rem; }
+[dir="rtl"] .ml-4   { margin-left: 0; margin-right: 1rem;    }
+[dir="rtl"] .ml-5   { margin-left: 0; margin-right: 1.25rem; }
+[dir="rtl"] .ml-6   { margin-left: 0; margin-right: 1.5rem;  }
+[dir="rtl"] .mr-1   { margin-right: 0; margin-left: 0.25rem; }
+[dir="rtl"] .mr-1\.5{ margin-right: 0; margin-left: 0.375rem;}
+[dir="rtl"] .mr-2   { margin-right: 0; margin-left: 0.5rem;  }
+[dir="rtl"] .mr-2\.5{ margin-right: 0; margin-left: 0.625rem;}
+[dir="rtl"] .mr-3   { margin-right: 0; margin-left: 0.75rem; }
+[dir="rtl"] .mr-4   { margin-right: 0; margin-left: 1rem;    }
+[dir="rtl"] .mr-5   { margin-right: 0; margin-left: 1.25rem; }
+[dir="rtl"] .mr-6   { margin-right: 0; margin-left: 1.5rem;  }
+
+/* Padding — same idea, lighter list */
+[dir="rtl"] .pl-2   { padding-left: 0; padding-right: 0.5rem;  }
+[dir="rtl"] .pl-3   { padding-left: 0; padding-right: 0.75rem; }
+[dir="rtl"] .pl-4   { padding-left: 0; padding-right: 1rem;    }
+[dir="rtl"] .pl-5   { padding-left: 0; padding-right: 1.25rem; }
+[dir="rtl"] .pl-6   { padding-left: 0; padding-right: 1.5rem;  }
+[dir="rtl"] .pr-2   { padding-right: 0; padding-left: 0.5rem;  }
+[dir="rtl"] .pr-3   { padding-right: 0; padding-left: 0.75rem; }
+[dir="rtl"] .pr-4   { padding-right: 0; padding-left: 1rem;    }
+[dir="rtl"] .pr-5   { padding-right: 0; padding-left: 1.25rem; }
+[dir="rtl"] .pr-6   { padding-right: 0; padding-left: 1.5rem;  }
+
+/* Chevron / arrow icons should mirror direction (forward → backward) */
+[dir="rtl"] .lucide-chevron-right,
+[dir="rtl"] .lucide-chevron-left,
+[dir="rtl"] .lucide-arrow-right,
+[dir="rtl"] .lucide-arrow-left {
+  transform: scaleX(-1);
 }

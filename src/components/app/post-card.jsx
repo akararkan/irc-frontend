@@ -48,6 +48,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { AudioPlayer } from '@/components/app/audio-player'
 import { EditPostDialog } from '@/components/app/edit-post-dialog'
+import { MediaLightbox } from '@/components/app/media-lightbox'
 import { PostComments } from '@/components/app/post-comments'
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
@@ -232,19 +233,38 @@ function normalizeAuthor(post) {
 }
 
 // ─── Media ──────────────────────────────────────────────────────────
-function MediaItem({ item, className }) {
+function MediaItem({ item, className, onOpen }) {
   const url = resolveMediaUrl(item.url ?? item.mediaUrl)
   if (!url) return null
   const type = (item.mediaType ?? item.type ?? '').toUpperCase()
   if (type === 'VIDEO') {
+    // Native controls stay so users can scrub inline. Clicking the
+    // video frame outside the controls opens the lightbox for fullscreen
+    // playback with the author header.
     return (
-      <video
-        src={url}
-        controls
-        playsInline
-        preload="metadata"
-        className={cn('h-full w-full bg-black object-contain', className)}
-      />
+      <div
+        role={onOpen ? 'button' : undefined}
+        onClick={(e) => {
+          if (!onOpen) return
+          // Skip when the user is interacting with the native controls
+          if (e.target && e.target.tagName === 'VIDEO') {
+            const v = e.target
+            const rect = v.getBoundingClientRect()
+            const bottomZone = e.clientY > rect.bottom - 48
+            if (bottomZone) return // let controls handle the click
+          }
+          onOpen()
+        }}
+        className="h-full w-full cursor-pointer"
+      >
+        <video
+          src={url}
+          controls
+          playsInline
+          preload="metadata"
+          className={cn('h-full w-full bg-black object-contain', className)}
+        />
+      </div>
     )
   }
   if (type === 'AUDIO_TRACK' || type === 'AUDIO') {
@@ -300,38 +320,79 @@ function MediaItem({ item, className }) {
       src={url}
       alt={item.altText ?? ''}
       loading="lazy"
+      role={onOpen ? 'button' : undefined}
+      onClick={onOpen}
       className={cn(
-        'h-full w-full object-cover transition-transform duration-700 hover:scale-[1.02]',
+        'h-full w-full object-cover transition-transform duration-700',
+        onOpen && 'cursor-zoom-in hover:scale-[1.02]',
+        !onOpen && 'hover:scale-[1.02]',
         className,
       )}
+      draggable={false}
     />
   )
 }
 
-function MediaGrid({ media }) {
+function MediaGrid({ media, author, caption }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
+
   if (!media?.length) return null
+
+  // Filter to only image/video items — documents and audio shouldn't
+  // appear in the lightbox carousel.
+  const viewable = media.filter((m) => {
+    const t = (m?.mediaType ?? m?.type ?? '').toUpperCase()
+    return t === 'IMAGE' || t === 'VIDEO' || t === ''
+  })
+
+  function openLightboxAt(index) {
+    setLightboxIndex(index)
+    setLightboxOpen(true)
+  }
+
+  const lightbox = viewable.length > 0 ? (
+    <MediaLightbox
+      open={lightboxOpen}
+      onOpenChange={setLightboxOpen}
+      media={viewable}
+      startIndex={lightboxIndex}
+      author={author}
+      postCaption={caption}
+    />
+  ) : null
+
   if (media.length === 1) {
     const sole = media[0]
     const isVideo = (sole.mediaType ?? '').toUpperCase() === 'VIDEO'
     if (isVideo) {
-      // Cap a single in-feed video so it never dominates the card. Most
-      // casual videos look right at ~480px tall on desktop and are still
-      // tappable on mobile.
       return (
-        <div className="mx-auto max-w-[480px] overflow-hidden rounded-2xl border border-border bg-black">
-          <MediaItem
-            item={sole}
-            className="max-h-[420px] w-full object-contain sm:max-h-[480px]"
-          />
-        </div>
+        <>
+          <div className="mx-auto max-w-[480px] overflow-hidden rounded-2xl border border-border bg-black">
+            <MediaItem
+              item={sole}
+              className="max-h-[420px] w-full object-contain sm:max-h-[480px]"
+              onOpen={() => openLightboxAt(0)}
+            />
+          </div>
+          {lightbox}
+        </>
       )
     }
     return (
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <MediaItem item={sole} className="max-h-[560px] w-full object-cover" />
-      </div>
+      <>
+        <div className="overflow-hidden rounded-2xl border border-border">
+          <MediaItem
+            item={sole}
+            className="max-h-[560px] w-full object-cover"
+            onOpen={() => openLightboxAt(0)}
+          />
+        </div>
+        {lightbox}
+      </>
     )
   }
+
   const sliced = media.slice(0, 4)
   const layout = {
     2: 'grid grid-cols-2 gap-1',
@@ -339,18 +400,27 @@ function MediaGrid({ media }) {
     4: 'grid grid-cols-2 gap-1',
   }[sliced.length]
   return (
-    <div className={cn('overflow-hidden rounded-2xl border border-border', layout)}>
-      {sliced.map((item, index) => (
-        <div key={item.id ?? index} className="relative aspect-square overflow-hidden bg-muted">
-          <MediaItem item={item} />
-          {index === 3 && media.length > 4 ? (
-            <div className="absolute inset-0 grid place-items-center bg-black/45 text-white">
-              <span className="text-xl font-semibold">+{media.length - 4}</span>
-            </div>
-          ) : null}
-        </div>
-      ))}
-    </div>
+    <>
+      <div className={cn('overflow-hidden rounded-2xl border border-border', layout)}>
+        {sliced.map((item, index) => (
+          <div
+            key={item.id ?? index}
+            className="relative aspect-square cursor-zoom-in overflow-hidden bg-muted"
+          >
+            <MediaItem item={item} onOpen={() => openLightboxAt(index)} />
+            {index === 3 && media.length > 4 ? (
+              <div
+                className="absolute inset-0 grid cursor-zoom-in place-items-center bg-black/55 text-white transition-colors hover:bg-black/65"
+                onClick={() => openLightboxAt(3)}
+              >
+                <span className="font-display text-2xl font-semibold">+{media.length - 4}</span>
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      {lightbox}
+    </>
   )
 }
 
@@ -878,7 +948,7 @@ function QuotedPost({ post }) {
       ) : null}
       {post.mediaList?.length ? (
         <div className="px-2 pb-2">
-          <MediaGrid media={post.mediaList.slice(0, 1)} />
+          <MediaGrid media={post.mediaList.slice(0, 1)} author={author} caption={post.textContent} />
         </div>
       ) : null}
     </Link>
@@ -1389,7 +1459,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
             postId={post.id}
           />
         ) : (
-          <MediaGrid media={post.mediaList} />
+          <MediaGrid media={post.mediaList} author={author} caption={post.textContent} />
         )}
 
         {postType === 'EMBEDDED' && post.audioTrackUrl ? (

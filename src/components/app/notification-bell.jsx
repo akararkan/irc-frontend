@@ -9,7 +9,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { RelativeTime } from '@/components/app/relative-time'
@@ -153,6 +153,20 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const containerRef = useRef(null)
   const buttonRef = useRef(null)
+  const navigate = useNavigate()
+
+  // On mobile, tapping the bell skips the dropdown and routes straight
+  // to /notifications — the dropdown's narrow desktop layout doesn't
+  // give phone-sized screens enough room to read or act on rows.
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const mq = window.matchMedia('(max-width: 767px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener?.('change', update)
+    return () => mq.removeEventListener?.('change', update)
+  }, [])
 
   useEffect(() => {
     if (!open) return undefined
@@ -186,6 +200,14 @@ export function NotificationBell() {
     setOpen(false)
   }
 
+  function handleBellClick() {
+    if (isMobile) {
+      navigate('/notifications')
+      return
+    }
+    setOpen((v) => !v)
+  }
+
   return (
     <div className="relative">
       <Button
@@ -193,7 +215,7 @@ export function NotificationBell() {
         type="button"
         variant="ghost"
         size="icon"
-        onClick={() => setOpen((value) => !value)}
+        onClick={handleBellClick}
         className={cn(
           'relative rounded-full hover:bg-accent',
           open && 'bg-accent',
