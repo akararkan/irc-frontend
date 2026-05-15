@@ -1010,6 +1010,16 @@ main {
 [dir="rtl"] .pr-5   { padding-right: 0; padding-left: 1.25rem; }
 [dir="rtl"] .pr-6   { padding-right: 0; padding-left: 1.5rem;  }
 
+/* Action rows (post / research / question card action bars) — in RTL
+   the whole pill group must sit at the physical right edge.
+   `justify-content: right` is a physical Box Alignment keyword that
+   ignores writing-direction and always anchors items to the right,
+   which is more reliable than `flex-start` for `flex-wrap` containers
+   in WebKit where direction:rtl doesn't always flip flex-start. */
+[dir="rtl"] .action-row {
+  justify-content: right;
+}
+
 /* Chevron / arrow icons should mirror direction (forward → backward) */
 [dir="rtl"] .lucide-chevron-right,
 [dir="rtl"] .lucide-chevron-left,

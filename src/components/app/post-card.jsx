@@ -1485,7 +1485,7 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
       {/* ── Action bar — every action is a hairline pill on the left,
            the view counter sits alone on the right.  Matches the
            "reading-room" card silhouette from the spec mock. ─── */}
-      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 px-4 pb-4 pt-3 sm:px-6">
+      <div className="action-row flex flex-wrap items-center gap-x-1.5 gap-y-2 px-4 pb-4 pt-3 sm:px-6">
         <div className="flex flex-wrap items-center gap-1.5">
           {/* Single-LIKE Instagram heart toggle. One tap likes, another
               tap unlikes; the count animates up/down on either side. */}
