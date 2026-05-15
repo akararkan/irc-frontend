@@ -98,7 +98,6 @@ import {
   getRawUsername,
   getUsername,
   resolveMediaUrl,
-  startsWithRtl,
 } from '@/lib/format'
 import { FRONTEND_URL } from '@/config/env'
 
@@ -1305,12 +1304,11 @@ export function PostCard({ post, onChange, onDelete, onRepostCreated, defaultCom
   // avatar / name / actions slide to the right edge and the body flows
   // naturally from the right. Keeps the post visually coherent in any
   // language without having to flip the entire app.
-  const postIsRtl = startsWithRtl(post.textContent)
+
 
   return (
     <article
       ref={composedRef}
-      dir={postIsRtl ? 'rtl' : undefined}
       className={cn(
         'group/post relative border-b-[0.5px] border-border bg-paper transition-colors duration-150 hover:bg-secondary/30',
       )}
