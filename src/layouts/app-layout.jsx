@@ -6,10 +6,14 @@ import { AppTopbar } from '@/components/app/app-topbar'
 import { MobileBottomTabs } from '@/components/app/mobile-bottom-tabs'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
+import { RTL_LANGS } from '@/i18n'
+import { useTweaks } from '@/features/tweaks/tweaks-context'
 
 export function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
+  const { lang } = useTweaks()
+  const isRtl = RTL_LANGS.has(lang ?? 'en')
 
   // Reels is an immersive vertical-video experience. On mobile/tablet
   // it owns the entire viewport — topbar and bottom tabs collapse so
@@ -20,7 +24,7 @@ export function AppLayout() {
   const hideMobileChrome = isReels
 
   return (
-    <div className="flex min-h-[100dvh] bg-background text-foreground">
+    <div dir={isRtl ? 'rtl' : 'ltr'} className="flex min-h-[100dvh] bg-background text-foreground">
       <aside className="hidden w-60 shrink-0 border-r border-border bg-sidebar lg:block">
         <div className="sticky top-0 h-screen">
           <AppSidebar />
@@ -28,7 +32,7 @@ export function AppLayout() {
       </aside>
 
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-        <SheetContent side="left" className="w-72 max-w-[85vw] bg-sidebar p-0" showClose={false}>
+        <SheetContent side={isRtl ? 'right' : 'left'} className="w-72 max-w-[85vw] bg-sidebar p-0" showClose={false}>
           <AppSidebar onNavigate={() => setMenuOpen(false)} />
         </SheetContent>
       </Sheet>
