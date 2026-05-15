@@ -355,6 +355,11 @@ export async function recordResearchView(researchId) {
   await api.post(`/api/v1/researches/${researchId}/view`)
 }
 
+export async function getResearchShareLink(id) {
+  const response = await api.get(`/api/v1/researches/${id}/share-link`)
+  return response.data
+}
+
 export async function shareResearch(id) {
   const response = await api.post(`/api/v1/researches/${id}/share`)
   return response.data

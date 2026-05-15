@@ -58,6 +58,7 @@ import {
   getAnswers,
   getQuestion,
   lockAnswers,
+  recordQuestionShare,
   saveQuestion,
   setAnswerLimit,
   reactToAnswer,
@@ -151,7 +152,7 @@ function sortAnswers(list) {
 }
 
 // ─── Question header — tight editorial design (no card) ───────────
-function QuestionHeader({ question, onToggleSave }) {
+function QuestionHeader({ question, onToggleSave, onShare }) {
   const author = authorOf(question)
   const status = STATUS_META[question.status] ?? STATUS_META.OPEN
   const authorRoute = getRawUsername(author)
@@ -256,6 +257,17 @@ function QuestionHeader({ question, onToggleSave }) {
               {formatNumber(question.reactionCount)}
             </span>
           ) : null}
+          <button
+            type="button"
+            onClick={onShare}
+            title="Share this question"
+            className="rx"
+          >
+            <Share2 className="size-[14px]" strokeWidth={1.5} />
+            {(question.shareCount ?? 0) > 0
+              ? formatNumber(question.shareCount)
+              : 'Share'}
+          </button>
           <button
             type="button"
             onClick={onToggleSave}
@@ -1946,6 +1958,15 @@ export function QuestionDetailPage() {
         current ? { ...current, saveCount: next } : current,
       )
     },
+    SHARE_COUNT_UPDATED: (payload) => {
+      const next = payload?.questionShareCount ?? payload?.shareCount
+      if (next == null) return
+      if (user?.id && payload?.actorId === user.id) return
+      setCounter('question', questionId, 'sh', next)
+      setQuestion((current) =>
+        current ? { ...current, shareCount: next } : current,
+      )
+    },
     ANSWER_CREATED: (payload) => {
       if (!payload?.id) return
       setAnswers((current) =>
@@ -2390,6 +2411,30 @@ export function QuestionDetailPage() {
     }
   }
 
+  async function handleShare() {
+    if (!question) return
+    try {
+      const result = await recordQuestionShare(question.id)
+      const url =
+        result?.shortUrl ??
+        result?.canonicalUrl ??
+        (typeof result === 'string' ? result : null) ??
+        window.location.href
+      if (navigator.share) {
+        await navigator.share({ title: question.title, url })
+      } else {
+        await navigator.clipboard.writeText(url)
+        toast.success('Link copied to clipboard.')
+      }
+      setQuestion((current) => ({
+        ...current,
+        shareCount: result?.shareCount ?? (current?.shareCount ?? 0) + 1,
+      }))
+    } catch {
+      // user cancelled or unsupported
+    }
+  }
+
   async function handleToggleLock() {
     if (!question) return
     setWorking(true)
@@ -2525,7 +2570,7 @@ export function QuestionDetailPage() {
       </div>
 
       {/* Editorial header — no card, tight rhythm */}
-      <QuestionHeader question={question} onToggleSave={handleToggleSave} />
+      <QuestionHeader question={question} onToggleSave={handleToggleSave} onShare={handleShare} />
 
       {/* Inline owner controls (lock / limit) — only for author/admin */}
       {canManage ? (

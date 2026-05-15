@@ -496,6 +496,20 @@ export async function deleteAnswerSource(questionId, answerId, sourceId) {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  SHARE  —  unified ShareLinkInfo contract
+// ══════════════════════════════════════════════════════════════
+
+export async function getQuestionShareLink(questionId) {
+  const response = await api.get(`/api/v1/questions/${questionId}/share-link`)
+  return response.data
+}
+
+export async function recordQuestionShare(questionId) {
+  const response = await api.post(`/api/v1/questions/${questionId}/share`)
+  return response.data
+}
+
+// ══════════════════════════════════════════════════════════════
 //  REALTIME  —  /api/v1/questions/{questionId}/stream  (SSE)
 // ══════════════════════════════════════════════════════════════
 //

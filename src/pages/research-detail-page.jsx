@@ -1714,8 +1714,12 @@ export function ResearchDetailPage() {
 
   async function handleShare() {
     try {
-      const shareUrl = research.shareUrl || (await shareResearch(research.id))
-      const url = typeof shareUrl === 'string' ? shareUrl : window.location.href
+      const result = await shareResearch(research.id)
+      const url =
+        result?.shortUrl ??
+        result?.canonicalUrl ??
+        (typeof result === 'string' ? result : null) ??
+        window.location.href
       if (navigator.share) {
         await navigator.share({ title: research.title, url })
       } else {
@@ -1724,8 +1728,8 @@ export function ResearchDetailPage() {
       }
       setResearch((current) => ({
         ...current,
-        shareUrl: typeof shareUrl === 'string' ? shareUrl : current?.shareUrl,
-        shareCount: (current?.shareCount ?? 0) + 1,
+        shareUrl: url,
+        shareCount: result?.shareCount ?? (current?.shareCount ?? 0) + 1,
       }))
     } catch {
       // user cancelled or unsupported

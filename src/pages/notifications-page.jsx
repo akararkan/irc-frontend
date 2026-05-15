@@ -38,7 +38,6 @@ import { cn } from '@/lib/utils'
 import { RelativeTime } from '@/components/app/relative-time'
 import { getRawUsername } from '@/lib/format'
 import {
-  NOTIFICATION_CATEGORIES,
   actorDisplayName,
   getNotificationCategoryMeta,
   getNotificationTypeMeta,
@@ -257,6 +256,7 @@ function PushPermissionBanner() {
 
 const ALL_TAB = { value: 'ALL', label: 'All', icon: Inbox }
 const MENTIONS_TAB = { value: 'MENTIONS', label: 'Mentions' }
+const FOLLOWS_TAB = { value: 'FOLLOWS', label: 'Follows' }
 
 function SoundToggle() {
   const [enabled, setEnabled] = useNotificationSoundPreference()
@@ -293,7 +293,6 @@ export function NotificationsPage() {
     isLoading,
     markAsRead,
     markAllAsRead,
-    markCategoryAsRead,
     removeNotification,
     purgeReadNotifications,
   } = useNotifications()
@@ -302,22 +301,17 @@ export function NotificationsPage() {
   const counts = useMemo(() => {
     const all = items.length
     const unread = items.filter((item) => !item.isRead).length
-    const byCategory = NOTIFICATION_CATEGORIES.reduce((accumulator, entry) => {
-      accumulator[entry.value] = items.filter(
-        (item) => item.category === entry.value,
-      ).length
-      return accumulator
-    }, {})
     const mentions = items.filter((item) => item.type === 'USER_MENTIONED').length
-    return { all, unread, byCategory, mentions }
+    const follows = items.filter((item) => item.type === 'USER_FOLLOWED' || item.type === 'NEW_FOLLOWER').length
+    return { all, unread, mentions, follows }
   }, [items])
 
   const visible = useMemo(() => {
     let list = items
     if (category === 'MENTIONS') {
       list = list.filter((item) => item.type === 'USER_MENTIONED')
-    } else if (category !== 'ALL') {
-      list = list.filter((item) => item.category === category)
+    } else if (category === 'FOLLOWS') {
+      list = list.filter((item) => item.type === 'USER_FOLLOWED' || item.type === 'NEW_FOLLOWER')
     }
     return list
   }, [items, category])
@@ -325,7 +319,8 @@ export function NotificationsPage() {
   const activeMeta = useMemo(() => {
     if (category === 'ALL') return ALL_TAB
     if (category === 'MENTIONS') return MENTIONS_TAB
-    return getNotificationCategoryMeta(category)
+    if (category === 'FOLLOWS') return FOLLOWS_TAB
+    return ALL_TAB
   }, [category])
 
   if (!isAuthenticated) {
@@ -356,11 +351,7 @@ export function NotificationsPage() {
   }
 
   function handleClearCategory() {
-    if (category === 'ALL' || category === 'MENTIONS') {
-      markAllAsRead()
-      return
-    }
-    markCategoryAsRead(category)
+    markAllAsRead()
   }
 
   return (
@@ -412,28 +403,25 @@ export function NotificationsPage() {
 
       <PushPermissionBanner />
 
-      {/* ── Category tabs — flat underline ────────────────────── */}
-      <div className="scrollbar-none flex flex-nowrap items-end overflow-x-auto border-b-[0.5px] border-border">
+      {/* ── Tabs — All / Mentions / Follows ─────────────────────── */}
+      <div className="flex items-end border-b-[0.5px] border-border">
         <InboxTab
           label={ALL_TAB.label}
           count={counts.all}
           active={category === 'ALL'}
           onSelect={() => setCategory('ALL')}
         />
-        {NOTIFICATION_CATEGORIES.map((entry) => (
-          <InboxTab
-            key={entry.value}
-            label={entry.label}
-            count={counts.byCategory[entry.value] ?? 0}
-            active={category === entry.value}
-            onSelect={() => setCategory(entry.value)}
-          />
-        ))}
         <InboxTab
           label={MENTIONS_TAB.label}
           count={counts.mentions}
           active={category === 'MENTIONS'}
           onSelect={() => setCategory('MENTIONS')}
+        />
+        <InboxTab
+          label={FOLLOWS_TAB.label}
+          count={counts.follows}
+          active={category === 'FOLLOWS'}
+          onSelect={() => setCategory('FOLLOWS')}
         />
       </div>
 
