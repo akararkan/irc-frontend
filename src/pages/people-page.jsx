@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Ban, Search, ShieldAlert, UserMinus, UserPlus, Users } from 'lucide-react'
+import { Ban, Check, Search, ShieldAlert, UserPlus, Users } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { EmptyState } from '@/components/app/empty-state'
-import { PageHeader } from '@/components/app/page-header'
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
 import {
@@ -22,9 +16,18 @@ import { searchUsers } from '@/features/users/users.api'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { extractApiMessage } from '@/lib/api-error'
-import { formatNumber, getFollowerCount, getFullName, getHandle, getProfileBio, getRawUsername } from '@/lib/format'
+import {
+  formatNumber,
+  getFollowerCount,
+  getFullName,
+  getHandle,
+  getProfileBio,
+  getRawUsername,
+} from '@/lib/format'
+import { cn } from '@/lib/utils'
 
-function UserRow({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUserId }) {
+/* ── Person card ─────────────────────────────────────────────── */
+function PersonCard({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUserId }) {
   const [working, setWorking] = useState(false)
   const isMe = currentUserId && user.id === currentUserId
   const following = user._isFollowing
@@ -42,69 +45,87 @@ function UserRow({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUserId
 
   const route = getRawUsername(user)
   const handle = getHandle(user)
+  const bio = getProfileBio(user)
+  const followerCount = getFollowerCount(user)
+
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 sm:flex-nowrap">
-      <Link to={`/profile/${route}`}>
-        <UserAvatar user={user} className="size-11" />
+    <div className="flex items-start gap-3.5 rounded-2xl border border-border bg-paper p-4 transition-colors hover:border-brand/30 sm:gap-4">
+      <Link to={`/profile/${route}`} className="shrink-0 transition-opacity hover:opacity-90">
+        <UserAvatar user={user} className="size-11 rounded-full sm:size-12" />
       </Link>
+
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <Link
             to={`/profile/${route}`}
-            className="truncate font-medium hover:underline"
+            className="font-display text-[15px] font-semibold tracking-[-0.005em] text-ink hover:underline"
           >
-            {getFullName(user) || handle}
+            {getFullName(user) || handle || 'Unknown'}
           </Link>
-          <RoleBadge role={user.role} size="xs" />
+          {user.role ? <RoleBadge role={user.role} size="xs" /> : null}
         </div>
         {handle ? (
-          <p className="truncate text-xs text-muted-foreground">@{handle}</p>
+          <p className="mt-0.5 font-mono text-[11.5px] text-ink-3">@{handle}</p>
         ) : null}
-        {getProfileBio(user) ? (
-          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{getProfileBio(user)}</p>
+        {bio ? (
+          <p className="mt-1.5 line-clamp-2 text-[13px] leading-[1.55] text-ink-2">{bio}</p>
         ) : null}
-        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{formatNumber(getFollowerCount(user))} followers</span>
-        </div>
+        {followerCount > 0 ? (
+          <p className="mt-2 font-mono text-[11px] text-ink-3">
+            <span className="font-semibold tabular-nums text-ink">
+              {formatNumber(followerCount)}
+            </span>{' '}
+            <span className="uppercase tracking-[0.08em]">followers</span>
+          </p>
+        ) : null}
       </div>
 
       {!isMe ? (
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
           {blocked ? (
-            <Button
+            <button
               type="button"
-              size="sm"
-              variant="outline"
-              className="rounded-full"
               disabled={working}
               onClick={() => run(onUnblock)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3.5 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-brand/40 hover:text-ink disabled:opacity-50"
             >
               Unblock
-            </Button>
+            </button>
           ) : (
             <>
-              <Button
+              <button
                 type="button"
-                size="sm"
-                variant={following ? 'outline' : 'default'}
-                className="rounded-full"
                 disabled={working}
                 onClick={() => run(following ? onUnfollow : onFollow)}
+                className={cn(
+                  'inline-flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium transition-colors disabled:opacity-50',
+                  following
+                    ? 'border border-border bg-paper text-ink-2 hover:border-brand/40 hover:text-ink'
+                    : 'bg-brand text-brand-foreground hover:bg-brand/90',
+                )}
               >
-                {following ? <UserMinus className="size-4" /> : <UserPlus className="size-4" />}
-                {following ? 'Following' : 'Follow'}
-              </Button>
-              <Button
+                {following ? (
+                  <>
+                    <Check className="size-3.5" strokeWidth={2.2} />
+                    Following
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="size-3.5" strokeWidth={2} />
+                    Follow
+                  </>
+                )}
+              </button>
+              <button
                 type="button"
-                size="icon-sm"
-                variant="ghost"
-                className="rounded-full text-muted-foreground"
                 disabled={working}
                 onClick={() => run(onBlock)}
                 title="Block"
+                aria-label="Block this user"
+                className="grid size-8 place-items-center rounded-lg border border-border text-ink-3 transition-colors hover:border-destructive/40 hover:text-destructive disabled:opacity-50"
               >
-                <Ban className="size-4" />
-              </Button>
+                <Ban className="size-3.5" strokeWidth={1.7} />
+              </button>
             </>
           )}
         </div>
@@ -113,6 +134,7 @@ function UserRow({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUserId
   )
 }
 
+/* ── Search tab ──────────────────────────────────────────────── */
 function DirectorySearch() {
   const { user: currentUser } = useAuth()
   const toast = useToast()
@@ -152,7 +174,11 @@ function DirectorySearch() {
   async function handleFollow(person) {
     try {
       await followUser(person.id)
-      setItems((current) => current.map((item) => (item.id === person.id ? { ...item, _isFollowing: true } : item)))
+      setItems((current) =>
+        current.map((item) =>
+          item.id === person.id ? { ...item, _isFollowing: true } : item,
+        ),
+      )
       toast.success(`Following ${getFullName(person) || getHandle(person)}`)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not follow.'))
@@ -162,7 +188,11 @@ function DirectorySearch() {
   async function handleUnfollow(person) {
     try {
       await unfollowUser(person.id)
-      setItems((current) => current.map((item) => (item.id === person.id ? { ...item, _isFollowing: false } : item)))
+      setItems((current) =>
+        current.map((item) =>
+          item.id === person.id ? { ...item, _isFollowing: false } : item,
+        ),
+      )
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not unfollow.'))
     }
@@ -171,7 +201,11 @@ function DirectorySearch() {
   async function handleBlock(person) {
     try {
       await blockUser(person.id)
-      setItems((current) => current.map((item) => (item.id === person.id ? { ...item, _isBlocked: true, _isFollowing: false } : item)))
+      setItems((current) =>
+        current.map((item) =>
+          item.id === person.id ? { ...item, _isBlocked: true, _isFollowing: false } : item,
+        ),
+      )
       toast.success(`Blocked ${getFullName(person) || getHandle(person)}`)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not block.'))
@@ -181,7 +215,11 @@ function DirectorySearch() {
   async function handleUnblock(person) {
     try {
       await unblockUser(person.id)
-      setItems((current) => current.map((item) => (item.id === person.id ? { ...item, _isBlocked: false } : item)))
+      setItems((current) =>
+        current.map((item) =>
+          item.id === person.id ? { ...item, _isBlocked: false } : item,
+        ),
+      )
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not unblock.'))
     }
@@ -200,34 +238,41 @@ function DirectorySearch() {
 
   return (
     <div className="space-y-4">
+      {/* Search field */}
       <form onSubmit={handleSubmit} className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[15px] -translate-y-1/2 text-ink-4" />
+        <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search people by name, username, or interest"
-          className="h-11 rounded-full pl-9"
+          placeholder="Search people by name, username, or interest…"
+          className="h-11 w-full rounded-lg border border-border bg-paper pl-10 pr-24 text-[13.5px] text-ink outline-none placeholder:text-ink-4 transition-colors focus:border-brand/50 focus:ring-[3px] focus:ring-brand/15"
         />
+        <button
+          type="submit"
+          className="absolute right-1.5 top-1/2 inline-flex h-8 -translate-y-1/2 items-center rounded-md bg-brand px-3.5 text-[12.5px] font-medium text-brand-foreground transition-colors hover:bg-brand/90"
+        >
+          Search
+        </button>
       </form>
 
+      {/* Results */}
       {loading ? (
         <div className="space-y-3">
           {[0, 1, 2].map((key) => (
-            <Skeleton key={key} className="h-20 w-full rounded-lg" />
+            <Skeleton key={key} className="h-24 w-full rounded-2xl" />
           ))}
         </div>
       ) : !hasSearched ? (
-        <EmptyState
-          icon={Users}
-          title="Search the community"
-          description="Type a name, username, or interest to discover people across the platform."
-        />
+        <SearchEmptyState />
       ) : items.length === 0 ? (
-        <EmptyState icon={Users} title="No results" description="Try another search term." />
+        <SearchEmptyState
+          title="No results"
+          description="Try a different name, username, or interest."
+        />
       ) : (
         <div className="space-y-3">
           {items.map((person) => (
-            <UserRow
+            <PersonCard
               key={person.id}
               user={person}
               currentUserId={currentUser?.id}
@@ -243,6 +288,7 @@ function DirectorySearch() {
   )
 }
 
+/* ── Blocked tab ─────────────────────────────────────────────── */
 function BlockedList() {
   const toast = useToast()
   const [items, setItems] = useState([])
@@ -278,7 +324,7 @@ function BlockedList() {
     return (
       <div className="space-y-3">
         {[0, 1].map((key) => (
-          <Skeleton key={key} className="h-20 w-full rounded-lg" />
+          <Skeleton key={key} className="h-24 w-full rounded-2xl" />
         ))}
       </div>
     )
@@ -286,18 +332,22 @@ function BlockedList() {
 
   if (items.length === 0) {
     return (
-      <EmptyState
-        icon={ShieldAlert}
-        title="No blocked users"
-        description="Blocking someone prevents them from seeing your posts or reaching your inbox."
-      />
+      <div className="rounded-2xl border border-dashed border-border bg-paper px-6 py-10 text-center">
+        <span className="mx-auto grid size-12 place-items-center rounded-full bg-secondary text-ink-3">
+          <ShieldAlert className="size-5" strokeWidth={1.6} />
+        </span>
+        <p className="mt-4 font-display text-[17px] font-semibold text-ink">No blocked users</p>
+        <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] leading-[1.6] text-ink-3">
+          Blocking someone prevents them from seeing your posts or reaching your inbox.
+        </p>
+      </div>
     )
   }
 
   return (
     <div className="space-y-3">
       {items.map((person) => (
-        <UserRow
+        <PersonCard
           key={person.id}
           user={person}
           onUnblock={handleUnblock}
@@ -310,29 +360,79 @@ function BlockedList() {
   )
 }
 
+/* ── Search empty state ──────────────────────────────────────── */
+function SearchEmptyState({
+  title = 'Search the community',
+  description = 'Type a name, username, or interest to discover scholars and researchers across the platform.',
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-paper px-6 py-10 text-center">
+      <span className="mx-auto grid size-12 place-items-center rounded-full bg-brand-soft text-brand">
+        <Users className="size-5" strokeWidth={1.6} />
+      </span>
+      <p className="mt-4 font-display text-[17px] font-semibold tracking-[-0.01em] text-ink">
+        {title}
+      </p>
+      <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] leading-[1.6] text-ink-3">
+        {description}
+      </p>
+    </div>
+  )
+}
+
+/* ─── PeoplePage ─────────────────────────────────────────────── */
 export function PeoplePage() {
   const { isAuthenticated } = useAuth()
+  const [tab, setTab] = useState('search')
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="People"
-        description="Find people across the community, follow them, and manage your social graph."
-      />
+    <div className="space-y-5">
+      {/* Editorial header card */}
+      <div className="rounded-2xl border border-border bg-paper p-5 sm:p-6">
+        <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-brand">
+          Community
+        </p>
+        <h1 className="mt-1 font-display text-[30px] font-semibold leading-[1.1] tracking-[-0.018em] text-ink sm:text-[36px]">
+          People
+        </h1>
+        <p className="mt-2 max-w-[56ch] text-[13.5px] leading-[1.6] text-ink-2">
+          Find scholars and researchers across the community, follow them, and manage your social
+          graph.
+        </p>
+      </div>
 
+      {/* Tabs + content */}
       {isAuthenticated ? (
-        <Tabs defaultValue="search">
-          <TabsList>
-            <TabsTrigger value="search">Search</TabsTrigger>
-            <TabsTrigger value="blocked">Blocked</TabsTrigger>
-          </TabsList>
-          <TabsContent value="search">
-            <DirectorySearch />
-          </TabsContent>
-          <TabsContent value="blocked">
-            <BlockedList />
-          </TabsContent>
-        </Tabs>
+        <div className="space-y-4">
+          {/* Segmented tab control */}
+          <div className="flex items-center gap-1 rounded-xl border border-border bg-secondary/60 p-1 w-fit">
+            {['search', 'blocked'].map((value) => {
+              const active = tab === value
+              const label = value === 'search' ? 'Search' : 'Blocked'
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setTab(value)}
+                  className={cn(
+                    'relative rounded-lg px-4 py-1.5 text-[13px] font-medium transition-colors',
+                    active ? 'text-brand' : 'text-ink-3 hover:text-ink',
+                  )}
+                >
+                  {active ? (
+                    <span
+                      className="absolute inset-0 rounded-lg bg-paper"
+                      style={{ boxShadow: 'var(--shadow-xs)' }}
+                    />
+                  ) : null}
+                  <span className="relative">{label}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {tab === 'search' ? <DirectorySearch /> : <BlockedList />}
+        </div>
       ) : (
         <DirectorySearch />
       )}
