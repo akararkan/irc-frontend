@@ -16,7 +16,6 @@ import {
   MessageCircle,
   MoreHorizontal,
   Pencil,
-  Send,
   Trash2,
   X,
 } from 'lucide-react'
@@ -29,7 +28,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Textarea } from '@/components/ui/textarea'
 import { MentionText } from '@/components/app/mention-text'
 import { MentionTextarea } from '@/components/app/mention-textarea'
 import { RoleBadge } from '@/components/app/role-badge'
@@ -50,13 +48,7 @@ import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
 import { useCooldown } from '@/lib/rate-limit-cooldown'
-import {
-  formatNumber,
-  getFullName,
-  getHandle,
-  getRawUsername,
-  resolveMediaUrl,
-} from '@/lib/format'
+import { formatNumber, getFullName, getHandle, getRawUsername, resolveMediaUrl } from '@/lib/format'
 import { RelativeTime } from '@/components/app/relative-time'
 
 function normalizeAuthor(comment) {
@@ -76,16 +68,10 @@ function normalizeAuthor(comment) {
   }
 }
 
+/* ── Composer ────────────────────────────────────────────────── */
 function CommentComposer({
   postId,
   parentId = null,
-  /**
-   * When this composer is mounted as a reply (`parentId` set), the parent
-   * comment's author username is prefilled as `@username ` so the existing
-   * MentionService.scanAndPublish pipeline notifies them — same UX as
-   * Instagram / Twitter / Facebook reply boxes. Skipped when replying to
-   * yourself (no point pinging yourself).
-   */
   replyToUsername = null,
   onAdded,
   autoFocus = false,
@@ -94,28 +80,17 @@ function CommentComposer({
   const { user, isAuthenticated } = useAuth()
   const toast = useToast()
   const textareaRef = useRef(null)
-  // Backend caps comments at 10 / 30 s per user across post / research
-  // / qna endpoints. Park the submit button while the window is open.
   const commentCooldown = useCooldown('comment')
   const isSelfReply =
     Boolean(replyToUsername) &&
     Boolean(user?.username) &&
     user.username.toLowerCase() === replyToUsername.toLowerCase()
-  // Sanitize the handle in the prefilled mention — if the parent
-  // comment's author has an email-shaped username, `@user@gmail.com `
-  // would render as garbage and only `@user` would match the mention
-  // regex anyway. Insert the local-part so the chip is well-formed.
   const replyHandle = getHandle({ username: replyToUsername })
-  const initialText =
-    parentId && replyHandle && !isSelfReply ? `@${replyHandle} ` : ''
+  const initialText = parentId && replyHandle && !isSelfReply ? `@${replyHandle} ` : ''
   const [text, setText] = useState(initialText)
   const [file, setFile] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // After autoFocus lands the cursor, push it past the prefilled mention so
-  // the user can start typing their reply immediately. Browser default
-  // varies between text-start and text-end on autoFocus; force-end to be
-  // consistent and feel intentional.
   useEffect(() => {
     if (!autoFocus || !initialText) return
     const id = requestAnimationFrame(() => {
@@ -125,13 +100,10 @@ function CommentComposer({
       try {
         el.setSelectionRange(end, end)
       } catch {
-        // Some inputs disallow setSelectionRange — non-fatal.
+        /* non-fatal */
       }
     })
     return () => cancelAnimationFrame(id)
-    // initialText is stable (computed from props at mount); intentionally
-    // run-once.
-
   }, [])
 
   if (!isAuthenticated) return null
@@ -162,17 +134,13 @@ function CommentComposer({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-start gap-3">
+    <form onSubmit={handleSubmit} className="flex items-start gap-2.5">
       <UserAvatar
         user={user}
-        className={cn('shrink-0', compact ? 'size-7' : 'size-[34px]')}
+        className={cn('shrink-0 rounded-full', compact ? 'size-7' : 'size-8')}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div
-          className={cn(
-            'flex items-center gap-1 rounded-2xl border-[0.5px] border-border bg-paper px-2 py-1.5 transition-colors focus-within:border-brand/40',
-          )}
-        >
+        <div className="flex items-center gap-1 rounded-full border border-border bg-paper py-1 pl-3.5 pr-1 transition-colors focus-within:border-brand/45">
           <MentionTextarea
             ref={textareaRef}
             value={text}
@@ -181,7 +149,7 @@ function CommentComposer({
             rows={1}
             autoFocus={autoFocus}
             wrapperClassName="flex-1"
-            className="min-h-8 flex-1 resize-none rounded-md border-0 bg-transparent px-2 py-1.5 text-[14px] shadow-none focus-visible:ring-0"
+            className="min-h-7 flex-1 resize-none border-0 bg-transparent px-0 py-1 text-[13.5px] shadow-none focus-visible:ring-0"
           />
           <label
             className={cn(
@@ -190,7 +158,7 @@ function CommentComposer({
             )}
             title="Attach image or video"
           >
-            <ImageIcon className="size-4" strokeWidth={1.5} />
+            <ImageIcon className="size-4" strokeWidth={1.7} />
             <input
               type="file"
               accept="image/*,video/*"
@@ -208,17 +176,15 @@ function CommentComposer({
             className="grid size-8 shrink-0 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
             title="Mention someone"
           >
-            <AtSign className="size-4" strokeWidth={1.5} />
+            <AtSign className="size-4" strokeWidth={1.7} />
           </button>
           <Button
             type="submit"
             disabled={(!text.trim() && !file) || submitting || commentCooldown > 0}
             title={
-              commentCooldown > 0
-                ? `Rate limit — try again in ${commentCooldown}s`
-                : undefined
+              commentCooldown > 0 ? `Rate limit — try again in ${commentCooldown}s` : undefined
             }
-            className="h-8 rounded-full bg-brand px-3.5 text-[12.5px] font-semibold text-brand-foreground hover:bg-brand/90"
+            className="h-7 rounded-full bg-brand px-3.5 text-[12px] font-medium text-brand-foreground hover:bg-brand/90"
           >
             {submitting ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -230,12 +196,12 @@ function CommentComposer({
           </Button>
         </div>
         {file ? (
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-2.5 py-1.5 text-xs">
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/50 px-2.5 py-1.5 text-[12px]">
             <span className="truncate">{file.name}</span>
             <button
               type="button"
               onClick={() => setFile(null)}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-ink-3 hover:text-ink"
             >
               <X className="size-3.5" />
             </button>
@@ -270,6 +236,7 @@ function CommentMedia({ comment }) {
   )
 }
 
+/* ── Comment item ────────────────────────────────────────────── */
 function CommentItem({
   postId,
   comment,
@@ -278,13 +245,7 @@ function CommentItem({
   depth = 0,
   postAuthorId,
   postAuthorUsername,
-  /** Depth-1 only: callback to append a sibling re-reply to the
-   *  top-level parent's loaded replies list. Lets nested replies
-   *  host their own "Reply" button without spawning a depth-2 tree. */
   onSiblingReplyAdded,
-  /** Depth-0 only: registers a per-parent patcher that PostComments
-   *  invokes when a COMMENT_REACTION_* SSE arrives for one of this
-   *  comment's loaded replies. Returns an unsubscribe fn. */
   registerReplyPatcher,
 }) {
   const { user: currentUser, isAuthenticated } = useAuth()
@@ -300,32 +261,30 @@ function CommentItem({
   const [repliesOpen, setRepliesOpen] = useState(false)
   const [loadingReplies, setLoadingReplies] = useState(false)
 
-  // Subscribe to per-reply reaction patches from the parent
-  // PostComments' SSE handler. We only attach at depth=0 since
-  // re-replies (depth=1) live inside this same `replies` array
-  // and are reachable from this patcher too.
   useEffect(() => {
     if (depth !== 0 || !registerReplyPatcher) return undefined
-    return registerReplyPatcher(comment.id, ({ commentId, reactionCount, reactionType, actorId, added }) => {
-      setReplies((current) =>
-        current.map((reply) => {
-          if (reply.id !== commentId) return reply
-          const actorIsMe = currentUserId != null && actorId === currentUserId
-          // Same own-actor race as the top-level handler: trust the
-          // optimistic count we already wrote when the event is the
-          // viewer's own echo, otherwise adopt the SSE count.
-          return {
-            ...reply,
-            reactionCount: actorIsMe
-              ? reply.reactionCount
-              : (reactionCount ?? reply.reactionCount),
-            myReaction: actorIsMe
-              ? (added ? (reactionType ?? 'LIKE') : null)
-              : reply.myReaction,
-          }
-        }),
-      )
-    })
+    return registerReplyPatcher(
+      comment.id,
+      ({ commentId, reactionCount, reactionType, actorId, added }) => {
+        setReplies((current) =>
+          current.map((reply) => {
+            if (reply.id !== commentId) return reply
+            const actorIsMe = currentUserId != null && actorId === currentUserId
+            return {
+              ...reply,
+              reactionCount: actorIsMe
+                ? reply.reactionCount
+                : (reactionCount ?? reply.reactionCount),
+              myReaction: actorIsMe
+                ? added
+                  ? (reactionType ?? 'LIKE')
+                  : null
+                : reply.myReaction,
+            }
+          }),
+        )
+      },
+    )
   }, [comment.id, depth, registerReplyPatcher, currentUserId])
 
   const author = normalizeAuthor(comment)
@@ -336,9 +295,7 @@ function CommentItem({
       (author.username && currentUser.username && author.username === currentUser.username))
   const isPostAuthor = Boolean(
     (postAuthorId && commentAuthorId && postAuthorId === commentAuthorId) ||
-      (postAuthorUsername &&
-        author.username &&
-        postAuthorUsername === author.username),
+      (postAuthorUsername && author.username && postAuthorUsername === author.username),
   )
 
   async function handleReact(type) {
@@ -346,10 +303,6 @@ function CommentItem({
       if (!isAuthenticated) toast.info('Sign in to react.')
       return
     }
-    // Optimistic + always trust local intent. Don't merge the API
-    // response — CommentResponse echoes a stale reactionCount
-    // (Hibernate L1 cache shadow) which would clobber our optimistic
-    // +1 and produce a 0→1→0→1 flicker until the SSE event lands.
     const previous = comment
     const wasReacting = Boolean(comment.myReaction)
     onChange?.({
@@ -449,8 +402,6 @@ function CommentItem({
       setRepliesOpen(true)
       onChange?.({ ...comment, replyCount: (comment.replyCount ?? 0) + 1 })
     } else {
-      // Depth-1 re-reply — bubble up to the top-level parent which
-      // appends the sibling under itself (kept flat at 1 level deep).
       onSiblingReplyAdded?.(newReply)
     }
     setShowReplyBox(false)
@@ -464,10 +415,7 @@ function CommentItem({
 
   function handleReplyRemove(id) {
     setReplies((current) => current.filter((item) => item.id !== id))
-    onChange?.({
-      ...comment,
-      replyCount: Math.max(0, (comment.replyCount ?? 0) - 1),
-    })
+    onChange?.({ ...comment, replyCount: Math.max(0, (comment.replyCount ?? 0) - 1) })
   }
 
   if (comment.deleted) {
@@ -477,10 +425,10 @@ function CommentItem({
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -4 }}
-        className="flex items-start gap-2"
+        className="flex items-start gap-2.5"
       >
         <div className={cn('shrink-0', depth === 0 ? 'size-8' : 'size-7')} />
-        <p className="flex-1 rounded-2xl bg-muted/40 px-3.5 py-2 text-xs italic text-muted-foreground">
+        <p className="flex-1 rounded-2xl bg-secondary/60 px-3.5 py-2 text-[12px] italic text-ink-3">
           This comment was deleted.
         </p>
       </motion.div>
@@ -494,125 +442,126 @@ function CommentItem({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6, scale: 0.96 }}
       transition={{ type: 'spring', stiffness: 360, damping: 28 }}
-      className="group/comment flex items-start gap-3"
+      className="group/comment flex items-start gap-2.5"
     >
       <Link
         to={`/profile/${getRawUsername(author)}`}
         className="shrink-0 transition-opacity hover:opacity-90"
       >
-        <UserAvatar user={author} className={depth === 0 ? 'size-[34px]' : 'size-[28px]'} />
+        <UserAvatar
+          user={author}
+          className={cn('rounded-full', depth === 0 ? 'size-8' : 'size-7')}
+        />
       </Link>
       <div className="min-w-0 flex-1">
-        <div className="relative w-full">
-          <div className="px-0 py-0 transition-colors">
-            <div className="flex items-start justify-between gap-2">
-              <Link
-                to={`/profile/${getRawUsername(author)}`}
-                className="group/author flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0"
-              >
-                <span className="text-[13px] font-medium text-ink group-hover/author:underline">
-                  {getFullName(author) || getHandle(author) || 'Unknown user'}
+        {/* Bubble */}
+        <div className="rounded-2xl rounded-tl-md bg-secondary/70 px-3.5 py-2">
+          <div className="flex items-start justify-between gap-2">
+            <Link
+              to={`/profile/${getRawUsername(author)}`}
+              className="group/author flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0"
+            >
+              <span className="text-[12.5px] font-medium text-ink group-hover/author:underline">
+                {getFullName(author) || getHandle(author) || 'Unknown user'}
+              </span>
+              {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
+              {isPostAuthor ? (
+                <span
+                  title="Original post author"
+                  className="inline-flex items-center rounded-full bg-brand-soft px-1.5 py-[1px] font-mono text-[9px] font-medium uppercase tracking-[0.06em] text-brand"
+                >
+                  Author
                 </span>
-                {author.role ? (
-                  <RoleBadge role={author.role} size="xs" />
-                ) : null}
-                {isPostAuthor ? (
-                  <span
-                    title="Original post author"
-                    className="inline-flex items-center rounded-full bg-brand-soft px-1.5 py-[1px] font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-brand"
-                  >
-                    Author
-                  </span>
-                ) : null}
-                <span className="font-mono text-[10px] text-ink-4">
-                  <RelativeTime entity={comment} title={comment.formattedDate || undefined} />
-                  {comment.edited ? ' · edited' : ''}
-                </span>
-              </Link>
-              {isMine && !editing ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="-mr-1 -mt-1 rounded-full p-1 text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
-                      aria-label="More"
-                    >
-                      <MoreHorizontal className="size-3.5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        setEditing(true)
-                        setEditText(comment.textContent ?? '')
-                      }}
-                    >
-                      <Pencil className="mr-2 size-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={handleDelete}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="mr-2 size-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
               ) : null}
-            </div>
-
-            {editing ? (
-              <div className="mt-1 space-y-1.5">
-                <MentionTextarea
-                  value={editText}
-                  onChange={setEditText}
-                  rows={2}
-                  maxLength={2000}
-                  className="resize-none rounded-xl border border-border bg-background px-2.5 py-1.5 text-sm"
-                  autoFocus
-                />
-                <div className="flex items-center justify-end gap-2">
-                  <Button
+              <span className="font-mono text-[9.5px] text-ink-4">
+                <RelativeTime entity={comment} title={comment.formattedDate || undefined} />
+                {comment.edited ? ' · edited' : ''}
+              </span>
+            </Link>
+            {isMine && !editing ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
                     type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 rounded-full"
-                    onClick={() => {
-                      setEditing(false)
+                    className="-mr-1 -mt-0.5 rounded-full p-1 text-ink-3 transition-colors hover:bg-paper hover:text-ink"
+                    aria-label="More"
+                  >
+                    <MoreHorizontal className="size-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="rounded-xl">
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      setEditing(true)
                       setEditText(comment.textContent ?? '')
                     }}
                   >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-7 rounded-full"
-                    onClick={handleSaveEdit}
-                    disabled={working || !editText.trim()}
+                    <Pencil className="mr-2 size-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={handleDelete}
+                    className="text-destructive focus:text-destructive"
                   >
-                    Save
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <>
-                {comment.textContent ? (
-                  <p
-                    dir="auto"
-                    className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.6] text-ink-2"
-                  >
-                    <MentionText text={comment.textContent} />
-                  </p>
-                ) : null}
-                <CommentMedia comment={comment} />
-              </>
-            )}
+                    <Trash2 className="mr-2 size-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
+
+          {editing ? (
+            <div className="mt-1.5 space-y-1.5">
+              <MentionTextarea
+                value={editText}
+                onChange={setEditText}
+                rows={2}
+                maxLength={2000}
+                className="resize-none rounded-xl border border-border bg-paper px-2.5 py-1.5 text-[13px]"
+                autoFocus
+              />
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 rounded-lg"
+                  onClick={() => {
+                    setEditing(false)
+                    setEditText(comment.textContent ?? '')
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 rounded-lg bg-brand text-brand-foreground hover:bg-brand/90"
+                  onClick={handleSaveEdit}
+                  disabled={working || !editText.trim()}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {comment.textContent ? (
+                <p
+                  dir="auto"
+                  className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-[1.55] text-ink-2"
+                >
+                  <MentionText text={comment.textContent} />
+                </p>
+              ) : null}
+              <CommentMedia comment={comment} />
+            </>
+          )}
         </div>
 
-        <div className="mt-2 flex items-start gap-5 text-[11.5px] text-ink-3">
+        {/* Inline actions */}
+        <div className="mt-1.5 flex items-center gap-4 pl-1.5 text-[11.5px]">
           {isAuthenticated ? (
             <button
               type="button"
@@ -623,19 +572,16 @@ function CommentItem({
               aria-pressed={Boolean(comment.myReaction)}
               aria-label={comment.myReaction ? 'Unlike' : 'Like'}
               className={cn(
-                'group/heart inline-flex flex-col items-center gap-0.5 transition-colors active:scale-95',
-                comment.myReaction ? 'text-rose-600' : 'hover:text-ink',
+                'inline-flex items-center gap-1 font-medium transition-colors active:scale-95',
+                comment.myReaction ? 'text-rose-600' : 'text-ink-3 hover:text-ink',
               )}
             >
-              {comment.myReaction ? (
-                <Heart className="size-[14px] fill-current" strokeWidth={1.6} />
-              ) : (
-                <Heart className="size-[14px]" strokeWidth={1.6} />
-              )}
+              <Heart
+                className={cn('size-[14px]', comment.myReaction && 'fill-current')}
+                strokeWidth={1.7}
+              />
               <span className="tabular-nums">
-                {comment.reactionCount > 0
-                  ? formatNumber(comment.reactionCount)
-                  : 'Like'}
+                {comment.reactionCount > 0 ? formatNumber(comment.reactionCount) : 'Like'}
               </span>
             </button>
           ) : null}
@@ -644,17 +590,16 @@ function CommentItem({
             <button
               type="button"
               onClick={() => setShowReplyBox((v) => !v)}
-              className="inline-flex flex-col items-center gap-0.5 transition-colors hover:text-ink"
+              className="inline-flex items-center gap-1 font-medium text-ink-3 transition-colors hover:text-ink"
             >
-              <MessageCircle className="size-[14px]" strokeWidth={1.6} />
-              <span>Reply</span>
+              <MessageCircle className="size-[14px]" strokeWidth={1.7} />
+              Reply
             </button>
           ) : null}
-
         </div>
 
         {showReplyBox ? (
-          <div className="mt-2">
+          <div className="mt-2.5">
             <CommentComposer
               postId={postId}
               parentId={depth === 0 ? comment.id : comment.parentId ?? comment.parent?.id}
@@ -671,13 +616,10 @@ function CommentItem({
             type="button"
             onClick={toggleReplies}
             disabled={loadingReplies}
-            className="ml-3 mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="mt-2 inline-flex items-center gap-1 pl-1.5 text-[12px] font-medium text-brand transition-colors hover:underline"
           >
             <ChevronDown
-              className={cn(
-                'size-3 transition-transform',
-                repliesOpen && 'rotate-180',
-              )}
+              className={cn('size-3.5 transition-transform', repliesOpen && 'rotate-180')}
             />
             {loadingReplies
               ? 'Loading replies…'
@@ -697,8 +639,7 @@ function CommentItem({
               transition={{ type: 'spring', stiffness: 260, damping: 30 }}
               className="overflow-hidden"
             >
-              <div className="relative ml-2 mt-3 space-y-4 border-l-2 border-muted pl-4">
-                <span aria-hidden className="hidden" />
+              <div className="ml-1 mt-3 space-y-3.5 border-l-2 border-border pl-4">
                 <AnimatePresence initial={false}>
                   {replies.map((reply) => (
                     <CommentItem
@@ -711,8 +652,6 @@ function CommentItem({
                       postAuthorId={postAuthorId}
                       postAuthorUsername={postAuthorUsername}
                       onSiblingReplyAdded={(newReply) => {
-                        // Flat-at-1 nesting: the re-reply slots in as
-                        // another sibling under the top-level comment.
                         setReplies((current) => [...current, newReply])
                         onChange?.({
                           ...comment,
@@ -731,6 +670,7 @@ function CommentItem({
   )
 }
 
+/* ─── PostComments ───────────────────────────────────────────── */
 export const PostComments = forwardRef(function PostComments(
   { postId, initialCount = 0, onCountChange, postAuthorId, postAuthorUsername },
   ref,
@@ -742,13 +682,6 @@ export const PostComments = forwardRef(function PostComments(
   const [loading, setLoading] = useState(true)
   const [count, setCount] = useState(initialCount)
 
-  // Registry of per-parent reply patchers — each depth-0 CommentItem
-  // registers the function that updates its own loaded replies tree.
-  // When a COMMENT_REACTION_* SSE arrives for a reply (not a top-level
-  // comment), the imperative handler walks this registry so the nested
-  // count + heart state stay in sync. Without this, replies show their
-  // optimistic value forever and drift away from the server's truth
-  // when another viewer reacts concurrently.
   const replyPatchersRef = useRef(new Map())
   const registerReplyPatcher = useCallback((parentCommentId, patcher) => {
     if (!parentCommentId || typeof patcher !== 'function') return () => {}
@@ -764,11 +697,6 @@ export const PostComments = forwardRef(function PostComments(
     async function load() {
       setLoading(true)
       try {
-        // Cursor pagination is stable when new comments land mid-scroll.
-        // The page-based fallback stays in `getPostComments` for any
-        // caller that still wants offset semantics. Falls back through
-        // a try/catch on the off-chance the cursor endpoint is missing
-        // in an older backend deploy.
         let items = null
         try {
           const data = await getPostCommentsCursor(postId, { limit: 20 })
@@ -797,10 +725,6 @@ export const PostComments = forwardRef(function PostComments(
   }
 
   function handleAdded(created) {
-    // Upsert, don't blind-append. The SSE stream may have synthesised
-    // the same comment ahead of the API response — in that case we
-    // merge the authoritative server payload into the existing row
-    // instead of leaving two side-by-side duplicates in the thread.
     setComments((current) => {
       const idx = current.findIndex((item) => item.id === created.id)
       if (idx === -1) return [...current, created]
@@ -820,26 +744,16 @@ export const PostComments = forwardRef(function PostComments(
     onCountChange?.(next)
   }
 
-  // Imperative API used by PostCard to forward per-post SSE events.
-  // Event names match the backend PostRealtimeEventType enum exactly
-  // (COMMENT_CREATED / COMMENT_EDITED / COMMENT_DELETED / REPLY_CREATED
-  // / COMMENT_REACTION_*). Payload fields follow PostRealtimeEvent:
-  // commentId, parentCommentId, textContent, actor*, mediaUrl,
-  // commentReactionCount, commentReplyCount.
   useImperativeHandle(
     ref,
     () => ({
       applyRealtimeEvent(type, payload) {
         if (!payload) return
         const commentId = payload.commentId ?? payload.id
-        const parentCommentId =
-          payload.parentCommentId ?? payload.parentId ?? null
+        const parentCommentId = payload.parentCommentId ?? payload.parentId ?? null
         switch (type) {
           case 'COMMENT_CREATED': {
             if (!commentId || parentCommentId) return
-            // Synthesise a CommentResponse-shaped object from the SSE
-            // payload so the list paints immediately. Real backend
-            // fields land on the next paginated fetch.
             const synthetic = {
               id: commentId,
               postId: payload.postId,
@@ -847,11 +761,6 @@ export const PostComments = forwardRef(function PostComments(
               author: {
                 id: payload.actorId,
                 username: payload.actorUsername,
-                // Don't fake `fullName` from the username — for legacy
-                // accounts the username IS the email address, and
-                // mirroring it here would render the email as the
-                // commenter's display name. Leaving it null lets
-                // `getFullName` fall back to the email-stripped handle.
                 fullName: payload.actorFullName ?? null,
                 avatarUrl: payload.actorAvatarUrl,
               },
@@ -903,8 +812,7 @@ export const PostComments = forwardRef(function PostComments(
             if (!commentId) return
             setComments((current) => current.filter((item) => item.id !== commentId))
             setCount((value) => {
-              const next =
-                payload.postCommentCount ?? Math.max(0, value - 1)
+              const next = payload.postCommentCount ?? Math.max(0, value - 1)
               onCountChange?.(next)
               return next
             })
@@ -912,17 +820,13 @@ export const PostComments = forwardRef(function PostComments(
           }
           case 'REPLY_CREATED': {
             if (!commentId || !parentCommentId) return
-            // Bump the parent's reply count so the "View N replies"
-            // affordance updates. The thread itself lazy-loads its
-            // children, so we don't need to inline-attach the reply.
             setComments((current) =>
               current.map((item) =>
                 item.id === parentCommentId
                   ? {
                       ...item,
                       replyCount:
-                        payload.commentReplyCount ??
-                        (item.replyCount ?? 0) + 1,
+                        payload.commentReplyCount ?? (item.replyCount ?? 0) + 1,
                     }
                   : item,
               ),
@@ -932,15 +836,6 @@ export const PostComments = forwardRef(function PostComments(
           case 'COMMENT_REACTION_ADDED':
           case 'COMMENT_REACTION_REMOVED': {
             if (!commentId) return
-            // When the actor matches the current viewer, the SSE is
-            // confirming the viewer's own toggle — sync myReaction in
-            // addition to the count. This is the safety net for the
-            // scenario where the listing endpoint failed to hydrate
-            // myReaction (older deploy, cache miss, cross-device) and
-            // the click hit the backend's idempotent re-react path:
-            // without this, the heart would stay empty even though the
-            // viewer already had a reaction, and the next click would
-            // delete that reaction while looking like a "fresh like".
             const actorIsMe =
               type === 'COMMENT_REACTION_ADDED' &&
               currentUserId != null &&
@@ -949,16 +844,6 @@ export const PostComments = forwardRef(function PostComments(
               type === 'COMMENT_REACTION_REMOVED' &&
               currentUserId != null &&
               payload.actorId === currentUserId
-            // When the actor is the current viewer, the optimistic
-            // update in handleReact/handleClearReaction already wrote
-            // the correct reactionCount locally. The backend's SSE
-            // echo for the viewer's own toggle sometimes carries a
-            // count snapshotted before the write committed (race
-            // between the broadcast and the read-after-write), which
-            // would clobber a correct optimistic +1 with a stale -1
-            // value. So for own-actor events we keep our local count
-            // and only adopt payload.commentReactionCount when the
-            // event came from a different viewer.
             const ownActor = actorIsMe || actorIsMeRemove
             setComments((current) =>
               current.map((item) =>
@@ -977,10 +862,6 @@ export const PostComments = forwardRef(function PostComments(
                   : item,
               ),
             )
-            // Propagate to any loaded reply trees — replies aren't in
-            // the top-level `comments` array, so the map above misses
-            // them. Each depth-0 CommentItem registered a patcher that
-            // walks its own `replies` state.
             for (const patcher of replyPatchersRef.current.values()) {
               patcher({
                 commentId,
@@ -1000,17 +881,17 @@ export const PostComments = forwardRef(function PostComments(
   )
 
   return (
-    <div className="space-y-4 border-t pt-4">
+    <div className="space-y-4">
       {loading ? (
-        <div className="flex items-center justify-center py-4 text-muted-foreground">
+        <div className="flex items-center justify-center py-4 text-ink-3">
           <Loader2 className="size-4 animate-spin" />
         </div>
       ) : comments.length === 0 ? (
-        <p className="py-2 text-center text-sm text-muted-foreground">
+        <p className="py-2 text-center text-[13px] text-ink-3">
           No comments yet. Be the first to comment.
         </p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3.5">
           <AnimatePresence initial={false}>
             {comments.map((comment) => (
               <CommentItem
@@ -1031,8 +912,8 @@ export const PostComments = forwardRef(function PostComments(
       {isAuthenticated ? (
         <CommentComposer postId={postId} onAdded={handleAdded} />
       ) : (
-        <p className="text-center text-xs text-muted-foreground">
-          <Link to="/login" className="font-medium text-primary hover:underline">
+        <p className="text-center text-[12px] text-ink-3">
+          <Link to="/login" className="font-medium text-brand hover:underline">
             Sign in
           </Link>{' '}
           to comment.
