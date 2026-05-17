@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ImagePlus, Loader2, Lock, Users, X } from 'lucide-react'
+import { ImagePlus, Loader2, Lock, Send, Users, X } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -12,31 +11,28 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { useAuth } from '@/features/auth/auth-context'
-import {
-  createMediaStory,
-  createTextStory,
-} from '@/features/stories/stories.api'
+import { createMediaStory, createTextStory } from '@/features/stories/stories.api'
 import { cn } from '@/lib/utils'
 import { extractApiMessage } from '@/lib/api-error'
 import { useToast } from '@/components/ui/toaster'
 import { getFullName, getHandle } from '@/lib/format'
 
 const BACKGROUNDS = [
-  { label: 'Teal',    value: 'linear-gradient(160deg, #0A3D3E 0%, #1B7A7F 50%, #0F6E56 100%)' },
-  { label: 'Gold',    value: 'linear-gradient(160deg, #4A2106 0%, #9A6B14 50%, #C9A227 100%)' },
-  { label: 'Violet',  value: 'linear-gradient(160deg, #1E1648 0%, #514999 50%, #7B68EE 100%)' },
-  { label: 'Rose',    value: 'linear-gradient(160deg, #5A0A0A 0%, #9A1A4A 50%, #DB2777 100%)' },
-  { label: 'Slate',   value: 'linear-gradient(160deg, #0F172A 0%, #1E293B 50%, #334155 100%)' },
-  { label: 'Forest',  value: 'linear-gradient(160deg, #052E16 0%, #166534 50%, #16A34A 100%)' },
-  { label: 'Ink',     value: 'linear-gradient(160deg, #0A0A0A 0%, #1A1A1A 100%)' },
-  { label: 'Flame',   value: 'linear-gradient(160deg, #431407 0%, #9A3412 50%, #EA580C 100%)' },
+  { label: 'Ocean', value: 'linear-gradient(165deg, #1E3A5F 0%, #2563EB 100%)' },
+  { label: 'Cyan', value: 'linear-gradient(165deg, #0E5566 0%, #0891B2 100%)' },
+  { label: 'Emerald', value: 'linear-gradient(165deg, #065F46 0%, #059669 100%)' },
+  { label: 'Amber', value: 'linear-gradient(165deg, #7C2D12 0%, #B45309 100%)' },
+  { label: 'Violet', value: 'linear-gradient(165deg, #4C1D95 0%, #7C3AED 100%)' },
+  { label: 'Slate', value: 'linear-gradient(165deg, #1E293B 0%, #475569 100%)' },
+  { label: 'Rose', value: 'linear-gradient(165deg, #881337 0%, #E11D48 100%)' },
+  { label: 'Ink', value: 'linear-gradient(165deg, #0A0A0A 0%, #262626 100%)' },
 ]
 
 const VISIBILITIES = [
-  { value: 'PUBLIC',         icon: null,  label: 'Everyone' },
+  { value: 'PUBLIC', icon: null, label: 'Everyone' },
   { value: 'FOLLOWERS_ONLY', icon: Users, label: 'Followers' },
-  { value: 'CLOSE_FRIENDS',  icon: null,  label: 'Close friends' },
-  { value: 'ONLY_ME',        icon: Lock,  label: 'Only me' },
+  { value: 'CLOSE_FRIENDS', icon: null, label: 'Close friends' },
+  { value: 'ONLY_ME', icon: Lock, label: 'Only me' },
 ]
 
 export function StoryCreator({ open, onOpenChange, onCreated }) {
@@ -44,12 +40,12 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
   const toast = useToast()
   const fileRef = useRef(null)
 
-  const [tab,        setTab]        = useState('text')
-  const [text,       setText]       = useState('')
-  const [bgIndex,    setBgIndex]    = useState(0)
+  const [tab, setTab] = useState('text')
+  const [text, setText] = useState('')
+  const [bgIndex, setBgIndex] = useState(0)
   const [visibility, setVisibility] = useState('PUBLIC')
-  const [mediaFile,  setMediaFile]  = useState(null)
-  const [preview,    setPreview]    = useState(null)
+  const [mediaFile, setMediaFile] = useState(null)
+  const [preview, setPreview] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
   function reset() {
@@ -80,7 +76,10 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
     try {
       let story
       if (tab === 'text') {
-        if (!text.trim()) { toast.error('Add some text first.'); return }
+        if (!text.trim()) {
+          toast.error('Add some text first.')
+          return
+        }
         story = await createTextStory({
           textContent: text.trim(),
           visibility,
@@ -88,7 +87,10 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
           backgroundValue: BACKGROUNDS[bgIndex].value,
         })
       } else {
-        if (!mediaFile) { toast.error('Pick a photo or video.'); return }
+        if (!mediaFile) {
+          toast.error('Pick a photo or video.')
+          return
+        }
         story = await createMediaStory({
           data: {
             storyType: preview?.type === 'video' ? 'VIDEO' : 'IMAGE',
@@ -113,182 +115,188 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[420px] overflow-hidden p-0 gap-0">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b-[0.5px] border-border px-5 py-4">
-          <div>
-            <DialogTitle className="text-[15px] font-semibold text-ink">Share a story</DialogTitle>
-            <p className="mt-0.5 text-[11px] text-ink-3">Disappears in 24 hours</p>
+      <DialogContent className="max-w-[440px] gap-0 overflow-hidden rounded-2xl p-0">
+        {/* ── Header ──────────────────────────────────────── */}
+        <DialogHeader className="flex flex-row items-center justify-between border-b border-border px-5 py-3.5">
+          <div className="space-y-0.5 text-left">
+            <DialogTitle className="font-display text-[15px] font-semibold tracking-[-0.01em]">
+              Share a story
+            </DialogTitle>
+            <p className="text-[11.5px] text-ink-3">Disappears in 24 hours</p>
           </div>
           <button
             type="button"
             onClick={handleClose}
             className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+            aria-label="Close"
           >
             <X className="size-4" strokeWidth={1.8} />
           </button>
-        </div>
+        </DialogHeader>
 
-        {/* Tabs */}
-        <div className="flex border-b-[0.5px] border-border">
-          {[
-            { id: 'text',  label: 'Text' },
-            { id: 'media', label: 'Photo / Video' },
-          ].map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={cn(
-                'relative flex-1 py-3 text-[13px] font-medium transition-colors',
-                tab === id ? 'text-ink' : 'text-ink-3 hover:text-ink',
-              )}
+        <div className="flex gap-4 p-5">
+          {/* ── Phone preview ─────────────────────────────── */}
+          <div className="shrink-0">
+            <div
+              className="relative flex h-[230px] w-[130px] flex-col overflow-hidden rounded-[20px] p-3"
+              style={{
+                background: tab === 'text' ? bg : '#1E293B',
+                boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
+              }}
             >
-              {label}
-              {tab === id ? (
-                <motion.div
-                  layoutId="story-tab-indicator"
-                  className="absolute bottom-0 inset-x-6 h-[2px] rounded-full bg-ink"
+              {/* Progress dots */}
+              <div className="flex gap-1">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className={cn(
+                      'h-[2.5px] flex-1 rounded-full',
+                      i === 0 ? 'bg-white' : 'bg-white/35',
+                    )}
+                  />
+                ))}
+              </div>
+              {/* Author chip */}
+              <div className="mt-2.5 flex items-center gap-1.5">
+                <UserAvatar
+                  user={user}
+                  className="size-[18px] rounded-full text-[8px] ring-1 ring-white/40"
                 />
-              ) : null}
-            </button>
-          ))}
-        </div>
-
-        <div className="space-y-5 p-5">
-          <AnimatePresence mode="wait" initial={false}>
-            {tab === 'text' ? (
-              <motion.div
-                key="text-tab"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.18 }}
-                className="space-y-4"
-              >
-                {/* Phone-like preview */}
-                <div
-                  className="relative mx-auto h-64 w-44 overflow-hidden rounded-3xl"
-                  style={{
-                    background: bg,
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.28), 0 2px 8px rgba(0,0,0,0.16)',
-                  }}
-                >
-                  {/* Status bar dots */}
-                  <div className="flex items-center justify-between px-4 pt-3">
-                    <div className="h-[3px] w-14 rounded-full bg-white/30" />
-                    <div className="h-[3px] w-8 rounded-full bg-white/30" />
-                  </div>
-
-                  {/* Author chip */}
-                  <div className="mt-2 flex items-center gap-1.5 px-3">
-                    <div className="size-5 overflow-hidden rounded-full ring-1 ring-white/40">
-                      <UserAvatar user={user} className="size-full text-[8px]" />
-                    </div>
-                    <span className="text-[9px] font-semibold text-white/80">{authorName}</span>
-                  </div>
-
-                  {/* Story text */}
-                  <div className="flex flex-1 items-center justify-center px-4 py-6">
-                    <p
-                      className={cn(
-                        'text-center font-display text-[16px] font-semibold leading-snug text-white',
-                        !text && 'opacity-30 italic text-[13px]',
-                      )}
-                      style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}
-                    >
-                      {text || 'Your text…'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Background picker */}
-                <div>
-                  <p className="mb-2.5 text-[10.5px] font-semibold uppercase tracking-widest text-ink-3">
-                    Background
+                <span className="text-[8.5px] font-medium text-white/85">
+                  {authorName}
+                </span>
+              </div>
+              {/* Body */}
+              {tab === 'text' ? (
+                <div className="flex flex-1 items-center justify-center px-1 py-4">
+                  <p
+                    className={cn(
+                      'text-center font-display text-[15px] font-semibold leading-snug text-white',
+                      !text && 'text-[12px] italic opacity-40',
+                    )}
+                    style={{ textShadow: '0 2px 8px rgba(0,0,0,0.45)' }}
+                  >
+                    {text || 'Your text…'}
                   </p>
-                  <div className="flex flex-wrap gap-2.5">
-                    {BACKGROUNDS.map((b, i) => (
-                      <motion.button
-                        key={i}
-                        type="button"
-                        onClick={() => setBgIndex(i)}
-                        title={b.label}
-                        whileHover={{ scale: 1.12 }}
-                        whileTap={{ scale: 0.92 }}
-                        className={cn(
-                          'size-8 rounded-full ring-offset-[var(--card)] transition-all duration-150',
-                          bgIndex === i ? 'ring-2 ring-offset-2 ring-ink scale-110' : 'opacity-75 hover:opacity-100',
-                        )}
-                        style={{ background: b.value }}
-                      />
-                    ))}
-                  </div>
                 </div>
+              ) : preview ? (
+                <div className="absolute inset-0 -z-0">
+                  {preview.type === 'video' ? (
+                    <video
+                      src={preview.url}
+                      className="h-full w-full object-cover"
+                      muted
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={preview.url}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-1 items-center justify-center">
+                  <ImagePlus className="size-7 text-white/30" strokeWidth={1.4} />
+                </div>
+              )}
+            </div>
+          </div>
 
-                {/* Text input */}
-                <Textarea
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  maxLength={300}
-                  rows={3}
-                  placeholder="Write something beautiful…"
-                  className="resize-none rounded-xl text-sm"
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="media-tab"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.18 }}
-                className="space-y-4"
-              >
-                {/* Drop zone */}
-                <motion.div
-                  onClick={() => fileRef.current?.click()}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
+          {/* ── Editor ────────────────────────────────────── */}
+          <div className="flex min-w-0 flex-1 flex-col">
+            {/* Tabs */}
+            <div className="flex gap-5 border-b border-border">
+              {[
+                { id: 'text', label: 'Text' },
+                { id: 'media', label: 'Photo / Video' },
+              ].map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setTab(id)}
                   className={cn(
-                    'relative flex h-56 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed transition-colors',
-                    preview ? 'border-transparent' : 'border-border hover:border-brand/50 bg-muted/30 hover:bg-brand-soft/15',
+                    'relative pb-2 text-[12.5px] font-medium transition-colors',
+                    tab === id ? 'text-brand' : 'text-ink-3 hover:text-ink',
                   )}
                 >
-                  {preview ? (
-                    <>
-                      {preview.type === 'video' ? (
-                        <video
-                          src={preview.url}
-                          className="h-full w-full object-cover"
-                          muted
-                          playsInline
+                  {label}
+                  {tab === id ? (
+                    <motion.span
+                      layoutId="story-tab"
+                      className="absolute inset-x-0 -bottom-px h-[2px] rounded-full bg-brand"
+                    />
+                  ) : null}
+                </button>
+              ))}
+            </div>
+
+            <AnimatePresence mode="wait" initial={false}>
+              {tab === 'text' ? (
+                <motion.div
+                  key="text"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.16 }}
+                  className="mt-3.5 space-y-3.5"
+                >
+                  <div>
+                    <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3">
+                      Background
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {BACKGROUNDS.map((b, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setBgIndex(i)}
+                          title={b.label}
+                          className={cn(
+                            'size-7 rounded-full transition-transform',
+                            bgIndex === i
+                              ? 'ring-2 ring-brand ring-offset-2 ring-offset-paper'
+                              : 'opacity-75 hover:opacity-100',
+                          )}
+                          style={{ background: b.value }}
                         />
-                      ) : (
-                        <img
-                          src={preview.url}
-                          alt="Preview"
-                          className="h-full w-full object-cover"
-                        />
-                      )}
-                      {/* Replace overlay */}
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
-                        <p className="rounded-full bg-white/20 px-4 py-2 text-[12px] font-semibold text-white backdrop-blur">
-                          Tap to replace
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center gap-3 text-ink-3">
-                      <div className="grid size-14 place-items-center rounded-2xl bg-muted">
-                        <ImagePlus className="size-7" strokeWidth={1.3} />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[13px] font-medium text-ink-2">Tap to pick a photo or video</p>
-                        <p className="mt-0.5 text-[11px] text-ink-4">Videos are automatically trimmed to 30s</p>
-                      </div>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                  <Textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    maxLength={300}
+                    rows={3}
+                    placeholder="Write something beautiful…"
+                    className="resize-none rounded-xl text-[13.5px]"
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="media"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.16 }}
+                  className="mt-3.5 space-y-3.5"
+                >
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="flex w-full flex-col items-center gap-2.5 rounded-xl border-[1.5px] border-dashed border-border bg-secondary/40 py-7 text-center transition-colors hover:border-brand/45 hover:bg-brand-soft/30"
+                  >
+                    <span className="grid size-12 place-items-center rounded-full bg-brand-soft/60 text-brand">
+                      <ImagePlus className="size-5" strokeWidth={1.6} />
+                    </span>
+                    <span className="text-[13px] font-medium text-ink">
+                      {preview ? 'Replace photo or video' : 'Pick a photo or video'}
+                    </span>
+                    <span className="text-[11px] text-ink-3">
+                      Videos are trimmed to 30 seconds
+                    </span>
+                  </button>
                   <input
                     ref={fileRef}
                     type="file"
@@ -296,54 +304,52 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
                     className="sr-only"
                     onChange={handleFileChange}
                   />
+                  <Textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    maxLength={200}
+                    rows={2}
+                    placeholder="Add a caption… (optional)"
+                    className="resize-none rounded-xl text-[13.5px]"
+                  />
                 </motion.div>
+              )}
+            </AnimatePresence>
 
-                {/* Optional caption */}
-                <Textarea
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  maxLength={200}
-                  rows={2}
-                  placeholder="Add a caption… (optional)"
-                  className="resize-none rounded-xl text-sm"
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Audience */}
-          <div>
-            <p className="mb-2.5 text-[10.5px] font-semibold uppercase tracking-widest text-ink-3">Audience</p>
-            <div className="flex flex-wrap gap-1.5">
-              {VISIBILITIES.map(({ value, icon: Icon, label }) => (
-                <motion.button
-                  key={value}
-                  type="button"
-                  onClick={() => setVisibility(value)}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.96 }}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-all duration-150',
-                    visibility === value
-                      ? 'bg-ink text-paper shadow-md'
-                      : 'border-[0.5px] border-border text-ink-3 hover:border-ink/30 hover:text-ink',
-                  )}
-                >
-                  {Icon ? <Icon className="size-3" strokeWidth={1.8} /> : null}
-                  {label}
-                </motion.button>
-              ))}
+            {/* Audience */}
+            <div className="mt-3.5">
+              <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3">
+                Audience
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {VISIBILITIES.map(({ value, icon: Icon, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setVisibility(value)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-medium transition-colors',
+                      visibility === value
+                        ? 'bg-brand text-brand-foreground'
+                        : 'border border-border text-ink-3 hover:border-brand/40 hover:text-ink',
+                    )}
+                  >
+                    {Icon ? <Icon className="size-3" strokeWidth={1.8} /> : null}
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Submit */}
-          <motion.button
+        {/* ── Submit ──────────────────────────────────────── */}
+        <div className="border-t border-border px-5 py-3.5">
+          <button
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-ink py-3 text-[14px] font-semibold text-paper transition-opacity disabled:opacity-50"
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-brand text-[13.5px] font-medium text-brand-foreground transition-colors hover:bg-brand/90 disabled:opacity-55"
           >
             {submitting ? (
               <>
@@ -351,9 +357,12 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
                 Sharing…
               </>
             ) : (
-              'Share to story'
+              <>
+                <Send className="size-4" strokeWidth={2} />
+                Share to story
+              </>
             )}
-          </motion.button>
+          </button>
         </div>
       </DialogContent>
     </Dialog>
