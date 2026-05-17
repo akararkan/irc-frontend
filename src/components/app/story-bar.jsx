@@ -54,7 +54,7 @@ function StoryTile({ group, index, onClick }) {
           <motion.div
             className="size-[72px] rounded-full p-[2.5px]"
             style={{
-              background: 'conic-gradient(from 0deg, #0F6E56, #B57417, #514999, #0F6E56)',
+              background: 'conic-gradient(from 0deg, var(--brand), #B57417, #514999, var(--brand))',
             }}
             animate={{ rotate: 360 }}
             transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
