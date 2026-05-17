@@ -224,7 +224,7 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
         setInitializing(false)
       }
     },
-    [activeTab, toast], // eslint-disable-line react-hooks/exhaustive-deps
+    [activeTab, toast],
   )
 
   // Reset + reload whenever tab or auth state changes
@@ -234,7 +234,7 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
     setHasMore({ posts: true, research: true, questions: true })
     setInitializing(true)
     load({ append: false })
-  }, [activeTab, isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, isAuthenticated])
 
   useImperativeHandle(ref, () => ({
     insertPost: (post) => {
@@ -355,7 +355,7 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
           }
         />
       ) : (
-        <div className="space-y-0">
+        <div className="space-y-3">
           <AnimatePresence initial={false}>
             {entries.map((entry, index) => {
               let child

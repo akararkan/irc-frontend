@@ -146,7 +146,7 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
         </h2>
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
-            <div className="flex items-center gap-0.5 rounded-full border border-border bg-card p-0.5">
+            <div className="flex items-center gap-0.5 rounded-full border border-border bg-secondary/60 p-1">
               {FILTERS.map((option) => {
                 const active = filter === option.value
                 return (
@@ -155,15 +155,16 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
                     type="button"
                     onClick={() => setFilter(option.value)}
                     className={cn(
-                      'relative rounded-full px-3 py-1 text-[12px] font-medium transition-colors',
-                      active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+                      'relative rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition-colors',
+                      active ? 'text-brand' : 'text-ink-3 hover:text-ink',
                     )}
                   >
                     {active ? (
                       <motion.span
                         layoutId="postsFilterPill"
-                        className="absolute inset-0 rounded-full bg-muted"
-                        transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+                        className="absolute inset-0 rounded-full bg-paper"
+                        style={{ boxShadow: 'var(--shadow-xs)' }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                       />
                     ) : null}
                     <span className="relative">{option.label}</span>
@@ -174,7 +175,7 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
           ) : null}
           <button
             type="button"
-            className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+            className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink disabled:opacity-50"
             onClick={() => loadFirst(filter)}
             disabled={loading}
             aria-label="Refresh"

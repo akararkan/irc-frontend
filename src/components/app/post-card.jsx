@@ -217,23 +217,18 @@ function ActionButton({
   active,
   className,
 }) {
-  const tones = {
-    neutral:
-      'border-border text-ink-2 hover:border-brand/40 hover:bg-secondary hover:text-ink',
-    rose: 'border-rose-300 bg-rose-50 text-rose-600',
-    blue: 'border-[#93C5FD] bg-[#EFF6FF] text-brand',
-  }
+  const activeColor = tone === 'rose' ? 'text-rose-600' : tone === 'blue' ? 'text-brand' : 'text-ink'
   return (
     <motion.button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      whileTap={{ scale: 0.94 }}
-      transition={{ type: 'spring', stiffness: 480, damping: 26 }}
+      whileTap={{ scale: 0.91 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 28 }}
       aria-label={label}
       className={cn(
-        'inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[12.5px] font-medium transition-colors disabled:opacity-50',
-        active ? tones[tone] : tones.neutral,
+        'inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[12.5px] font-medium tabular-nums transition-colors disabled:opacity-50',
+        active ? activeColor : 'text-ink-3 hover:bg-secondary hover:text-ink',
         className,
       )}
     >
@@ -244,9 +239,9 @@ function ActionButton({
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={count}
-            initial={{ y: 6, opacity: 0 }}
+            initial={{ y: 5, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -6, opacity: 0 }}
+            exit={{ y: -5, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 460, damping: 30 }}
             className="inline-block tabular-nums"
           >
@@ -805,7 +800,7 @@ function ShareMenu({ post, onShared, onRepostCreated }) {
             type="button"
             disabled={busy}
             aria-label="Share post"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-brand/40 hover:bg-secondary hover:text-ink disabled:opacity-50"
+            className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[12.5px] font-medium text-ink-3 transition-colors hover:bg-secondary hover:text-ink disabled:opacity-50"
           >
             <Share2 className="size-[15px]" strokeWidth={1.8} />
           </button>
@@ -1376,7 +1371,7 @@ export function PostCard({
       </div>
 
       {/* ── Action bar ────────────────────────────────────── */}
-      <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border px-5 py-3">
+      <div className="mt-3 flex items-center gap-0.5 border-t border-border px-4 py-2.5">
         <ActionButton
           icon={Heart}
           filled={Boolean(effectiveReaction)}
@@ -1412,7 +1407,7 @@ export function PostCard({
         />
 
         {storedShareCount > 0 ? (
-          <span className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-medium text-ink-3">
+          <span className="inline-flex h-8 items-center gap-1 px-2 text-[12.5px] font-medium text-ink-3">
             <Repeat2 className="size-[15px]" strokeWidth={1.8} />
             <span className="tabular-nums">{formatNumber(storedShareCount)}</span>
           </span>
