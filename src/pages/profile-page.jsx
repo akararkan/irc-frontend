@@ -6,15 +6,15 @@ import {
   Ban,
   Bookmark,
   Calendar,
-  Eye,
+  CheckCircle2,
   Globe,
   Mail,
   MapPin,
   MessageSquare,
   MoreHorizontal,
-  Plus,
+  Pencil,
   ShieldAlert,
-  UserMinus,
+  UserCheck,
   UserPlus,
 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
@@ -74,45 +74,40 @@ import {
   getWebsiteUrl,
 } from '@/lib/format'
 
-// Spec §09 — single stat cell. Big tabular number on top, mono micro
-// caption beneath. Lives inside the .profile-stats strip.
 function Stat({ label, value, to }) {
-  const content = (
+  const body = (
     <>
-      <div className="font-display text-[26px] font-semibold tabular-nums leading-[1.1] tracking-[-0.012em] text-ink sm:text-[30px]">
+      <span className="font-display text-[19px] font-semibold tabular-nums leading-none tracking-[-0.01em] text-ink">
         {formatNumber(value ?? 0)}
-      </div>
-      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
-        {label}
-      </div>
+      </span>
+      <span className="text-[11px] text-ink-3">{label}</span>
     </>
   )
+  const className = 'flex shrink-0 items-baseline gap-1.5 transition-opacity'
   if (to) {
     return (
-      <Link to={to} className="shrink-0 transition-opacity hover:opacity-70">
-        {content}
+      <Link to={to} className={cn(className, 'hover:opacity-65')}>
+        {body}
       </Link>
     )
   }
-  return <div className="shrink-0">{content}</div>
+  return <div className={className}>{body}</div>
 }
 
-// Profile-link pill — outlined rounded pill matching the spec reference.
-function ProfileLink({ href, icon: Icon, children, title }) {
+function ProfileLink({ href, icon: Icon, children }) {
   const inner = (
-    <span className="inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-border px-3 py-1.5 text-[12px] text-ink-2 transition-colors hover:bg-secondary">
-      {Icon ? <Icon className="size-3.5" strokeWidth={1.5} /> : null}
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-paper px-2.5 py-1 text-[12px] text-ink-2 transition-colors hover:border-brand/40 hover:text-ink">
+      {Icon ? <Icon className="size-3.5 text-ink-3" strokeWidth={1.6} /> : null}
       {children}
     </span>
   )
-  if (href) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer" title={title || href}>
-        {inner}
-      </a>
-    )
-  }
-  return inner
+  return href ? (
+    <a href={href} target="_blank" rel="noreferrer">
+      {inner}
+    </a>
+  ) : (
+    inner
+  )
 }
 
 function ProfilePosts({ userId }) {
@@ -142,12 +137,11 @@ function ProfilePosts({ userId }) {
   if (loading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-32 w-full rounded-lg" />
-        <Skeleton className="h-32 w-full rounded-lg" />
+        <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-32 w-full rounded-xl" />
       </div>
     )
   }
-
   if (posts.length === 0) {
     return <EmptyState title="No posts yet" description="This person hasn't posted anything." />
   }
@@ -173,10 +167,14 @@ function ProfilePosts({ userId }) {
               post={post}
               onChange={(updated) =>
                 setPosts((current) =>
-                  current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
+                  current.map((item) =>
+                    item.id === updated.id ? { ...item, ...updated } : item,
+                  ),
                 )
               }
-              onDelete={(id) => setPosts((current) => current.filter((item) => item.id !== id))}
+              onDelete={(id) =>
+                setPosts((current) => current.filter((item) => item.id !== id))
+              }
               onRepostCreated={(newPost) =>
                 setPosts((current) => [
                   newPost,
@@ -216,7 +214,12 @@ function ProfileResearch({ userId }) {
 
   if (loading) return <Skeleton className="h-72 w-full rounded-xl" />
   if (items.length === 0) {
-    return <EmptyState title="No research published yet" description="Published research will show up here." />
+    return (
+      <EmptyState
+        title="No research published yet"
+        description="Published research will show up here."
+      />
+    )
   }
 
   return (
@@ -331,30 +334,20 @@ function ProfileSaved() {
     <div className="space-y-4">
       {collections.length > 0 ? (
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
+          <CollectionChip
+            active={activeCollection === null}
             onClick={() => setActiveCollection(null)}
-            className={
-              activeCollection === null
-                ? 'rounded-full border border-foreground bg-foreground px-3 py-1 text-xs font-semibold text-background'
-                : 'rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground'
-            }
           >
             All saved
-          </button>
+          </CollectionChip>
           {collections.map((name) => (
-            <button
+            <CollectionChip
               key={name}
-              type="button"
+              active={activeCollection === name}
               onClick={() => setActiveCollection(name)}
-              className={
-                activeCollection === name
-                  ? 'rounded-full border border-foreground bg-foreground px-3 py-1 text-xs font-semibold text-background'
-                  : 'rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground'
-              }
             >
               {name}
-            </button>
+            </CollectionChip>
           ))}
         </div>
       ) : null}
@@ -373,6 +366,23 @@ function ProfileSaved() {
         </div>
       )}
     </div>
+  )
+}
+
+function CollectionChip({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
+        active
+          ? 'border-brand bg-brand text-brand-foreground'
+          : 'border-border text-ink-3 hover:border-brand/40 hover:text-ink',
+      )}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -458,7 +468,6 @@ function ProfileActivity({ userId, includeQuestions = false }) {
       </div>
     )
   }
-
   if (entries.length === 0) {
     return (
       <EmptyState
@@ -491,22 +500,39 @@ function ProfileActivity({ userId, includeQuestions = false }) {
   )
 }
 
+function TabPill({ value, children, count }) {
+  return (
+    <TabsTrigger
+      value={value}
+      className={cn(
+        'relative rounded-none border-0 bg-transparent px-0 py-3 text-[13.5px] font-medium text-ink-3 shadow-none',
+        'data-[state=active]:text-ink data-[state=active]:shadow-none',
+        'after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:rounded-full after:bg-transparent',
+        'data-[state=active]:after:bg-brand transition-colors',
+      )}
+    >
+      {children}
+      {count != null ? (
+        <span className="ml-1.5 font-mono text-[10.5px] text-ink-4">{count}</span>
+      ) : null}
+    </TabsTrigger>
+  )
+}
+
 export function ProfilePage() {
   const { username } = useParams()
   const toast = useToast()
   const { user: currentUser, isAuthenticated } = useAuth()
-  const [profile,        setProfile]        = useState(null)
-  const [status,         setStatus]         = useState(null)
-  const [loading,        setLoading]        = useState(true)
-  const [working,        setWorking]        = useState(false)
+  const [profile, setProfile] = useState(null)
+  const [status, setStatus] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [working, setWorking] = useState(false)
   const [profileStories, setProfileStories] = useState([])
   const [storyViewerOpen, setStoryViewerOpen] = useState(false)
 
   useEffect(() => {
     if (!username) return
     let cancelled = false
-    // Clear any previous profile immediately so stale data never flashes
-    // while fetching the new one.
     setProfile(null)
     setStatus(null)
     setLoading(true)
@@ -523,8 +549,8 @@ export function ProfilePage() {
           } catch {
             if (!cancelled) setStatus(null)
           }
-        } else {
-          if (!cancelled) setStatus(null)
+        } else if (!cancelled) {
+          setStatus(null)
         }
       } catch (error) {
         if (cancelled) return
@@ -541,14 +567,17 @@ export function ProfilePage() {
     }
   }, [username, isAuthenticated, currentUser?.id, toast])
 
-  // Fetch active stories for this profile so we can show the story ring on the avatar
   useEffect(() => {
     if (!profile?.id || !isAuthenticated) return
     let cancelled = false
     getStoriesByUser(profile.id)
-      .then((data) => { if (!cancelled) setProfileStories(Array.isArray(data) ? data : []) })
+      .then((data) => {
+        if (!cancelled) setProfileStories(Array.isArray(data) ? data : [])
+      })
       .catch(() => {})
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [profile?.id, isAuthenticated])
 
   const isMe = currentUser && profile && currentUser.id === profile.id
@@ -635,12 +664,11 @@ export function ProfilePage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-48 w-full rounded-xl" />
-        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-44 w-full rounded-2xl" />
+        <Skeleton className="h-64 w-full rounded-2xl" />
       </div>
     )
   }
-
   if (!profile) {
     return (
       <EmptyState
@@ -658,9 +686,6 @@ export function ProfilePage() {
   const followerCount = status?.followerCount ?? getFollowerCount(profile)
   const followingCount = status?.followingCount ?? getFollowingCount(profile)
   const showsResearch = canPublishResearch(profile)
-
-  // Display-safe handle — strips an email-shaped username down to its
-  // local-part so other viewers never see a profile's email address.
   const handle = getHandle(profile)
   const verified = Boolean(profile.verified ?? profile.isVerified)
   const joinedDate = profile.createdAt
@@ -672,18 +697,17 @@ export function ProfilePage() {
     ? joinedDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
     : null
   const postsCount = profile.postsCount ?? profile.postCount ?? 0
-  const researchCount = profile.profile?.researchCount ?? profile.researchCount ?? profile.publicationsCount ?? 0
+  const researchCount =
+    profile.profile?.researchCount ??
+    profile.researchCount ??
+    profile.publicationsCount ??
+    0
   const answersCount = profile.answersCount ?? profile.answerCount ?? 0
   const reelsCount = profile.reelsCount ?? 0
-  // eslint-disable-next-line no-unused-vars
-  const profileViewsLabel =
-    profile.profileViewsThisWeek != null
-      ? `${formatNumber(profile.profileViewsThisWeek)} profile views this week`
-      : null
+  const hasStories = profileStories.length > 0
 
-  // Identity links from the spec — handle / ORCID / website / email.
   const linkList = []
-  if (handle) linkList.push({ icon: AtSign, label: `@${handle}`, href: null })
+  if (handle) linkList.push({ icon: AtSign, label: handle, href: null })
   const profileOrcid = profile.orcidId ?? profile.orcid
   if (profileOrcid) {
     linkList.push({
@@ -700,13 +724,10 @@ export function ProfilePage() {
       href: websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`,
     })
   }
-  // Privacy: only the user themselves ever sees their own email. We
-  // ignore profile.showEmail on purpose — even if the backend ships it
-  // as true, we never expose an email address to other viewers.
   if (profile.email && isMe) {
     linkList.push({ icon: Mail, label: profile.email, href: `mailto:${profile.email}` })
   }
-  ;(getProfileLinks(profile)).forEach((link) => {
+  getProfileLinks(profile).forEach((link) => {
     if (!link?.url) return
     linkList.push({
       icon: Globe,
@@ -716,155 +737,103 @@ export function ProfilePage() {
   })
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+        className="overflow-hidden rounded-2xl border border-border bg-paper"
+        style={{ boxShadow: 'var(--shadow-sm)' }}
       >
-        {/* ── 3-column hero: avatar | info | actions ──────────── */}
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
+        {/* ── Cover banner ─────────────────────────────────── */}
+        <div
+          className="relative h-32 sm:h-40"
+          style={{ background: 'var(--brand-deep, #1E3A5F)' }}
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.05]"
+            style={{
+              background:
+                'repeating-linear-gradient(115deg, transparent 0 22px, #FFFFFF 22px 23px)',
+            }}
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-12 -top-16 size-48 rounded-full"
+            style={{ background: 'var(--brand-dark, #15243B)' }}
+          />
 
-          {/* Avatar — large square, with story ring when active stories exist */}
-          <motion.div
-            initial={{ scale: 0.85, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 280, damping: 22, delay: 0.05 }}
-            className="shrink-0"
-          >
-            {profileStories.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => setStoryViewerOpen(true)}
-                className="block rounded-[18px] p-[3px] focus:outline-none"
-                style={{ background: 'linear-gradient(135deg, var(--brand), var(--gold), var(--accent-violet))' }}
+          <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+            {isMe ? (
+              <Button
+                asChild
+                size="sm"
+                className="h-9 gap-1.5 rounded-lg bg-white/95 text-[13px] font-medium text-[#15243B] hover:bg-white"
               >
-                <div className="rounded-2xl bg-card p-[2px]">
-                  <UserAvatar
-                    user={profile}
-                    className="size-28 rounded-2xl text-[40px] sm:size-32"
-                  />
-                </div>
-              </button>
-            ) : (
-              <UserAvatar
-                user={profile}
-                className="size-28 rounded-2xl text-[40px] sm:size-32"
-              />
-            )}
-          </motion.div>
-
-          {/* Info column */}
-          <div className="min-w-0 flex-1 space-y-3">
-            {/* Role + location + joined meta */}
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
-              {profile.role ? <span>{profile.role}</span> : null}
-              {getLocation(profile) ? (
-                <>
-                  {profile.role ? <span aria-hidden>·</span> : null}
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin className="size-3" strokeWidth={1.5} />
-                    {getLocation(profile)}
-                  </span>
-                </>
-              ) : null}
-              {joinedLabel ? (
-                <>
-                  <span aria-hidden>·</span>
-                  <span className="inline-flex items-center gap-1">
-                    <Calendar className="size-3" strokeWidth={1.5} />
-                    {joinedLabel}
-                  </span>
-                </>
-              ) : null}
-            </div>
-
-            {/* Name */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="font-display text-[32px] font-semibold leading-[1.05] tracking-[-0.022em] text-ink sm:text-[38px]">
-                {getFullName(profile) || handle}
-              </h1>
-              {verified ? (
-                <span
-                  aria-hidden
-                  title="Verified"
-                  className="grid size-[22px] place-items-center rounded-full text-paper"
-                  style={{ background: 'var(--info-fg)' }}
-                >
-                  <Award className="size-3" strokeWidth={2} />
-                </span>
-              ) : null}
-            </div>
-
-            {/* Handle */}
-            {handle ? (
-              <p className="text-[14px] text-ink-3">@{handle}</p>
+                <Link to="/settings">
+                  <Pencil className="size-3.5" strokeWidth={2} />
+                  Edit profile
+                </Link>
+              </Button>
             ) : null}
-
-            {/* Bio — italic serif */}
-            {getProfileBio(profile) ? (
-              <p className="font-display text-[16px] italic leading-[1.6] tracking-[-0.005em] text-ink-2">
-                {getProfileBio(profile)}
-              </p>
-            ) : null}
-
-            {/* Tagline / self-describer */}
-            {getSelfDescriber(profile) ? (
-              <p className="text-[15px] leading-[1.65] text-ink-2">
-                {getSelfDescriber(profile)}
-              </p>
-            ) : null}
-
-            {/* Profile links — outlined rounded pills */}
-            {linkList.length > 0 ? (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {linkList.map((link, idx) => (
-                  <ProfileLink key={idx} href={link.href} icon={link.icon}>
-                    {link.label}
-                  </ProfileLink>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          {/* Actions column — stacked vertical on desktop */}
-          <div className="flex flex-row flex-wrap gap-2 sm:w-36 sm:flex-col">
             {!isMe && isAuthenticated ? (
               status?.isBlocking ? (
-                <button
-                  type="button"
+                <Button
+                  size="sm"
                   onClick={handleUnblock}
                   disabled={working}
-                  className="rx w-full justify-center"
+                  className="h-9 rounded-lg bg-white/95 text-[13px] font-medium text-[#15243B] hover:bg-white"
                 >
                   Unblock
-                </button>
+                </Button>
               ) : (
                 <>
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
                     onClick={status?.isFollowing ? handleUnfollow : handleFollow}
                     disabled={working}
                     className={cn(
-                      'rx w-full justify-center',
-                      status?.isFollowing && 'border-ink/40 bg-secondary text-ink',
+                      'h-9 gap-1.5 rounded-lg text-[13px] font-medium',
+                      status?.isFollowing
+                        ? 'bg-white/95 text-[#15243B] hover:bg-white'
+                        : 'bg-brand text-brand-foreground hover:bg-brand/90',
                     )}
                   >
-                    <Plus className="size-4" strokeWidth={2} />
-                    {status?.isFollowing ? 'Following' : 'Follow'}
-                  </button>
-                  <button type="button" className="rx w-full justify-center">
-                    <MessageSquare className="size-4" strokeWidth={1.5} />
-                    Contact
-                  </button>
+                    {status?.isFollowing ? (
+                      <>
+                        <UserCheck className="size-3.5" strokeWidth={2} />
+                        Following
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="size-3.5" strokeWidth={2} />
+                        Follow
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    size="icon"
+                    className="size-9 rounded-lg bg-white/95 text-[#15243B] hover:bg-white"
+                    title="Contact"
+                  >
+                    <MessageSquare className="size-4" strokeWidth={1.7} />
+                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button type="button" className="rx justify-center" title="More options">
+                      <Button
+                        size="icon"
+                        className="size-9 rounded-lg bg-white/95 text-[#15243B] hover:bg-white"
+                        title="More options"
+                      >
                         <MoreHorizontal className="size-4" />
-                      </button>
+                      </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-44">
-                      <DropdownMenuItem onSelect={handleToggleRestrict} disabled={working}>
+                      <DropdownMenuItem
+                        onSelect={handleToggleRestrict}
+                        disabled={working}
+                      >
                         <ShieldAlert className="mr-2 size-4" />
                         {status?.isRestricting ? 'Unrestrict' : 'Restrict'}
                       </DropdownMenuItem>
@@ -881,19 +850,111 @@ export function ProfilePage() {
                 </>
               )
             ) : null}
-            {isMe ? (
-              <Link to="/settings" className="rx w-full justify-center text-center">
-                Edit profile
-              </Link>
-            ) : null}
           </div>
         </div>
 
-        {/* ── Stats row — flat, hairline separator above ──────── */}
-        <div className="mt-8 border-t-[0.5px] border-border pt-6">
-          <div className="scrollbar-none flex items-start gap-x-8 gap-y-4 overflow-x-auto">
-            <Stat label="Followers" value={followerCount} to={`/profile/${profile.username}/followers`} />
-            <Stat label="Following" value={followingCount} to={`/profile/${profile.username}/following`} />
+        {/* ── Identity block ───────────────────────────────── */}
+        <div className="px-5 pb-5 sm:px-7 sm:pb-6">
+          <div className="-mt-12 mb-3 sm:-mt-14">
+            {hasStories ? (
+              <button
+                type="button"
+                onClick={() => setStoryViewerOpen(true)}
+                className="block w-fit rounded-[20px] p-[3px] focus:outline-none"
+                style={{
+                  background:
+                    'linear-gradient(135deg, var(--brand), var(--accent-sky, #0891B2), #7C3AED)',
+                }}
+              >
+                <div className="rounded-[17px] bg-paper p-[2px]">
+                  <UserAvatar
+                    user={profile}
+                    className="size-[88px] rounded-2xl text-[32px] sm:size-24"
+                  />
+                </div>
+              </button>
+            ) : (
+              <div className="w-fit rounded-2xl bg-paper p-[3px] ring-1 ring-border">
+                <UserAvatar
+                  user={profile}
+                  className="size-[88px] rounded-xl text-[32px] sm:size-24"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="font-display text-[24px] font-semibold leading-tight tracking-[-0.018em] text-ink sm:text-[28px]">
+              {getFullName(profile) || handle}
+            </h1>
+            {verified ? (
+              <span
+                title="Verified"
+                className="grid size-5 place-items-center rounded-full bg-brand text-brand-foreground"
+              >
+                <CheckCircle2 className="size-3.5" strokeWidth={2.4} />
+              </span>
+            ) : null}
+            {profile.role ? <RoleBadge role={profile.role} size="md" /> : null}
+          </div>
+
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-ink-3">
+            {handle ? (
+              <span className="font-mono text-ink-3">@{handle}</span>
+            ) : null}
+            {getLocation(profile) ? (
+              <>
+                <span aria-hidden className="text-ink-4">·</span>
+                <span className="inline-flex items-center gap-1">
+                  <MapPin className="size-3.5" strokeWidth={1.6} />
+                  {getLocation(profile)}
+                </span>
+              </>
+            ) : null}
+            {joinedLabel ? (
+              <>
+                <span aria-hidden className="text-ink-4">·</span>
+                <span className="inline-flex items-center gap-1">
+                  <Calendar className="size-3.5" strokeWidth={1.6} />
+                  Joined {joinedLabel}
+                </span>
+              </>
+            ) : null}
+          </div>
+
+          {getProfileBio(profile) ? (
+            <p className="mt-3 max-w-2xl font-display text-[15px] italic leading-[1.6] text-ink-2">
+              “{getProfileBio(profile)}”
+            </p>
+          ) : null}
+
+          {getSelfDescriber(profile) ? (
+            <p className="mt-2 max-w-2xl text-[14px] leading-[1.6] text-ink-2">
+              {getSelfDescriber(profile)}
+            </p>
+          ) : null}
+
+          {linkList.length > 0 ? (
+            <div className="mt-3.5 flex flex-wrap gap-2">
+              {linkList.map((link, idx) => (
+                <ProfileLink key={idx} href={link.href} icon={link.icon}>
+                  {link.label}
+                </ProfileLink>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="mt-5 flex flex-wrap items-center gap-x-7 gap-y-3 border-t border-border pt-4">
+            <Stat
+              label="Followers"
+              value={followerCount}
+              to={`/profile/${profile.username}/followers`}
+            />
+            <Stat
+              label="Following"
+              value={followingCount}
+              to={`/profile/${profile.username}/following`}
+            />
             {showsResearch ? <Stat label="Research" value={researchCount} /> : null}
             <Stat label="Posts" value={postsCount} />
             <Stat label="Answers" value={answersCount} />
@@ -902,86 +963,58 @@ export function ProfilePage() {
         </div>
       </motion.section>
 
-      {/* ── Story highlights — shown when user has highlights or it's own profile ── */}
       <StoryHighlightBar userId={profile.id} isMe={isMe} />
 
       <Tabs defaultValue={showsResearch ? 'research' : 'activity'}>
-        <TabsList className="scrollbar-none flex w-full justify-start gap-0 overflow-x-auto rounded-none border-0 border-b-[0.5px] border-border bg-transparent p-0">
+        <TabsList className="flex w-full justify-start gap-7 overflow-x-auto rounded-none border-0 border-b border-border bg-transparent p-0 scrollbar-none">
           {showsResearch ? (
-            <TabsTrigger
-              value="research"
-              className="rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 py-2.5 mr-6 font-medium text-ink-3 data-[state=active]:border-ink data-[state=active]:text-ink data-[state=active]:shadow-none"
-            >
-              Research <span className="ml-1 font-mono text-[10px] text-ink-4">{researchCount}</span>
-            </TabsTrigger>
+            <TabPill value="research" count={researchCount}>
+              Research
+            </TabPill>
           ) : null}
-          <TabsTrigger
-            value="posts"
-            className="rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 py-2.5 mr-6 font-medium text-ink-3 data-[state=active]:border-ink data-[state=active]:text-ink data-[state=active]:shadow-none"
-          >
-            Posts <span className="ml-1 font-mono text-[10px] text-ink-4">{postsCount}</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="activity"
-            className="rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 py-2.5 mr-6 font-medium text-ink-3 data-[state=active]:border-ink data-[state=active]:text-ink data-[state=active]:shadow-none"
-          >
-            Activity
-          </TabsTrigger>
-          {isMe ? (
-            <TabsTrigger
-              value="questions"
-              className="rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 py-2.5 mr-6 font-medium text-ink-3 data-[state=active]:border-ink data-[state=active]:text-ink data-[state=active]:shadow-none"
-            >
-              Questions
-            </TabsTrigger>
-          ) : null}
-          {isMe ? (
-            <TabsTrigger
-              value="saved"
-              className="rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 py-2.5 mr-6 font-medium text-ink-3 data-[state=active]:border-ink data-[state=active]:text-ink data-[state=active]:shadow-none"
-            >
-              Saved
-            </TabsTrigger>
-          ) : null}
-          <TabsTrigger
-            value="about"
-            className="rounded-none border-b-[1.5px] border-transparent bg-transparent px-0 py-2.5 mr-6 font-medium text-ink-3 data-[state=active]:border-ink data-[state=active]:text-ink data-[state=active]:shadow-none"
-          >
-            About
-          </TabsTrigger>
+          <TabPill value="posts" count={postsCount}>
+            Posts
+          </TabPill>
+          <TabPill value="activity">Activity</TabPill>
+          {isMe ? <TabPill value="questions">Questions</TabPill> : null}
+          {isMe ? <TabPill value="saved">Saved</TabPill> : null}
+          <TabPill value="about">About</TabPill>
         </TabsList>
-        <TabsContent value="activity">
+
+        <TabsContent value="activity" className="mt-5">
           <ProfileActivity userId={profile.id} includeQuestions={isMe} />
         </TabsContent>
-        <TabsContent value="posts">
+        <TabsContent value="posts" className="mt-5">
           <ProfilePosts userId={profile.id} />
         </TabsContent>
         {showsResearch ? (
-          <TabsContent value="research">
+          <TabsContent value="research" className="mt-5">
             <ProfileResearch userId={profile.id} />
           </TabsContent>
         ) : null}
         {isMe ? (
-          <TabsContent value="questions">
+          <TabsContent value="questions" className="mt-5">
             <ProfileQuestions />
           </TabsContent>
         ) : null}
         {isMe ? (
-          <TabsContent value="saved">
+          <TabsContent value="saved" className="mt-5">
             <ProfileSaved />
           </TabsContent>
         ) : null}
-        <TabsContent value="about">
-          <Card>
-            <CardContent className="space-y-3 p-5 text-sm">
+        <TabsContent value="about" className="mt-5">
+          <Card className="rounded-xl border-border">
+            <CardContent className="space-y-3 p-5 text-[14px]">
               {getSelfDescriber(profile) ? (
-                <p className="whitespace-pre-wrap leading-6">{getSelfDescriber(profile)}</p>
+                <p className="whitespace-pre-wrap leading-[1.65] text-ink-2">
+                  {getSelfDescriber(profile)}
+                </p>
               ) : (
-                <p className="text-muted-foreground">No description provided.</p>
+                <p className="text-ink-3">No description provided.</p>
               )}
               {getProfileLinks(profile).length ? (
-                <div className="space-y-1.5 pt-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <div className="space-y-1.5 border-t border-border pt-3">
+                  <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink-3">
                     Links
                   </p>
                   {getProfileLinks(profile).map((link) => (
@@ -990,7 +1023,7 @@ export function ProfilePage() {
                       href={link.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="block truncate text-primary hover:underline"
+                      className="block truncate text-brand hover:underline"
                     >
                       {link.description || link.url}
                     </a>
@@ -1002,9 +1035,8 @@ export function ProfilePage() {
         </TabsContent>
       </Tabs>
 
-      {/* Story viewer — opens when avatar ring is clicked */}
       <AnimatePresence>
-        {storyViewerOpen && profileStories.length > 0 ? (
+        {storyViewerOpen && hasStories ? (
           <StoryViewer
             groups={[{ author: profile, stories: profileStories, hasUnseen: true }]}
             initialGroupIndex={0}
