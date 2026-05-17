@@ -1,8 +1,10 @@
-import { BadgeCheck, GraduationCap, Microscope, Shield, ShieldCheck, User } from 'lucide-react'
+import { BadgeCheck, BookOpen, GraduationCap, Microscope, Shield, ShieldCheck, Swords, User } from 'lucide-react'
 
 // Role colour mapping mirrors the IRC Scholar design spec:
 //   Scholar      → info  (sky)     · mortarboard icon
 //   Researcher   → success (sage)  · microscope icon
+//   Moderator    → purple          · swords icon
+//   Editor       → indigo          · book-open icon
 //   Admin        → warning (amber) · shield icon
 //   Super admin  → danger  (rust)  · shield-check icon
 //   User         → no badge (returned null in getRoleInfo for non-mapped)
@@ -27,6 +29,18 @@ const ROLE_MAP = {
     className: 'pill-success',
     dotClass: 'bg-ok-fg',
   },
+  MODERATOR: {
+    label: 'Moderator',
+    icon: Swords,
+    className: 'pill-purple',
+    dotClass: 'bg-purple-500',
+  },
+  EDITOR: {
+    label: 'Editor',
+    icon: BookOpen,
+    className: 'pill-indigo',
+    dotClass: 'bg-indigo-500',
+  },
   ADMIN: {
     label: 'Admin',
     icon: Shield,
@@ -46,8 +60,8 @@ const ROLE_MAP = {
  * sync with the @PreAuthorize annotations on the Spring controllers and
  * the role checks inside services.
  *
- *  Roles (Role.java): USER, SCHOLAR, RESEARCHER, ADMIN, SUPER_ADMIN.
- *  Default role on registration is SCHOLAR (AuthServiceImpl).
+ *  Roles (Role.java): USER, SCHOLAR, RESEARCHER, MODERATOR, EDITOR, ADMIN, SUPER_ADMIN.
+ *  Default role on registration is USER (AuthServiceImpl).
  *
  *  ───────────────────────────────────────────────────────────────────
  *  Posts / post comments  (PostController, PostCommentController)
@@ -100,7 +114,11 @@ export const ROLE_CAN_ANSWER_QNA = new Set([
 
 // Site-wide moderators — used for "admin override" checks that mirror the
 // backend's `requester.getRole() == ADMIN || SUPER_ADMIN` shortcuts.
-export const ROLE_ADMIN_LIKE = new Set(['ADMIN', 'SUPER_ADMIN'])
+// MODERATOR can act on content but cannot manage the platform itself.
+export const ROLE_ADMIN_LIKE = new Set(['MODERATOR', 'ADMIN', 'SUPER_ADMIN'])
+
+// Roles that can manage the research peer-review queue (Editor seat).
+export const ROLE_CAN_EDIT_RESEARCH_QUEUE = new Set(['EDITOR', 'ADMIN', 'SUPER_ADMIN'])
 
 /**
  * Roles whose answers in Q&A get an "Expert answer" visual treatment
@@ -110,6 +128,7 @@ export const ROLE_ADMIN_LIKE = new Set(['ADMIN', 'SUPER_ADMIN'])
 export const ROLE_EXPERT_ANSWERER = new Set([
   'SCHOLAR',
   'RESEARCHER',
+  'MODERATOR',
   'ADMIN',
   'SUPER_ADMIN',
 ])

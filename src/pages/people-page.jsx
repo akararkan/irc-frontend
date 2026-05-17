@@ -22,7 +22,7 @@ import { searchUsers } from '@/features/users/users.api'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { extractApiMessage } from '@/lib/api-error'
-import { formatNumber, getFullName, getHandle, getRawUsername } from '@/lib/format'
+import { formatNumber, getFollowerCount, getFullName, getHandle, getProfileBio, getRawUsername } from '@/lib/format'
 
 function UserRow({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUserId }) {
   const [working, setWorking] = useState(false)
@@ -60,11 +60,11 @@ function UserRow({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUserId
         {handle ? (
           <p className="truncate text-xs text-muted-foreground">@{handle}</p>
         ) : null}
-        {user.profileBio ? (
-          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{user.profileBio}</p>
+        {getProfileBio(user) ? (
+          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{getProfileBio(user)}</p>
         ) : null}
         <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{formatNumber(user.followerCount ?? 0)} followers</span>
+          <span>{formatNumber(getFollowerCount(user))} followers</span>
         </div>
       </div>
 

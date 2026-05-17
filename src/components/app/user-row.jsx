@@ -6,8 +6,10 @@ import { UserAvatar } from '@/components/app/user-avatar'
 import { cn } from '@/lib/utils'
 import {
   formatNumber,
+  getFollowerCount,
   getFullName,
   getHandle,
+  getProfileBio,
   getRawUsername,
 } from '@/lib/format'
 
@@ -40,12 +42,12 @@ export function UserRow({ user, trailing, className }) {
             @{handle}
           </p>
         ) : null}
-        {user.profileBio ? (
-          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{user.profileBio}</p>
+        {getProfileBio(user) ? (
+          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{getProfileBio(user)}</p>
         ) : null}
         <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
           <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">
-            {formatNumber(user.followerCount ?? 0)} followers
+            {formatNumber(getFollowerCount(user))} followers
           </Badge>
         </div>
       </div>

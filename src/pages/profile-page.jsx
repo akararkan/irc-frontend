@@ -58,7 +58,18 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { canPublishResearch } from '@/lib/roles'
 import { extractApiMessage } from '@/lib/api-error'
-import { formatNumber, getFullName, getHandle } from '@/lib/format'
+import {
+  formatNumber,
+  getFollowerCount,
+  getFollowingCount,
+  getFullName,
+  getHandle,
+  getLocation,
+  getProfileBio,
+  getProfileLinks,
+  getSelfDescriber,
+  getWebsiteUrl,
+} from '@/lib/format'
 
 // Spec §09 — single stat cell. Big tabular number on top, mono micro
 // caption beneath. Lives inside the .profile-stats strip.
@@ -629,8 +640,8 @@ export function ProfilePage() {
     )
   }
 
-  const followerCount = status?.followerCount ?? profile.followerCount ?? 0
-  const followingCount = status?.followingCount ?? profile.followingCount ?? 0
+  const followerCount = status?.followerCount ?? getFollowerCount(profile)
+  const followingCount = status?.followingCount ?? getFollowingCount(profile)
   const showsResearch = canPublishResearch(profile)
 
   // Display-safe handle — strips an email-shaped username down to its
@@ -646,7 +657,7 @@ export function ProfilePage() {
     ? joinedDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
     : null
   const postsCount = profile.postsCount ?? profile.postCount ?? 0
-  const researchCount = profile.researchCount ?? profile.publicationsCount ?? 0
+  const researchCount = profile.profile?.researchCount ?? profile.researchCount ?? profile.publicationsCount ?? 0
   const answersCount = profile.answersCount ?? profile.answerCount ?? 0
   const reelsCount = profile.reelsCount ?? 0
   // eslint-disable-next-line no-unused-vars
@@ -658,18 +669,20 @@ export function ProfilePage() {
   // Identity links from the spec — handle / ORCID / website / email.
   const linkList = []
   if (handle) linkList.push({ icon: AtSign, label: `@${handle}`, href: null })
-  if (profile.orcid) {
+  const profileOrcid = profile.orcidId ?? profile.orcid
+  if (profileOrcid) {
     linkList.push({
       icon: Award,
-      label: `ORCID: ${profile.orcid}`,
-      href: `https://orcid.org/${profile.orcid}`,
+      label: `ORCID: ${profileOrcid}`,
+      href: `https://orcid.org/${profileOrcid}`,
     })
   }
-  if (profile.website) {
+  const websiteUrl = getWebsiteUrl(profile)
+  if (websiteUrl) {
     linkList.push({
       icon: Globe,
-      label: profile.website.replace(/^https?:\/\//, ''),
-      href: profile.website.startsWith('http') ? profile.website : `https://${profile.website}`,
+      label: websiteUrl.replace(/^https?:\/\//, ''),
+      href: websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`,
     })
   }
   // Privacy: only the user themselves ever sees their own email. We
@@ -678,7 +691,7 @@ export function ProfilePage() {
   if (profile.email && isMe) {
     linkList.push({ icon: Mail, label: profile.email, href: `mailto:${profile.email}` })
   }
-  ;(profile.links ?? []).forEach((link) => {
+  ;(getProfileLinks(profile)).forEach((link) => {
     if (!link?.url) return
     linkList.push({
       icon: Globe,
@@ -715,12 +728,12 @@ export function ProfilePage() {
             {/* Role + location + joined meta */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] uppercase tracking-wider text-ink-3">
               {profile.role ? <span>{profile.role}</span> : null}
-              {profile.location ? (
+              {getLocation(profile) ? (
                 <>
                   {profile.role ? <span aria-hidden>·</span> : null}
                   <span className="inline-flex items-center gap-1">
                     <MapPin className="size-3" strokeWidth={1.5} />
-                    {profile.location}
+                    {getLocation(profile)}
                   </span>
                 </>
               ) : null}
@@ -758,16 +771,16 @@ export function ProfilePage() {
             ) : null}
 
             {/* Bio — italic serif */}
-            {profile.profileBio ? (
+            {getProfileBio(profile) ? (
               <p className="font-display text-[16px] italic leading-[1.6] tracking-[-0.005em] text-ink-2">
-                {profile.profileBio}
+                {getProfileBio(profile)}
               </p>
             ) : null}
 
             {/* Tagline / self-describer */}
-            {profile.selfDescriber ? (
+            {getSelfDescriber(profile) ? (
               <p className="text-[15px] leading-[1.65] text-ink-2">
-                {profile.selfDescriber}
+                {getSelfDescriber(profile)}
               </p>
             ) : null}
 
@@ -927,17 +940,17 @@ export function ProfilePage() {
         <TabsContent value="about">
           <Card>
             <CardContent className="space-y-3 p-5 text-sm">
-              {profile.selfDescriber ? (
-                <p className="whitespace-pre-wrap leading-6">{profile.selfDescriber}</p>
+              {getSelfDescriber(profile) ? (
+                <p className="whitespace-pre-wrap leading-6">{getSelfDescriber(profile)}</p>
               ) : (
                 <p className="text-muted-foreground">No description provided.</p>
               )}
-              {profile.links?.length ? (
+              {getProfileLinks(profile).length ? (
                 <div className="space-y-1.5 pt-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Links
                   </p>
-                  {profile.links.map((link) => (
+                  {getProfileLinks(profile).map((link) => (
                     <a
                       key={link.id}
                       href={link.url}

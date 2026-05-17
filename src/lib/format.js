@@ -113,6 +113,7 @@ export function getRawUsername(user) {
 export function getAvatarUrl(user) {
   if (!user) return null
   return (
+    user.profile?.avatarUrl ??
     user.profileImage ??
     user.avatarUrl ??
     user.actorProfileImage ??
@@ -120,6 +121,51 @@ export function getAvatarUrl(user) {
     user.researcherProfileImage ??
     null
   )
+}
+
+export function getCoverUrl(user) {
+  if (!user) return null
+  return user.profile?.coverImageUrl ?? null
+}
+
+export function getProfileBio(user) {
+  if (!user) return null
+  return user.profile?.profileBio ?? user.profileBio ?? null
+}
+
+export function getSelfDescriber(user) {
+  if (!user) return null
+  return user.profile?.selfDescriber ?? user.selfDescriber ?? null
+}
+
+export function getLocation(user) {
+  if (!user) return null
+  return user.profile?.location ?? user.location ?? null
+}
+
+export function getFollowerCount(user) {
+  if (!user) return 0
+  return user.profile?.followerCount ?? user.followerCount ?? 0
+}
+
+export function getFollowingCount(user) {
+  if (!user) return 0
+  return user.profile?.followingCount ?? user.followingCount ?? 0
+}
+
+export function getProfileLinks(user) {
+  if (!user) return []
+  return user.profile?.links ?? user.links ?? []
+}
+
+export function getWebsiteUrl(user) {
+  if (!user) return null
+  return user.profile?.websiteUrl ?? user.website ?? null
+}
+
+export function getDisplayName(user) {
+  if (!user) return null
+  return user.profile?.displayName ?? null
 }
 
 export function getUsername(user) {

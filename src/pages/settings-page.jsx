@@ -55,6 +55,7 @@ import {
   deleteLink,
   deleteProfileImage,
   updateProfile,
+  updateUserProfile,
   uploadProfileImage,
 } from '@/features/users/users.api'
 import {
@@ -145,9 +146,9 @@ function ProfileForm() {
       fname: user.fname ?? '',
       lname: user.lname ?? '',
       username: user.username ?? '',
-      location: user.location ?? '',
-      selfDescriber: user.selfDescriber ?? '',
-      profileBio: user.profileBio ?? '',
+      location: user.profile?.location ?? user.location ?? '',
+      selfDescriber: user.profile?.selfDescriber ?? user.selfDescriber ?? '',
+      profileBio: user.profile?.profileBio ?? user.profileBio ?? '',
     })
     setDirty(false)
   }, [user])
@@ -164,9 +165,9 @@ function ProfileForm() {
       fname: user.fname ?? '',
       lname: user.lname ?? '',
       username: user.username ?? '',
-      location: user.location ?? '',
-      selfDescriber: user.selfDescriber ?? '',
-      profileBio: user.profileBio ?? '',
+      location: user.profile?.location ?? user.location ?? '',
+      selfDescriber: user.profile?.selfDescriber ?? user.selfDescriber ?? '',
+      profileBio: user.profile?.profileBio ?? user.profileBio ?? '',
     })
     setDirty(false)
   }
@@ -175,7 +176,11 @@ function ProfileForm() {
     event.preventDefault()
     setSaving(true)
     try {
-      await updateProfile(form)
+      // Auth-layer fields go to /me; profile-layer fields go to /me/profile
+      await Promise.all([
+        updateProfile({ fname: form.fname, lname: form.lname, username: form.username }),
+        updateUserProfile({ location: form.location, selfDescriber: form.selfDescriber, profileBio: form.profileBio }),
+      ])
       await refreshCurrentUser()
       toast.success('Profile updated.')
       setDirty(false)
@@ -251,7 +256,7 @@ function ProfileForm() {
                 disabled={uploading}
               />
             </label>
-            {user.profileImage ? (
+            {(user.profile?.avatarUrl ?? user.profileImage) ? (
               <button
                 type="button"
                 onClick={handleAvatarRemove}
