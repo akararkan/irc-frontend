@@ -1,4 +1,5 @@
 import { forwardRef, useImperativeHandle, useState } from 'react'
+import { motion } from 'motion/react'
 import {
   ChevronDown,
   Globe,
@@ -28,53 +29,44 @@ import { UserAvatar } from '@/components/app/user-avatar'
 import { useAuth } from '@/features/auth/auth-context'
 import { cn } from '@/lib/utils'
 
-// Each tool both opens the dialog and tells the composer which
-// post-type to start in — so a click on the mic lands the user on
-// the voice step directly, no extra click.
 const TOOLS = [
-  { id: 'image', icon: ImageIcon, postType: 'EMBEDDED', label: 'Image' },
-  { id: 'video', icon: Video, postType: 'REEL', label: 'Video' },
-  { id: 'voice', icon: Mic, postType: 'VOICE_POST', label: 'Voice' },
-  { id: 'quote', icon: Quote, postType: 'TEXT', label: 'Quote' },
-  { id: 'location', icon: MapPin, postType: 'EMBEDDED', label: 'Location' },
+  { id: 'image',    icon: ImageIcon, postType: 'EMBEDDED',   label: 'Image',    color: 'text-sky-500' },
+  { id: 'video',    icon: Video,     postType: 'REEL',        label: 'Video',    color: 'text-violet-500' },
+  { id: 'voice',    icon: Mic,       postType: 'VOICE_POST',  label: 'Voice',    color: 'text-amber-500' },
+  { id: 'quote',    icon: Quote,     postType: 'TEXT',        label: 'Quote',    color: 'text-brand' },
+  { id: 'location', icon: MapPin,    postType: 'EMBEDDED',    label: 'Location', color: 'text-rose-500' },
 ]
 
 const VISIBILITY = [
-  { value: 'PUBLIC', label: 'Public', icon: Globe },
+  { value: 'PUBLIC',         label: 'Public',    icon: Globe },
   { value: 'FOLLOWERS_ONLY', label: 'Followers', icon: Users },
-  { value: 'ONLY_ME', label: 'Only me', icon: Lock },
+  { value: 'ONLY_ME',        label: 'Only me',   icon: Lock  },
 ]
 
-/**
- * Single-line composer trigger inspired by the design spec.
- *
- * Tapping anywhere — the input, an icon, or the Post button — opens
- * the full PostComposer in a dialog. Each icon remembers which
- * post-type should be selected when the dialog opens.
- *
- * Forwards an imperative `openWith(postType)` ref so other surfaces
- * (the reel-strip "Create reel" tile, story shortcuts, etc.) can
- * launch the dialog into a specific mode without duplicating wiring.
- */
+const PROMPTS = [
+  'Share a thought, citation, or finding…',
+  'What are you researching today?',
+  'Share a scholarly insight…',
+  'Start a discussion…',
+]
+
 export const CommunityComposer = forwardRef(function CommunityComposer(
   { onPosted },
   ref,
 ) {
   const { user } = useAuth()
-  const [open, setOpen] = useState(false)
-  const [startType, setStartType] = useState('TEXT')
+  const [open,       setOpen]       = useState(false)
+  const [startType,  setStartType]  = useState('TEXT')
   const [visibility, setVisibility] = useState('PUBLIC')
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      openWith(postType) {
-        setStartType(postType ?? 'TEXT')
-        setOpen(true)
-      },
-    }),
-    [],
-  )
+  const prompt = PROMPTS[new Date().getDay() % PROMPTS.length]
+
+  useImperativeHandle(ref, () => ({
+    openWith(postType) {
+      setStartType(postType ?? 'TEXT')
+      setOpen(true)
+    },
+  }), [])
 
   if (!user) return null
 
@@ -83,67 +75,101 @@ export const CommunityComposer = forwardRef(function CommunityComposer(
     setOpen(true)
   }
 
-  const activeVisibility =
-    VISIBILITY.find((v) => v.value === visibility) ?? VISIBILITY[0]
+  const activeVisibility = VISIBILITY.find((v) => v.value === visibility) ?? VISIBILITY[0]
   const VisibilityIcon = activeVisibility.icon
 
   return (
     <>
-      <section className="rounded-2xl border-[0.5px] border-border bg-paper">
-        <div className="flex items-start gap-3 px-5 pt-5">
-          <UserAvatar user={user} className="size-10 shrink-0" />
-          <button
-            type="button"
-            onClick={() => trigger('TEXT')}
-            className="flex flex-1 items-center py-2 text-left font-display text-[15.5px] italic leading-[1.4] tracking-[-0.005em] text-ink-3 transition-colors hover:text-ink-2"
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 28, delay: 0.05 }}
+        className="overflow-hidden rounded-2xl border-[0.5px] border-border bg-paper"
+        style={{ boxShadow: 'var(--shadow-sm)' }}
+      >
+        {/* ── Writing surface ── */}
+        <button
+          type="button"
+          onClick={() => trigger('TEXT')}
+          className="flex w-full items-start gap-3.5 px-5 pt-5 pb-4 text-left transition-colors hover:bg-muted/30"
+        >
+          {/* Avatar with gradient ring */}
+          <div
+            className="mt-0.5 shrink-0 rounded-full p-[2px]"
+            style={{ background: 'linear-gradient(135deg, var(--brand), var(--gold))' }}
           >
-            Share a thought, citation, or finding…
-          </button>
-        </div>
+            <div className="rounded-full bg-paper p-[1.5px]">
+              <UserAvatar user={user} className="size-9 rounded-full" />
+            </div>
+          </div>
 
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-4 pb-4">
-          <div className="flex items-center gap-0.5">
+          {/* Prompt text */}
+          <div className="flex-1 py-1.5">
+            <p className="font-display text-[15.5px] italic leading-[1.45] tracking-[-0.005em] text-ink-3 transition-colors">
+              {prompt}
+            </p>
+          </div>
+        </button>
+
+        {/* ── Divider ── */}
+        <div
+          className="mx-5 h-px"
+          style={{
+            background:
+              'linear-gradient(90deg, transparent, var(--border), transparent)',
+          }}
+        />
+
+        {/* ── Bottom action row ── */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3.5">
+          {/* Tool chips */}
+          <div className="flex items-center gap-1">
             {TOOLS.map((tool) => {
               const Icon = tool.icon
               return (
-                <button
+                <motion.button
                   key={tool.id}
                   type="button"
                   onClick={() => trigger(tool.postType)}
                   title={tool.label}
                   aria-label={tool.label}
-                  className="grid size-9 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+                  whileHover={{ scale: 1.1, y: -1 }}
+                  whileTap={{ scale: 0.9 }}
+                  className={cn(
+                    'group relative flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:bg-secondary',
+                    tool.color,
+                  )}
                 >
-                  <Icon className="size-[17px]" strokeWidth={1.6} />
-                </button>
+                  <Icon className="size-[15px]" strokeWidth={1.7} />
+                  <span className="hidden text-ink-3 sm:inline">{tool.label}</span>
+                </motion.button>
               )
             })}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          {/* Visibility + Post */}
+          <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-border px-3 py-1.5 text-[12.5px] font-medium text-ink-2 transition-colors hover:bg-secondary hover:text-ink"
+                  className="inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-border px-3 py-1.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-secondary hover:text-ink"
                 >
-                  <VisibilityIcon className="size-3.5" strokeWidth={1.5} />
+                  <VisibilityIcon className="size-3" strokeWidth={1.6} />
                   {activeVisibility.label}
-                  <ChevronDown className="size-3 opacity-60" strokeWidth={1.5} />
+                  <ChevronDown className="size-2.5 opacity-60" strokeWidth={1.8} />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuContent align="end" className="w-40">
                 {VISIBILITY.map((option) => {
                   const ItemIcon = option.icon
                   return (
                     <DropdownMenuItem
                       key={option.value}
                       onSelect={() => setVisibility(option.value)}
-                      className={cn(
-                        option.value === visibility && 'font-medium text-ink',
-                      )}
+                      className={cn(option.value === visibility && 'font-semibold text-ink')}
                     >
-                      <ItemIcon className="mr-2 size-4" strokeWidth={1.5} />
+                      <ItemIcon className="mr-2 size-3.5" strokeWidth={1.6} />
                       {option.label}
                     </DropdownMenuItem>
                   )
@@ -151,16 +177,19 @@ export const CommunityComposer = forwardRef(function CommunityComposer(
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <button
+            <motion.button
               type="button"
               onClick={() => trigger('TEXT')}
-              className="rounded-full bg-ink px-5 py-1.5 text-[12.5px] font-semibold text-paper transition-colors hover:bg-ink/90"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="rounded-full px-5 py-1.5 text-[12.5px] font-semibold text-paper transition-opacity hover:opacity-90"
+              style={{ background: 'var(--ink)' }}
             >
               Post
-            </button>
+            </motion.button>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex max-h-[90vh] max-w-xl flex-col gap-0 overflow-hidden p-0">

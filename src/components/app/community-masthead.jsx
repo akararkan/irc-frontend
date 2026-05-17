@@ -1,12 +1,6 @@
+import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
-/**
- * Editorial masthead for the home page — purely a styled banner.
- *
- * Renders today's Gregorian and Hijri dates, a serif title with manuscript
- * ornaments, and an issue line derived from the day-of-year. No backend
- * data, no stats — just a typographic frame for the feed beneath it.
- */
 export function CommunityMasthead({ className }) {
   const today = new Date()
 
@@ -21,67 +15,151 @@ export function CommunityMasthead({ className }) {
   const issueNumber = dayOfYear(today)
 
   return (
-    <section
+    <motion.section
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 280, damping: 28 }}
       className={cn(
-        'hairline-gradient relative overflow-hidden rounded-2xl border border-border bg-paper',
-        'px-5 pb-5 pt-5 sm:px-7 sm:pb-6 sm:pt-7',
+        'relative overflow-hidden rounded-2xl border-[0.5px] border-border bg-paper',
         className,
       )}
+      style={{ boxShadow: 'var(--shadow-sm)' }}
     >
+      {/* ── Brand stripe at top ── */}
       <div
-        aria-hidden
-        className="pointer-events-none absolute -right-32 -top-40 size-96 rounded-full"
+        className="absolute inset-x-0 top-0 h-[3px]"
         style={{
           background:
-            'radial-gradient(circle, color-mix(in oklch, var(--gold) 14%, transparent), transparent 60%)',
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-24 -bottom-24 size-64 rounded-full"
-        style={{
-          background:
-            'radial-gradient(circle, color-mix(in oklch, var(--brand) 12%, transparent), transparent 60%)',
+            'linear-gradient(90deg, var(--brand) 0%, var(--gold) 45%, var(--accent-violet) 80%, transparent 100%)',
         }}
       />
 
-      <div className="relative grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
-        <div className="leading-tight">
-          <p className="text-[12.5px] font-semibold tracking-tight text-ink">
-            {longDate}
-          </p>
-          {hijri ? (
-            <p className="font-display mt-0.5 text-[12.5px] italic text-ink-3">
-              {hijri}
+      {/* ── Ambient glows ── */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-28 -top-36 size-80 rounded-full opacity-60"
+        style={{
+          background:
+            'radial-gradient(circle, color-mix(in oklch, var(--gold) 18%, transparent), transparent 65%)',
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-20 bottom-0 size-56 rounded-full opacity-40"
+        style={{
+          background:
+            'radial-gradient(circle, color-mix(in oklch, var(--brand) 16%, transparent), transparent 65%)',
+        }}
+      />
+
+      <div className="relative px-6 pb-6 pt-7 sm:px-8 sm:pb-7 sm:pt-9">
+        {/* ── Top meta row ── */}
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="space-y-0.5">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-3">
+              {longDate}
             </p>
-          ) : null}
+            {hijri ? (
+              <p className="font-display text-[11px] italic text-ink-4">{hijri}</p>
+            ) : null}
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-4">
+              Est. 2024
+            </p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-4">
+              No. {issueNumber}
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center justify-center gap-3 sm:gap-4">
-          <span
-            aria-hidden
-            className="hidden size-2 rotate-45 sm:block"
-            style={{ background: 'var(--gold)' }}
-          />
-          <h1 className="font-display text-[26px] font-semibold tracking-[-0.022em] text-ink sm:text-[32px] md:text-[36px]">
-            The Community Daily
+        {/* ── Horizontal rule ── */}
+        <div
+          className="mb-5 h-px w-full"
+          style={{
+            background:
+              'linear-gradient(90deg, transparent, color-mix(in oklch, var(--foreground) 18%, transparent), transparent)',
+          }}
+        />
+
+        {/* ── Editorial title block ── */}
+        <div className="text-center">
+          {/* Diamond ornaments above */}
+          <div className="mb-3 flex items-center justify-center gap-4">
+            <div
+              className="h-px flex-1"
+              style={{
+                background:
+                  'linear-gradient(to right, transparent, color-mix(in oklch, var(--foreground) 14%, transparent))',
+              }}
+            />
+            <div className="flex items-center gap-1.5">
+              <span
+                aria-hidden
+                className="inline-block size-[5px] rotate-45"
+                style={{ background: 'var(--gold)' }}
+              />
+              <span
+                aria-hidden
+                className="inline-block size-2 rotate-45"
+                style={{ background: 'var(--gold)' }}
+              />
+              <span
+                aria-hidden
+                className="inline-block size-[5px] rotate-45"
+                style={{ background: 'var(--gold)' }}
+              />
+            </div>
+            <div
+              className="h-px flex-1"
+              style={{
+                background:
+                  'linear-gradient(to left, transparent, color-mix(in oklch, var(--foreground) 14%, transparent))',
+              }}
+            />
+          </div>
+
+          {/* Main title */}
+          <h1 className="font-display text-[28px] font-semibold leading-[1.1] tracking-[-0.026em] text-ink sm:text-[36px] md:text-[42px]">
+            Islamic Research Community
           </h1>
-          <span
-            aria-hidden
-            className="hidden size-2 rotate-45 sm:block"
-            style={{ background: 'var(--gold)' }}
-          />
-        </div>
 
-        <div className="text-right text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-3">
-          No. {issueNumber} · {today.getFullYear()}
+          {/* Tagline */}
+          <p className="mt-2.5 font-display text-[12.5px] italic leading-relaxed tracking-[0.015em] text-ink-3 sm:text-[13.5px]">
+            Scholarship &nbsp;·&nbsp; Discussion &nbsp;·&nbsp; Discovery
+          </p>
+
+          {/* Dot row below */}
+          <div className="mt-4 flex items-center justify-center gap-4">
+            <div
+              className="h-px flex-1"
+              style={{
+                background:
+                  'linear-gradient(to right, transparent, color-mix(in oklch, var(--foreground) 14%, transparent))',
+              }}
+            />
+            <div className="flex items-center gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="size-1 rounded-full"
+                  style={{ background: 'var(--ink-4)' }}
+                />
+              ))}
+            </div>
+            <div
+              className="h-px flex-1"
+              style={{
+                background:
+                  'linear-gradient(to left, transparent, color-mix(in oklch, var(--foreground) 14%, transparent))',
+              }}
+            />
+          </div>
         </div>
       </div>
-    </section>
+    </motion.section>
   )
 }
-
-// ── Helpers ────────────────────────────────────────────────────────
 
 function dayOfYear(date) {
   const start = new Date(date.getFullYear(), 0, 0)
@@ -96,11 +174,11 @@ function formatHijri(date) {
       year: 'numeric',
     })
     const parts = formatter.formatToParts(date)
-    const day = parts.find((p) => p.type === 'day')?.value
+    const day   = parts.find((p) => p.type === 'day')?.value
     const month = parts.find((p) => p.type === 'month')?.value
-    const year = parts.find((p) => p.type === 'year')?.value
+    const year  = parts.find((p) => p.type === 'year')?.value
     if (!year) return ''
-    return `${year} AH · ${day} ${month}`
+    return `${day} ${month} ${year} AH`
   } catch {
     return ''
   }

@@ -2,8 +2,6 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { AnimatePresence, motion } from 'motion/react'
 import { FileText, Loader2, RefreshCw, Sparkles } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/app/empty-state'
 import { PostCard } from '@/components/app/post-card'
 import { QuestionFeedCard } from '@/components/app/question-feed-card'
@@ -63,16 +61,25 @@ function timestampOf(entry) {
 
 function FeedSkeleton() {
   return (
-    <div className="space-y-0">
+    <div className="space-y-px">
       {[0, 1, 2].map((key) => (
-        <div key={key} className="border-b-[0.5px] border-border bg-paper py-5">
-          <div className="flex items-start gap-4 px-0">
-            <Skeleton className="size-10 shrink-0 rounded-full" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-3.5 w-36" />
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="mt-3 h-5 w-full" />
-              <Skeleton className="h-5 w-4/5" />
+        <div key={key} className="overflow-hidden rounded-2xl border-[0.5px] border-border bg-paper p-5">
+          <div className="flex items-start gap-3.5">
+            <div className="size-10 shrink-0 rounded-full shimmer" />
+            <div className="flex-1 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-28 rounded-full shimmer" />
+                <div className="h-3 w-16 rounded-full shimmer" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 w-full rounded-full shimmer" />
+                <div className="h-4 w-[85%] rounded-full shimmer" />
+                <div className="h-4 w-[60%] rounded-full shimmer" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <div className="h-8 w-20 rounded-full shimmer" />
+                <div className="h-8 w-20 rounded-full shimmer" />
+              </div>
             </div>
           </div>
         </div>
@@ -276,19 +283,26 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
   const visibleTabs = TABS.filter((t) => !t.authOnly || isAuthenticated)
 
   return (
-    <section className="space-y-0">
-      {/* ── Feed header ────────────────────────────────────────── */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <section className="space-y-4">
+      {/* ── Feed header ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Left: label */}
         <div className="flex items-center gap-2">
-          <Sparkles className="size-3.5 text-ink-3" strokeWidth={1.5} />
-          <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+          <Sparkles className="size-3.5 text-gold-2" strokeWidth={1.5} />
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3">
             Your Feed
           </span>
         </div>
 
+        {/* Right: tabs + refresh */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* All tabs in one pill container */}
-          <div className="scrollbar-none flex items-center gap-0.5 overflow-x-auto rounded-full bg-secondary p-1">
+          <div
+            className="scrollbar-none flex items-center gap-0.5 overflow-x-auto rounded-full p-1"
+            style={{
+              background: 'var(--secondary)',
+              boxShadow: 'inset 0 0 0 0.5px var(--border)',
+            }}
+          >
             {visibleTabs.map((tab) => {
               const active = activeTab === tab.value
               return (
@@ -297,15 +311,16 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
                   type="button"
                   onClick={() => setActiveTab(tab.value)}
                   className={cn(
-                    'relative shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors',
+                    'relative shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors',
                     active ? 'text-ink' : 'text-ink-3 hover:text-ink',
                   )}
                 >
                   {active ? (
                     <motion.span
                       layoutId="feedTabPill"
-                      className="absolute inset-0 rounded-full bg-paper shadow-[0_0_0_0.5px_var(--border)]"
-                      transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                      className="absolute inset-0 rounded-full bg-paper"
+                      style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08), 0 0 0 0.5px var(--border)' }}
+                      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                     />
                   ) : null}
                   <span className="relative">{tab.label}</span>
@@ -318,10 +333,10 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
             type="button"
             onClick={() => load({ append: false })}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium text-ink-3 transition-colors hover:bg-secondary hover:text-ink disabled:opacity-50"
+            className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink disabled:opacity-50"
+            title="Refresh feed"
           >
-            <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} strokeWidth={1.5} />
-            Refresh
+            <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} strokeWidth={1.6} />
           </button>
         </div>
       </div>
@@ -379,21 +394,22 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
           </AnimatePresence>
 
           {canLoadMore ? (
-            <div className="flex justify-center py-6">
-              <Button
+            <div className="flex justify-center py-8">
+              <motion.button
                 type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-xl"
                 onClick={() => load({ append: true })}
                 disabled={loading}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="inline-flex items-center gap-2 rounded-full border-[0.5px] border-border bg-paper px-6 py-2.5 text-[13px] font-medium text-ink-2 transition-colors hover:bg-secondary hover:text-ink disabled:opacity-50"
+                style={{ boxShadow: 'var(--shadow-xs)' }}
               >
-                {loading ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  'Load more'
-                )}
-              </Button>
+                {loading
+                  ? <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
+                  : <Sparkles className="size-3.5 text-gold-2" strokeWidth={1.5} />
+                }
+                {loading ? 'Loading…' : 'Load more'}
+              </motion.button>
             </div>
           ) : null}
         </div>

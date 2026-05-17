@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { motion } from 'motion/react'
-import { Clapperboard, Eye, Play, Plus } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { Clapperboard, Eye, Play, Plus, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,57 +14,51 @@ import {
   resolveMediaUrl,
 } from '@/lib/format'
 
+// Gradient fallbacks when no thumbnail is available
+const FALLBACK_GRADIENTS = [
+  'linear-gradient(160deg,#0F3D3E,#1B7A7F)',
+  'linear-gradient(160deg,#4A2106,#C9A227)',
+  'linear-gradient(160deg,#2D2558,#7B68EE)',
+  'linear-gradient(160deg,#14532D,#16A34A)',
+  'linear-gradient(160deg,#5A0A0A,#DB2777)',
+  'linear-gradient(160deg,#0F172A,#334155)',
+]
+
 function normalizeAuthor(post) {
   if (post.author) {
     return {
-      id: post.author.id,
-      username: post.author.username,
-      fullName: post.author.fullName,
+      id:           post.author.id,
+      username:     post.author.username,
+      fullName:     post.author.fullName,
       profileImage: post.author.avatarUrl,
     }
   }
-  return {
-    username: post.authorUsername,
-    profileImage: post.authorProfileImage,
-  }
+  return { username: post.authorUsername, profileImage: post.authorProfileImage }
 }
 
 function ReelThumb({ post, index }) {
-  const media = post.mediaList?.[0]
-  const author = normalizeAuthor(post)
+  const media   = post.mediaList?.[0]
+  const author  = normalizeAuthor(post)
   const thumbUrl = resolveMediaUrl(media?.thumbnailUrl ?? media?.mediaThumbnailUrl)
   const videoUrl = media?.mediaType === 'VIDEO' ? resolveMediaUrl(media?.url) : null
+  const fallback = FALLBACK_GRADIENTS[index % FALLBACK_GRADIENTS.length]
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24, scale: 0.96 }}
+      initial={{ opacity: 0, y: 24, scale: 0.92 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{
-        type: 'spring',
-        stiffness: 260,
-        damping: 26,
-        delay: Math.min(index, 6) * 0.04,
-      }}
-      whileHover={{ y: -6, scale: 1.02 }}
-      whileTap={{ scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 280, damping: 26, delay: Math.min(index, 6) * 0.045 }}
+      whileHover={{ y: -8, scale: 1.03 }}
+      whileTap={{ scale: 0.96 }}
       className="shrink-0"
     >
       <Link
         to={`/reels?id=${post.id}`}
-        className={cn(
-          'group relative flex h-52 w-36 overflow-hidden rounded-2xl border border-border bg-paper',
-          'transition-all hover:border-brand/30',
-        )}
+        className="group relative flex h-56 w-[148px] overflow-hidden rounded-2xl bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.12)' }}
       >
+        {/* Media */}
         {videoUrl ? (
-          // Browsers paint a blank canvas for `<video>` until a frame
-          // is decoded — `preload="metadata"` alone often shows black.
-          // Seeking to ~0.1 s once metadata lands forces the decoder
-          // to render that frame, which then sits in the element as
-          // the de-facto poster image. Cheaper than generating a
-          // thumbnail server-side and works without any backend
-          // changes. `poster` overrides the seeked frame if the
-          // backend ever ships a real thumbnail URL.
           <video
             src={videoUrl}
             poster={thumbUrl || undefined}
@@ -72,61 +66,65 @@ function ReelThumb({ post, index }) {
             playsInline
             preload="metadata"
             disablePictureInPicture
-            controlsList="nodownload nofullscreen noremoteplayback"
-            onLoadedMetadata={(event) => {
-              const el = event.currentTarget
-              try {
-                if (el.duration > 0.2) el.currentTime = 0.1
-              } catch {
-                /* some browsers throw if seek is too early; non-fatal */
-              }
+            onLoadedMetadata={(e) => {
+              try { if (e.currentTarget.duration > 0.2) e.currentTarget.currentTime = 0.1 } catch { /* ok */ }
             }}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
           />
         ) : thumbUrl ? (
           <img
             src={thumbUrl}
             alt=""
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
           />
         ) : (
-          <div
-            aria-hidden
-            className="absolute inset-0"
-            style={{
-              background: `repeating-linear-gradient(${
-                ((index ?? 0) * 37) % 180
-              }deg, var(--brand-soft) 0 14px, color-mix(in oklch, var(--brand-soft) 50%, var(--paper)) 14px 28px)`,
-            }}
-          />
+          <div className="absolute inset-0" style={{ background: fallback }} />
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/10" />
+        {/* Scrim */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/20" />
 
+        {/* Play button — appears on hover */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.6 }}
+          initial={{ opacity: 0, scale: 0.5 }}
           whileHover={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 380, damping: 22 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 22 }}
           className="absolute inset-0 grid place-items-center"
         >
-          <span className="grid size-12 place-items-center rounded-full bg-paper/95 text-ink shadow-soft-lg backdrop-blur">
-            <Play className="size-5 translate-x-[1px] fill-current" />
-          </span>
+          <div
+            className="grid size-12 place-items-center rounded-full text-white"
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              border: '1.5px solid rgba(255,255,255,0.4)',
+            }}
+          >
+            <Play className="size-5 translate-x-[1.5px] fill-white text-white" />
+          </div>
         </motion.div>
 
-        <div className="relative z-10 flex w-full flex-col justify-between p-2.5 text-white">
+        {/* Top badge */}
+        <div className="relative z-10 flex w-full flex-col justify-between p-3 text-white">
           <div className="flex items-center">
-            <span className="inline-flex items-center gap-1 rounded-md bg-black/45 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] backdrop-blur">
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-white"
+              style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+            >
               <Clapperboard className="size-2.5" />
               Reel
             </span>
           </div>
-          <div className="space-y-1">
-            <p className="font-display text-[13px] font-semibold leading-[1.25] tracking-[-0.005em] drop-shadow-sm">
+
+          {/* Bottom meta */}
+          <div className="space-y-0.5">
+            <p
+              className="truncate font-display text-[12.5px] font-semibold leading-tight tracking-[-0.01em] drop-shadow"
+            >
               {getFullName(author) || getHandle(author) || 'Unknown'}
             </p>
-            <p className="inline-flex items-center gap-1 font-mono text-[10px] tabular-nums text-white/85">
-              <Eye className="size-2.5" />
+            <p className="flex items-center gap-1 font-mono text-[10px] tabular-nums text-white/75">
+              <Eye className="size-2.5" strokeWidth={1.8} />
               {formatNumber(post.viewCount ?? 0)}
             </p>
           </div>
@@ -136,9 +134,17 @@ function ReelThumb({ post, index }) {
   )
 }
 
+function ReelSkeletonThumb() {
+  return (
+    <div className="h-56 w-[148px] shrink-0 overflow-hidden rounded-2xl">
+      <div className="h-full w-full shimmer" />
+    </div>
+  )
+}
+
 export function ReelStrip({ onCreateReel }) {
   const { isAuthenticated } = useAuth()
-  const [reels, setReels] = useState([])
+  const [reels,   setReels]   = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -155,63 +161,84 @@ export function ReelStrip({ onCreateReel }) {
       }
     }
     load()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
 
   if (!loading && reels.length === 0 && !isAuthenticated) return null
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 className="font-display inline-flex items-center gap-2 text-[15px] font-semibold tracking-[-0.005em]">
-          <span
-            aria-hidden
-            className="inline-block h-[1.5px] w-4 rounded-full"
+    <motion.section
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 280, damping: 28, delay: 0.08 }}
+      className="space-y-3.5"
+    >
+      {/* Section header */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="h-[1.5px] w-5 rounded-full"
             style={{ background: 'var(--gold)' }}
           />
-          Featured reels
-        </h2>
+          <h2 className="font-display text-[14.5px] font-semibold tracking-[-0.008em] text-ink">
+            Featured reels
+          </h2>
+          <Sparkles className="size-3.5 text-gold-2" strokeWidth={1.5} />
+        </div>
         <Link
           to="/reels"
-          className="text-[11.5px] font-semibold text-brand transition-colors hover:underline"
+          className="font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-brand transition-colors hover:text-brand/80"
         >
           See all →
         </Link>
       </div>
 
-      <div className={cn('flex gap-3 overflow-x-auto pb-2 pt-1 scrollbar-none')}>
+      {/* Scroll row */}
+      <div className="scrollbar-none flex gap-3 overflow-x-auto pb-2 pt-1">
+        {/* Create reel tile */}
         {isAuthenticated ? (
           <motion.div
-            whileHover={{ y: -4 }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 280, damping: 26 }}
+            whileHover={{ y: -8, scale: 1.03 }}
+            whileTap={{ scale: 0.96 }}
             className="shrink-0"
           >
             <button
               type="button"
               onClick={() => onCreateReel?.()}
-              className={cn(
-                'group flex h-52 w-36 flex-col items-center justify-center gap-2.5 rounded-2xl border border-dashed border-border bg-paper p-3 text-center',
-                'transition-colors hover:border-brand/40 hover:bg-brand-soft/40',
-              )}
+              className="group flex h-56 w-[148px] flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border-2 border-dashed border-border bg-paper/60 transition-colors hover:border-brand/40 hover:bg-brand-soft/20 focus:outline-none"
+              style={{ boxShadow: 'var(--shadow-xs)' }}
             >
-              <span className="grid size-11 place-items-center rounded-full bg-gradient-to-br from-brand to-brand/85 text-brand-foreground shadow-soft transition-transform group-hover:scale-110">
-                <Plus className="size-5" strokeWidth={2.5} />
-              </span>
-              <span className="font-display text-[13px] font-semibold tracking-[-0.005em]">Create reel</span>
-              <span className="text-[11px] text-ink-3">Short video</span>
+              <motion.span
+                whileHover={{ scale: 1.12, rotate: 8 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+                className="grid size-12 place-items-center rounded-full text-brand-foreground"
+                style={{ background: 'linear-gradient(135deg, var(--brand), color-mix(in oklch, var(--brand) 75%, var(--gold)))' }}
+              >
+                <Plus className="size-6" strokeWidth={2.5} />
+              </motion.span>
+              <div className="space-y-0.5 text-center">
+                <p className="font-display text-[13px] font-semibold tracking-[-0.01em] text-ink">
+                  Create reel
+                </p>
+                <p className="text-[11px] text-ink-3">Short video</p>
+              </div>
             </button>
           </motion.div>
         ) : null}
 
-        {loading
-          ? [0, 1, 2, 3].map((key) => (
-              <Skeleton key={key} className="h-52 w-36 shrink-0 rounded-2xl" />
-            ))
-          : reels.map((post, index) => <ReelThumb key={post.id} post={post} index={index} />)}
+        {/* Reel thumbnails */}
+        <AnimatePresence initial={false}>
+          {loading
+            ? [0, 1, 2, 3].map((k) => <ReelSkeletonThumb key={k} />)
+            : reels.map((post, index) => (
+                <ReelThumb key={post.id} post={post} index={index} />
+              ))
+          }
+        </AnimatePresence>
       </div>
-    </section>
+    </motion.section>
   )
 }
