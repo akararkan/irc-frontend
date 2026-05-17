@@ -1,10 +1,4 @@
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-  useState,
-} from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   AtSign,
@@ -46,11 +40,6 @@ import { cn } from '@/lib/utils'
 import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
 import { formatNumber, getFullName, getHandle, resolveMediaUrl } from '@/lib/format'
 
-// Build the author object the avatar component expects from the flat
-// `user*` fields the research CommentResponse uses. The backend's
-// CommentResponse DTO does NOT include the user's role, so we don't
-// render the RoleBadge for research comments — only the Author chip
-// when the commenter matches the researcher.
 function normalizeAuthor(comment) {
   return {
     id: comment.userId,
@@ -60,7 +49,7 @@ function normalizeAuthor(comment) {
   }
 }
 
-// ─── Composer — same shape as PostComments composer ────────────────
+/* ── Composer ────────────────────────────────────────────────── */
 function CommentComposer({
   researchId,
   parentId = null,
@@ -78,8 +67,7 @@ function CommentComposer({
     Boolean(user?.username) &&
     user.username.toLowerCase() === replyToUsername.toLowerCase()
   const replyHandle = getHandle({ username: replyToUsername })
-  const initialText =
-    parentId && replyHandle && !isSelfReply ? `@${replyHandle} ` : ''
+  const initialText = parentId && replyHandle && !isSelfReply ? `@${replyHandle} ` : ''
 
   const [text, setText] = useState(initialText)
   const [file, setFile] = useState(null)
@@ -94,11 +82,10 @@ function CommentComposer({
       try {
         el.setSelectionRange(end, end)
       } catch {
-        /* some inputs disallow setSelectionRange — non-fatal */
+        /* non-fatal */
       }
     })
     return () => cancelAnimationFrame(id)
-
   }, [])
 
   if (!isAuthenticated) return null
@@ -129,13 +116,13 @@ function CommentComposer({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-start gap-3">
+    <form onSubmit={handleSubmit} className="flex items-start gap-2.5">
       <UserAvatar
         user={user}
-        className={cn('shrink-0', compact ? 'size-7' : 'size-[34px]')}
+        className={cn('shrink-0 rounded-full', compact ? 'size-7' : 'size-8')}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex items-center gap-1 rounded-2xl border-[0.5px] border-border bg-paper px-2 py-1.5 transition-colors focus-within:border-brand/40">
+        <div className="flex items-center gap-1 rounded-full border border-border bg-paper py-1 pl-3.5 pr-1 transition-colors focus-within:border-[#0891B2]/45">
           <MentionTextarea
             ref={textareaRef}
             value={text}
@@ -144,7 +131,7 @@ function CommentComposer({
             rows={1}
             autoFocus={autoFocus}
             wrapperClassName="flex-1"
-            className="min-h-8 flex-1 resize-none rounded-md border-0 bg-transparent px-2 py-1.5 text-[14px] shadow-none focus-visible:ring-0"
+            className="min-h-7 flex-1 resize-none border-0 bg-transparent px-0 py-1 text-[13.5px] shadow-none focus-visible:ring-0"
           />
           <label
             className={cn(
@@ -153,7 +140,7 @@ function CommentComposer({
             )}
             title="Attach image or video"
           >
-            <ImageIcon className="size-4" strokeWidth={1.5} />
+            <ImageIcon className="size-4" strokeWidth={1.7} />
             <input
               type="file"
               accept="image/*,video/*"
@@ -171,12 +158,12 @@ function CommentComposer({
             className="grid size-8 shrink-0 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
             title="Mention someone"
           >
-            <AtSign className="size-4" strokeWidth={1.5} />
+            <AtSign className="size-4" strokeWidth={1.7} />
           </button>
           <Button
             type="submit"
             disabled={(!text.trim() && !file) || submitting}
-            className="h-8 rounded-full bg-brand px-3.5 text-[12.5px] font-semibold text-brand-foreground hover:bg-brand/90"
+            className="h-7 rounded-full bg-[#0891B2] px-3.5 text-[12px] font-medium text-white hover:bg-[#0E7490]"
           >
             {submitting ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -186,12 +173,12 @@ function CommentComposer({
           </Button>
         </div>
         {file ? (
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-2.5 py-1.5 text-xs">
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/50 px-2.5 py-1.5 text-[12px]">
             <span className="truncate">{file.name}</span>
             <button
               type="button"
               onClick={() => setFile(null)}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-ink-3 hover:text-ink"
             >
               <X className="size-3.5" />
             </button>
@@ -202,7 +189,6 @@ function CommentComposer({
   )
 }
 
-// ─── Inline media (image / video) attached to a comment ────────────
 function CommentMedia({ comment }) {
   const url = resolveMediaUrl(comment.mediaUrl)
   if (!url) return null
@@ -227,7 +213,7 @@ function CommentMedia({ comment }) {
   )
 }
 
-// ─── Comment item — top-level + nested ─────────────────────────────
+/* ── Comment item ────────────────────────────────────────────── */
 function CommentItem({
   researchId,
   comment,
@@ -235,9 +221,6 @@ function CommentItem({
   onRemove,
   depth = 0,
   researcherId,
-  /** Depth-1 only: callback to append a *sibling* re-reply to the
-   *  top-level parent's replies array. Lets nested replies host their
-   *  own "Reply" button without spawning a depth-2 sub-tree. */
   onSiblingReplyAdded,
 }) {
   const { user: currentUser, isAuthenticated } = useAuth()
@@ -252,24 +235,15 @@ function CommentItem({
   const isMine =
     currentUser &&
     (comment.userId === currentUser.id ||
-      (author.username &&
-        currentUser.username &&
-        author.username === currentUser.username))
-  // Comment was posted by the researcher themselves — used for the
-  // brand-soft "Author" chip on the comment header.
+      (author.username && currentUser.username && author.username === currentUser.username))
   const isResearchAuthor = Boolean(
     researcherId && comment.userId && researcherId === comment.userId,
   )
-  // Backend gate for delete: comment author OR research owner. The
-  // viewer is the research owner when their id matches researcherId.
   const isResearchOwner = Boolean(
     currentUser?.id && researcherId && currentUser.id === researcherId,
   )
   const canDelete = isMine || isResearchOwner
 
-  // Single-LIKE (Instagram heart) parity with posts / QnA. The backend
-  // exposes the viewer's own reaction on CommentResponse — when set,
-  // the heart is filled; tapping again clears it.
   const myReaction = comment.myReaction ?? null
   const reactionCount = Number(comment.likeCount ?? 0)
 
@@ -281,22 +255,13 @@ function CommentItem({
     if (working) return
     const previousReaction = myReaction
     const previousCount = reactionCount
-    // Optimistic counter math — only first-time adds bump the count;
-    // switching reaction type is unchanged; tapping the same type
-    // again is a no-op the backend treats as idempotent.
-    const next = previousReaction
-      ? previousCount
-      : previousCount + 1
+    const next = previousReaction ? previousCount : previousCount + 1
     onChange?.({ ...comment, myReaction: type, likeCount: next })
     setWorking(true)
     try {
       await reactToResearchComment(researchId, comment.id, type)
     } catch (error) {
-      onChange?.({
-        ...comment,
-        myReaction: previousReaction,
-        likeCount: previousCount,
-      })
+      onChange?.({ ...comment, myReaction: previousReaction, likeCount: previousCount })
       toast.error(friendlyApiMessage(error, 'Could not update reaction.'))
     } finally {
       setWorking(false)
@@ -314,17 +279,10 @@ function CommentItem({
     })
     setWorking(true)
     try {
-      // DELETE now returns 200 with the updated CommentResponse —
-      // adopt likeCount + myReaction:null so a concurrent reactor's
-      // change is reflected without waiting for the SSE echo.
       const updated = await removeResearchCommentReaction(researchId, comment.id)
       if (updated?.id) onChange?.({ ...comment, ...updated })
     } catch (error) {
-      onChange?.({
-        ...comment,
-        myReaction: previousReaction,
-        likeCount: previousCount,
-      })
+      onChange?.({ ...comment, myReaction: previousReaction, likeCount: previousCount })
       toast.error(friendlyApiMessage(error, 'Could not remove reaction.'))
     } finally {
       setWorking(false)
@@ -340,9 +298,7 @@ function CommentItem({
     }
     setWorking(true)
     try {
-      const updated = await editResearchComment(researchId, comment.id, {
-        content: value,
-      })
+      const updated = await editResearchComment(researchId, comment.id, { content: value })
       onChange?.(updated ?? { ...comment, content: value, isEdited: true })
       setEditing(false)
     } catch (error) {
@@ -374,8 +330,6 @@ function CommentItem({
       })
       setRepliesOpen(true)
     } else {
-      // Depth-1 re-reply: ask the top-level parent to slot the sibling
-      // under itself so we stay flat at one nesting level.
       onSiblingReplyAdded?.(newReply)
     }
     setShowReplyBox(false)
@@ -405,7 +359,7 @@ function CommentItem({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6, scale: 0.96 }}
       transition={{ type: 'spring', stiffness: 360, damping: 28 }}
-      className="group/comment flex items-start gap-3"
+      className="group/comment flex items-start gap-2.5"
     >
       <Link
         to={author.username ? `/profile/${author.username}` : '#'}
@@ -413,143 +367,138 @@ function CommentItem({
       >
         <UserAvatar
           user={author}
-          className={depth === 0 ? 'size-[34px]' : 'size-[28px]'}
+          className={cn('rounded-full', depth === 0 ? 'size-8' : 'size-7')}
         />
       </Link>
       <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <Link
-            to={author.username ? `/profile/${author.username}` : '#'}
-            className="group/author flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0"
-          >
-            <span className="text-[13px] font-medium text-ink group-hover/author:underline">
-              {getFullName(author) || getHandle(author) || 'Unknown user'}
-            </span>
-            {isResearchAuthor ? (
-              <span
-                title="Original research author"
-                className="inline-flex items-center rounded-full bg-brand-soft px-1.5 py-[1px] font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-brand"
-              >
-                Author
+        {/* Bubble */}
+        <div className="rounded-2xl rounded-tl-md bg-secondary/70 px-3.5 py-2">
+          <div className="flex items-start justify-between gap-2">
+            <Link
+              to={author.username ? `/profile/${author.username}` : '#'}
+              className="group/author flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0"
+            >
+              <span className="text-[12.5px] font-medium text-ink group-hover/author:underline">
+                {getFullName(author) || getHandle(author) || 'Unknown user'}
               </span>
-            ) : null}
-            <span className="font-mono text-[10px] text-ink-4">
-              <RelativeTime
-                entity={comment}
-                title={comment.formattedDate || undefined}
-              />
-              {comment.isEdited ? ' · edited' : ''}
-            </span>
-          </Link>
-          {canDelete && !editing ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="-mr-1 -mt-1 rounded-full p-1 text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
-                  aria-label="More"
+              {isResearchAuthor ? (
+                <span
+                  title="Original research author"
+                  className="inline-flex items-center rounded-full bg-[#CFFAFE] px-1.5 py-[1px] font-mono text-[9px] font-medium uppercase tracking-[0.06em] text-[#0E7490]"
                 >
-                  <MoreHorizontal className="size-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {isMine ? (
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      setEditing(true)
-                      setEditText(comment.content ?? '')
-                    }}
+                  Author
+                </span>
+              ) : null}
+              <span className="font-mono text-[9.5px] text-ink-4">
+                <RelativeTime entity={comment} title={comment.formattedDate || undefined} />
+                {comment.isEdited ? ' · edited' : ''}
+              </span>
+            </Link>
+            {canDelete && !editing ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="-mr-1 -mt-0.5 rounded-full p-1 text-ink-3 transition-colors hover:bg-paper hover:text-ink"
+                    aria-label="More"
                   >
-                    <Pencil className="mr-2 size-4" />
-                    Edit
+                    <MoreHorizontal className="size-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="rounded-xl">
+                  {isMine ? (
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setEditing(true)
+                        setEditText(comment.content ?? '')
+                      }}
+                    >
+                      <Pencil className="mr-2 size-4" />
+                      Edit
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuItem
+                    onSelect={handleDelete}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 size-4" />
+                    Delete
                   </DropdownMenuItem>
-                ) : null}
-                <DropdownMenuItem
-                  onSelect={handleDelete}
-                  className="text-destructive focus:text-destructive"
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
+
+          {editing ? (
+            <div className="mt-1.5 space-y-1.5">
+              <MentionTextarea
+                value={editText}
+                onChange={setEditText}
+                rows={2}
+                maxLength={5000}
+                className="resize-none rounded-xl border border-border bg-paper px-2.5 py-1.5 text-[13px]"
+                autoFocus
+              />
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 rounded-lg"
+                  onClick={() => {
+                    setEditing(false)
+                    setEditText(comment.content ?? '')
+                  }}
                 >
-                  <Trash2 className="mr-2 size-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 rounded-lg bg-[#0891B2] text-white hover:bg-[#0E7490]"
+                  onClick={handleSaveEdit}
+                  disabled={working || !editText.trim()}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {comment.content ? (
+                <p
+                  dir="auto"
+                  className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-[1.55] text-ink-2"
+                >
+                  <MentionText text={comment.content} />
+                </p>
+              ) : null}
+              <CommentMedia comment={comment} />
+            </>
+          )}
         </div>
 
-        {editing ? (
-          <div className="mt-1 space-y-1.5">
-            <MentionTextarea
-              value={editText}
-              onChange={setEditText}
-              rows={2}
-              maxLength={5000}
-              className="resize-none rounded-xl border border-border bg-background px-2.5 py-1.5 text-sm"
-              autoFocus
-            />
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-7 rounded-full"
-                onClick={() => {
-                  setEditing(false)
-                  setEditText(comment.content ?? '')
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="h-7 rounded-full"
-                onClick={handleSaveEdit}
-                disabled={working || !editText.trim()}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {comment.content ? (
-              <p
-                dir="auto"
-                className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.6] text-ink-2"
-              >
-                <MentionText text={comment.content} />
-              </p>
-            ) : null}
-            <CommentMedia comment={comment} />
-          </>
-        )}
-
-        {/* Single-LIKE heart toggle + Reply — unified `.rx` pill so
-            research comments, post comments, and QnA replies share the
-            same affordance. The pill turns rose when liked and pops on
-            toggle via the .rx.is-on keyframe. */}
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {/* Inline actions */}
+        <div className="mt-1.5 flex items-center gap-4 pl-1.5 text-[11.5px]">
           {isAuthenticated ? (
             <button
               type="button"
-              onClick={() =>
-                myReaction ? handleClearReaction() : handlePickReaction('LIKE')
-              }
+              onClick={() => (myReaction ? handleClearReaction() : handlePickReaction('LIKE'))}
               disabled={working}
               aria-pressed={Boolean(myReaction)}
               aria-label={myReaction ? 'Unlike' : 'Like'}
-              className={cn('rx', myReaction && 'is-on', 'active:scale-95')}
+              className={cn(
+                'inline-flex items-center gap-1 font-medium transition-colors active:scale-95',
+                myReaction ? 'text-rose-600' : 'text-ink-3 hover:text-ink',
+              )}
             >
               <Heart
-                className="size-[14px]"
-                strokeWidth={1.5}
-                fill={myReaction ? 'currentColor' : 'none'}
+                className={cn('size-[14px]', myReaction && 'fill-current')}
+                strokeWidth={1.7}
               />
-              {reactionCount > 0 ? (
-                <span className="tabular-nums">{formatNumber(reactionCount)}</span>
-              ) : (
-                <span>Like</span>
-              )}
+              <span className="tabular-nums">
+                {reactionCount > 0 ? formatNumber(reactionCount) : 'Like'}
+              </span>
             </button>
           ) : null}
 
@@ -557,16 +506,16 @@ function CommentItem({
             <button
               type="button"
               onClick={() => setShowReplyBox((v) => !v)}
-              className="rx-bare"
+              className="inline-flex items-center gap-1 font-medium text-ink-3 transition-colors hover:text-ink"
             >
-              <MessageCircle className="size-[14px]" strokeWidth={1.6} />
-              <span>Reply</span>
+              <MessageCircle className="size-[14px]" strokeWidth={1.7} />
+              Reply
             </button>
           ) : null}
         </div>
 
         {showReplyBox ? (
-          <div className="mt-2">
+          <div className="mt-2.5">
             <CommentComposer
               researchId={researchId}
               parentId={depth === 0 ? comment.id : comment.parentId}
@@ -578,22 +527,14 @@ function CommentItem({
           </div>
         ) : null}
 
-        {/* Replies — collapsible "View N replies" toggle matches the
-            post-comments UX so research / post threads feel identical.
-            Depth-1 items receive `onSiblingReplyAdded` so their own
-            "Reply" button posts a flat sibling under THIS top-level
-            parent (1-level nesting cap per spec). */}
         {depth === 0 && (comment.replies?.length ?? 0) > 0 ? (
           <button
             type="button"
             onClick={() => setRepliesOpen((v) => !v)}
-            className="ml-3 mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="mt-2 inline-flex items-center gap-1 pl-1.5 text-[12px] font-medium text-[#0891B2] transition-colors hover:underline"
           >
             <ChevronDown
-              className={cn(
-                'size-3 transition-transform',
-                repliesOpen && 'rotate-180',
-              )}
+              className={cn('size-3.5 transition-transform', repliesOpen && 'rotate-180')}
             />
             {repliesOpen
               ? 'Hide replies'
@@ -611,7 +552,7 @@ function CommentItem({
               transition={{ type: 'spring', stiffness: 260, damping: 30 }}
               className="overflow-hidden"
             >
-              <div className="relative ml-2 mt-3 space-y-4 border-l-2 border-muted pl-4">
+              <div className="ml-1 mt-3 space-y-3.5 border-l-2 border-border pl-4">
                 <AnimatePresence initial={false}>
                   {(comment.replies ?? []).map((reply) => (
                     <CommentItem
@@ -641,7 +582,7 @@ function CommentItem({
   )
 }
 
-// ─── Top-level wrapper ─────────────────────────────────────────────
+/* ─── ResearchComments ───────────────────────────────────────── */
 export const ResearchComments = forwardRef(function ResearchComments(
   { researchId, researcherId, initialCount = 0, onCountChange },
   ref,
@@ -660,8 +601,7 @@ export const ResearchComments = forwardRef(function ResearchComments(
         const data = await getResearchComments(researchId, { page: 0, size: 30 })
         if (!cancelled) setComments(data?.content ?? [])
       } catch (error) {
-        if (!cancelled)
-          toast.error(extractApiMessage(error, 'Could not load comments.'))
+        if (!cancelled) toast.error(extractApiMessage(error, 'Could not load comments.'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -674,17 +614,11 @@ export const ResearchComments = forwardRef(function ResearchComments(
 
   function updateComment(updated) {
     setComments((current) =>
-      current.map((item) =>
-        item.id === updated.id ? { ...item, ...updated } : item,
-      ),
+      current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
     )
   }
 
   function handleAdded(created) {
-    // Upsert, don't blind-append. The SSE stream may have synthesised
-    // the same comment ahead of the API response — merge the
-    // authoritative server payload into the existing row instead of
-    // leaving two side-by-side duplicates.
     setComments((current) => {
       const idx = current.findIndex((item) => item.id === created.id)
       if (idx === -1) return [...current, created]
@@ -704,21 +638,12 @@ export const ResearchComments = forwardRef(function ResearchComments(
     onCountChange?.(next)
   }
 
-  // Imperative API used by the page to forward SSE events. The
-  // backend's ResearchRealtimeEvent carries `commentId`,
-  // `parentCommentId`, `body`, `mediaUrl/Type/Thumbnail`, `actor*`,
-  // and per-event counters — we synthesise CommentResponse-shaped
-  // objects from those so the optimistic insert / patch lines up
-  // with what the next paginated fetch will confirm.
   useImperativeHandle(
     ref,
     () => ({
       applyRealtimeEvent(type, payload) {
         if (!payload) return
 
-        // Helper: walk top-level + every nested replies[] and patch the
-        // comment with the given id. Returns a new comments array so
-        // React can diff. No-op if the id isn't found.
         function patchComment(id, patch) {
           setComments((current) =>
             current.map((item) => {
@@ -727,9 +652,7 @@ export const ResearchComments = forwardRef(function ResearchComments(
               if (!replies.some((r) => r.id === id)) return item
               return {
                 ...item,
-                replies: replies.map((r) =>
-                  r.id === id ? { ...r, ...patch } : r,
-                ),
+                replies: replies.map((r) => (r.id === id ? { ...r, ...patch } : r)),
               }
             }),
           )
@@ -744,11 +667,6 @@ export const ResearchComments = forwardRef(function ResearchComments(
               id,
               userId: payload.actorId,
               userUsername: payload.actorUsername,
-              // Don't fake `fullName` from the username — legacy
-              // accounts have email-shaped usernames and we don't
-              // want the email rendered as the display name. Leaving
-              // it null routes the row through `getHandle`, which
-              // strips email syntax before display.
               userFullName: payload.actorFullName ?? null,
               userProfileImage: payload.actorAvatarUrl,
               content: payload.body ?? '',
@@ -763,9 +681,7 @@ export const ResearchComments = forwardRef(function ResearchComments(
               createdAt: payload.timestamp ?? new Date().toISOString(),
             }
             setComments((current) =>
-              current.some((item) => item.id === id)
-                ? current
-                : [...current, synthetic],
+              current.some((item) => item.id === id) ? current : [...current, synthetic],
             )
             setCount((value) => {
               const next = payload.commentCount ?? value + 1
@@ -827,8 +743,7 @@ export const ResearchComments = forwardRef(function ResearchComments(
                 return {
                   ...item,
                   replies: [...existing, synthetic],
-                  replyCount:
-                    payload.commentReplyCount ?? (item.replyCount ?? 0) + 1,
+                  replyCount: payload.commentReplyCount ?? (item.replyCount ?? 0) + 1,
                 }
               }),
             )
@@ -838,21 +753,10 @@ export const ResearchComments = forwardRef(function ResearchComments(
           case 'COMMENT_REACTION_REMOVED': {
             const id = payload.commentId ?? payload.id
             if (id == null) return
-            // Prefer the new canonical field, fall back to the
-            // deprecated `commentLikeCount` for older SSE clients.
-            const nextCount =
-              payload.commentReactionCount ?? payload.commentLikeCount
-            const isOwnActor =
-              currentUser?.id && payload.actorId === currentUser.id
+            const nextCount = payload.commentReactionCount ?? payload.commentLikeCount
+            const isOwnActor = currentUser?.id && payload.actorId === currentUser.id
             const patch = {}
-            // Own-actor count race: the optimistic update + DELETE
-            // response body already wrote the right likeCount locally.
-            // Adopting payload count here would risk clobbering it
-            // with a stale broadcast snapshot. Skip for own-actor.
             if (nextCount != null && !isOwnActor) patch.likeCount = nextCount
-            // Cross-device sync: when the actor is the current viewer,
-            // reflect the reaction switch / removal in our own UI so a
-            // tap on device A repaints the heart on device B.
             if (isOwnActor) {
               patch.myReaction =
                 type === 'COMMENT_REACTION_REMOVED'
@@ -871,17 +775,17 @@ export const ResearchComments = forwardRef(function ResearchComments(
   )
 
   return (
-    <div className="space-y-4 border-t pt-4">
+    <div className="space-y-4">
       {loading ? (
-        <div className="flex items-center justify-center py-4 text-muted-foreground">
+        <div className="flex items-center justify-center py-4 text-ink-3">
           <Loader2 className="size-4 animate-spin" />
         </div>
       ) : comments.length === 0 ? (
-        <p className="py-2 text-center text-sm text-muted-foreground">
+        <p className="py-2 text-center text-[13px] text-ink-3">
           No comments yet. Be the first to share your thoughts.
         </p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3.5">
           <AnimatePresence initial={false}>
             {comments.map((comment) => (
               <CommentItem
@@ -900,8 +804,8 @@ export const ResearchComments = forwardRef(function ResearchComments(
       {isAuthenticated ? (
         <CommentComposer researchId={researchId} onAdded={handleAdded} />
       ) : (
-        <p className="text-center text-xs text-muted-foreground">
-          <Link to="/login" className="font-medium text-primary hover:underline">
+        <p className="text-center text-[12px] text-ink-3">
+          <Link to="/login" className="font-medium text-[#0891B2] hover:underline">
             Sign in
           </Link>{' '}
           to comment.

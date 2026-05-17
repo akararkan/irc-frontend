@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Bookmark,
   BookmarkCheck,
-  Calendar,
   Check,
   ChevronDown,
   Copy,
@@ -13,7 +12,6 @@ import {
   Eye,
   FileText,
   Globe,
-  Hash,
   Heart,
   Image as ImageIcon,
   Link2,
@@ -24,7 +22,6 @@ import {
   Pencil,
   Play,
   Quote,
-  Send,
   Share2,
   ShieldAlert,
   Trash2,
@@ -34,11 +31,9 @@ import {
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion, useScroll, useSpring } from 'motion/react'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Textarea } from '@/components/ui/textarea'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,40 +82,20 @@ import { RelativeTime } from '@/components/app/relative-time'
 import { useTranslation } from 'react-i18next'
 import { bumpCounter, setCounter } from '@/lib/counter-store'
 import { useCooldown } from '@/lib/rate-limit-cooldown'
-import {
-  seedFromResponse,
-  setReacted,
-  setSaved,
-} from '@/lib/my-reaction-store'
+import { seedFromResponse, setReacted, setSaved } from '@/lib/my-reaction-store'
+
 const VISIBILITY_META = {
   PUBLIC: { label: 'Public', icon: Globe, hint: 'Anyone can read' },
   FOLLOWERS_ONLY: { label: 'Followers', icon: Users, hint: 'Only your followers' },
   PRIVATE: { label: 'Private', icon: Lock, hint: 'Only you' },
 }
 
-// Status palette per IRC Scholar spec — PUBLISHED success, DRAFT
-// warning amber, ARCHIVED muted, RETRACTED danger, SCHEDULED info.
 const STATUS_META = {
-  PUBLISHED: {
-    label: 'Published',
-    tone: 'bg-[color-mix(in_oklch,var(--accent-sage)_14%,transparent)] text-accent-sage',
-  },
-  DRAFT: {
-    label: 'Draft',
-    tone: 'bg-[color-mix(in_oklch,var(--accent-amber)_16%,transparent)] text-accent-amber',
-  },
-  ARCHIVED: {
-    label: 'Archived',
-    tone: 'bg-muted text-ink-3',
-  },
-  RETRACTED: {
-    label: 'Retracted',
-    tone: 'bg-[color-mix(in_oklch,var(--accent-rust)_14%,transparent)] text-accent-rust',
-  },
-  SCHEDULED: {
-    label: 'Scheduled',
-    tone: 'bg-[color-mix(in_oklch,var(--accent-sky)_12%,transparent)] text-accent-sky',
-  },
+  PUBLISHED: { label: 'Published', tone: 'bg-[#ECFDF5] text-[#065F46]' },
+  DRAFT: { label: 'Draft', tone: 'bg-[#FFFBEB] text-[#B45309]' },
+  ARCHIVED: { label: 'Archived', tone: 'bg-secondary text-ink-3' },
+  RETRACTED: { label: 'Retracted', tone: 'bg-destructive/10 text-destructive' },
+  SCHEDULED: { label: 'Scheduled', tone: 'bg-[#ECFEFF] text-[#0891B2]' },
 }
 
 const SOURCE_TYPE_LABEL = {
@@ -131,11 +106,9 @@ const SOURCE_TYPE_LABEL = {
   MANUAL: 'Reference',
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────
+/* ── Helpers ─────────────────────────────────────────────────── */
 function looksLikeUuid(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value ?? '',
-  )
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value ?? '')
 }
 
 function formatBytes(bytes) {
@@ -159,7 +132,10 @@ function formatDuration(seconds) {
 
 function parseKeywords(keywords) {
   if (!keywords) return []
-  return keywords.split(/[,;]/).map((k) => k.trim()).filter(Boolean)
+  return keywords
+    .split(/[,;]/)
+    .map((k) => k.trim())
+    .filter(Boolean)
 }
 
 function estimateReadingMinutes(text) {
@@ -168,34 +144,24 @@ function estimateReadingMinutes(text) {
   return Math.max(1, Math.round(words / 220))
 }
 
-// ─── Reading progress bar ───────────────────────────────────────────
+/* ── Reading progress bar ────────────────────────────────────── */
 function ReadingProgress({ targetRef }) {
   const { scrollYProgress } = useScroll({
     target: targetRef,
     offset: ['start start', 'end end'],
   })
-  const scaleX = useSpring(scrollYProgress, {
-    stiffness: 220,
-    damping: 30,
-    mass: 0.4,
-  })
+  const scaleX = useSpring(scrollYProgress, { stiffness: 220, damping: 30, mass: 0.4 })
   return (
     <motion.div
       aria-hidden
-      className="pointer-events-none fixed inset-x-0 top-0 z-50 h-[2px] origin-left bg-foreground"
+      className="pointer-events-none fixed inset-x-0 top-0 z-50 h-[2.5px] origin-left bg-[#0891B2]"
       style={{ scaleX }}
     />
   )
 }
 
-// ─── Copy button ────────────────────────────────────────────────────
-function CopyButton({
-  value,
-  label = 'Copy',
-  variant = 'ghost',
-  size = 'sm',
-  className,
-}) {
+/* ── Copy button ─────────────────────────────────────────────── */
+function CopyButton({ value, label = 'Copy', variant = 'ghost', size = 'sm', className }) {
   const toast = useToast()
   const [copied, setCopied] = useState(false)
 
@@ -217,7 +183,7 @@ function CopyButton({
       variant={variant}
       size={size}
       onClick={handleCopy}
-      className={cn('rounded-full', className)}
+      className={cn('rounded-lg', className)}
     >
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
       {copied ? 'Copied' : label}
@@ -225,7 +191,7 @@ function CopyButton({
   )
 }
 
-// ─── Reading tabs — anchor nav for the main column ─────────────────
+/* ── Reading tabs ────────────────────────────────────────────── */
 function ReadingTabs({ sourcesCount, citationsCount, commentsCount }) {
   const tabs = [
     { id: 'research-abstract', label: 'Abstract' },
@@ -264,7 +230,7 @@ function ReadingTabs({ sourcesCount, citationsCount, commentsCount }) {
   }
 
   return (
-    <div className="sticky top-14 z-10 -mx-2 mb-2 flex items-center gap-5 overflow-x-auto border-b-[0.5px] border-border bg-background/90 px-2 backdrop-blur scrollbar-none">
+    <div className="sticky top-14 z-10 -mx-2 mb-2 flex items-center gap-5 overflow-x-auto border-b border-border bg-background/90 px-2 backdrop-blur scrollbar-none">
       {tabs.map((tab) => {
         const isActive = active === tab.id
         return (
@@ -274,7 +240,7 @@ function ReadingTabs({ sourcesCount, citationsCount, commentsCount }) {
             onClick={() => jump(tab.id)}
             className={cn(
               'relative inline-flex items-baseline gap-2 py-3 text-[13px] font-medium transition-colors',
-              isActive ? 'text-ink' : 'text-ink-3 hover:text-ink',
+              isActive ? 'text-[#0891B2]' : 'text-ink-3 hover:text-ink',
             )}
           >
             <span>{tab.label}</span>
@@ -286,7 +252,7 @@ function ReadingTabs({ sourcesCount, citationsCount, commentsCount }) {
             {isActive ? (
               <motion.span
                 layoutId="reading-tab-underline"
-                className="absolute inset-x-0 -bottom-px h-[1.5px] rounded-full bg-ink"
+                className="absolute inset-x-0 -bottom-px h-[2px] rounded-full bg-[#0891B2]"
                 transition={{ type: 'spring', stiffness: 420, damping: 32 }}
               />
             ) : null}
@@ -297,7 +263,7 @@ function ReadingTabs({ sourcesCount, citationsCount, commentsCount }) {
   )
 }
 
-// ─── Abstract block — drop-cap on English-only first paragraph. ─────
+/* ── Abstract block ──────────────────────────────────────────── */
 function AbstractBlock({ text }) {
   const [expanded, setExpanded] = useState(false)
   const { i18n } = useTranslation()
@@ -312,9 +278,6 @@ function AbstractBlock({ text }) {
   if (!paragraphs.length) return null
   const long = paragraphs.length > 1
   const visible = expanded || !long ? paragraphs : paragraphs.slice(0, 1)
-
-  // Drop-cap is an English/Latin print convention only.
-  // For Arabic or Kurdish — or any RTL paragraph — render straight body copy.
   const uiIsEnglish = i18n.language === 'en'
 
   return (
@@ -322,16 +285,10 @@ function AbstractBlock({ text }) {
       <div className="space-y-4 font-serif text-[17.5px] leading-[1.78] text-ink">
         {visible.map((paragraph, index) => {
           const isRtl = startsWithRtl(paragraph)
-          // Show drop-cap only on the first paragraph, only when the UI
-          // language is English AND the paragraph itself starts in LTR.
           const showDropCap = index === 0 && uiIsEnglish && !isRtl
           if (!showDropCap) {
             return (
-              <p
-                key={index}
-                dir="auto"
-                className="whitespace-pre-wrap break-words"
-              >
+              <p key={index} dir="auto" className="whitespace-pre-wrap break-words">
                 <MentionText text={paragraph} />
               </p>
             )
@@ -339,14 +296,10 @@ function AbstractBlock({ text }) {
           const firstChar = paragraph.charAt(0)
           const rest = paragraph.slice(1)
           return (
-            <p
-              key={index}
-              dir="auto"
-              className="whitespace-pre-wrap break-words"
-            >
+            <p key={index} dir="auto" className="whitespace-pre-wrap break-words">
               <span
                 aria-hidden
-                className="float-left mr-2 mt-1 font-serif text-[64px] font-semibold leading-[0.85] tracking-[-0.04em] text-ink sm:text-[80px]"
+                className="float-left mr-2 mt-1 font-serif text-[64px] font-semibold leading-[0.85] tracking-[-0.04em] text-[#0891B2] sm:text-[80px]"
               >
                 {firstChar}
               </span>
@@ -359,29 +312,44 @@ function AbstractBlock({ text }) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-border bg-paper px-3.5 py-1.5 text-[12px] font-medium text-ink-2 transition-colors hover:border-ink/30 hover:text-ink"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-border bg-paper px-3.5 py-1.5 text-[12px] font-medium text-ink-2 transition-colors hover:border-[#0891B2]/40 hover:text-[#0891B2]"
         >
           {expanded ? 'Hide full abstract' : 'Show full abstract'}
-          <ChevronDown
-            className={cn(
-              'size-3.5 transition-transform',
-              expanded && 'rotate-180',
-            )}
-          />
+          <ChevronDown className={cn('size-3.5 transition-transform', expanded && 'rotate-180')} />
         </button>
       ) : null}
     </div>
   )
 }
 
-// ─── Editorial hero ─────────────────────────────────────────────────
-//
-// Single text-first card per spec § Research:
-//   identifier strip → title → authors row → action bar → metric strip
-//
-// The identifier strip is one horizontal row, in mono uppercase, with
-// hairline dividers between segments — Status pill | IRC sequence id |
-// DOI | publication date (right-aligned).
+/* ── Action bar button ───────────────────────────────────────── */
+function ResearchAction({ icon: Icon, filled, label, onClick, disabled, active, tone = 'neutral' }) {
+  const tones = {
+    neutral: 'border-border text-ink-2 hover:border-[#0891B2]/40 hover:text-[#0891B2]',
+    rose: 'border-rose-300 bg-rose-50 text-rose-600',
+    cyan: 'border-[#67E8F9] bg-[#ECFEFF] text-[#0891B2]',
+    primary: 'border-[#0891B2] bg-[#0891B2] text-white hover:bg-[#0E7490]',
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'inline-flex h-9 items-center gap-1.5 rounded-lg border px-3.5 text-[12.5px] font-medium transition-colors disabled:opacity-50',
+        active ? tones[tone] : tones.neutral,
+        tone === 'primary' && tones.primary,
+      )}
+    >
+      {Icon ? (
+        <Icon className={cn('size-[15px]', filled && 'fill-current')} strokeWidth={1.8} />
+      ) : null}
+      {label}
+    </button>
+  )
+}
+
+/* ── Editorial hero ──────────────────────────────────────────── */
 function EditorialHero({
   research,
   status,
@@ -411,13 +379,9 @@ function EditorialHero({
     role: research.researcherRole ?? 'RESEARCHER',
     verified: research.researcherVerified ?? true,
   }
-  const coAuthors = Array.isArray(research.coAuthors)
-    ? research.coAuthors
-    : []
+  const coAuthors = Array.isArray(research.coAuthors) ? research.coAuthors : []
 
-  const publishedDate = research.publishedAt
-    ? new Date(research.publishedAt)
-    : null
+  const publishedDate = research.publishedAt ? new Date(research.publishedAt) : null
   const dateLabel = publishedDate
     ? publishedDate.toLocaleDateString(undefined, {
         year: 'numeric',
@@ -449,13 +413,13 @@ function EditorialHero({
     .join(', ')
 
   return (
-    <section className="relative isolate space-y-8 pb-2">
-      {/* ── Identifier strip — mono uppercase meta row ────────────── */}
+    <section className="relative isolate space-y-7 pb-2">
+      {/* Identifier strip */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
         {statusMeta ? (
           <span
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]',
+              'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.1em]',
               statusMeta.tone,
             )}
           >
@@ -476,7 +440,7 @@ function EditorialHero({
               href={`https://doi.org/${research.doi}`}
               target="_blank"
               rel="noreferrer"
-              className="transition-colors hover:text-ink hover:underline"
+              className="transition-colors hover:text-[#0891B2] hover:underline"
               title="Open DOI in a new tab"
             >
               DOI: {research.doi}
@@ -484,7 +448,7 @@ function EditorialHero({
           </>
         ) : null}
         <span className="inline-flex items-center gap-1.5">
-          <VisibilityIcon className="size-3" strokeWidth={1.6} />
+          <VisibilityIcon className="size-3" strokeWidth={1.7} />
           {visibility.label}
         </span>
         {readingMinutes ? (
@@ -495,14 +459,10 @@ function EditorialHero({
         ) : null}
       </div>
 
-      {/* ── Optional cover ─────────────────────────────────────────── */}
+      {/* Cover */}
       {cover ? (
-        <div className="relative aspect-[16/6] w-full overflow-hidden rounded-2xl bg-muted">
-          <img
-            src={cover}
-            alt={research.title}
-            className="h-full w-full object-cover"
-          />
+        <div className="relative aspect-[16/6] w-full overflow-hidden rounded-2xl bg-secondary">
+          <img src={cover} alt={research.title} className="h-full w-full object-cover" />
           <span
             aria-hidden
             className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-paper to-transparent"
@@ -510,18 +470,17 @@ function EditorialHero({
         </div>
       ) : null}
 
-      {/* ── Title ──────────────────────────────────────────────────── */}
+      {/* Title */}
       <h1
         dir="auto"
-        className="font-display text-[34px] font-semibold leading-[1.05] tracking-[-0.02em] text-ink sm:text-[46px]"
+        className="font-display text-[32px] font-semibold leading-[1.08] tracking-[-0.02em] text-ink sm:text-[42px]"
       >
         {research.title}
       </h1>
 
-      {/* ── Authors + date + follow ────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-b-[0.5px] border-border pb-8">
+      {/* Authors + date + follow */}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-b border-border pb-7">
         <div className="flex items-center gap-4">
-          {/* Overlapping avatar stack */}
           <div className="flex -space-x-2.5">
             {allAuthors.slice(0, 5).map((author, i) => (
               <Link
@@ -531,13 +490,12 @@ function EditorialHero({
                 style={{ zIndex: allAuthors.length - i }}
                 title={getFullName(author) || getHandle(author) || 'Author'}
               >
-                <UserAvatar user={author} className="size-11" />
+                <UserAvatar user={author} className="size-11 rounded-full" />
               </Link>
             ))}
           </div>
-          {/* Names + publication date */}
           <div className="leading-tight">
-            <p className="font-display text-[16px] font-medium tracking-[-0.005em] text-ink">
+            <p className="font-display text-[15px] font-medium tracking-[-0.005em] text-ink">
               {authorNames}
             </p>
             {dateLabel ? (
@@ -550,7 +508,7 @@ function EditorialHero({
         {leadAuthor.username ? (
           <Link
             to={`/profile/${leadAuthor.username}`}
-            className="inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-border px-4 py-2 text-[12.5px] font-medium text-ink transition-colors hover:bg-secondary"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#0891B2] bg-paper px-4 py-2 text-[12.5px] font-medium text-[#0891B2] transition-colors hover:bg-[#ECFEFF]"
           >
             <span className="text-[15px] leading-none">+</span>
             Follow {coAuthors.length ? 'authors' : 'author'}
@@ -558,159 +516,82 @@ function EditorialHero({
         ) : null}
       </div>
 
-        {/* Action bar — .rx bordered rounded-rect buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() =>
-              reactionActive ? onClearReaction() : onPickReaction('LIKE')
-            }
-            disabled={working || reactionCooldown > 0}
-            aria-pressed={reactionActive}
-            aria-label={
-              reactionCooldown > 0
-                ? `Try again in ${reactionCooldown}s`
-                : reactionActive ? 'Unlike' : 'Like'
-            }
-            title={
-              reactionCooldown > 0
-                ? `Rate limit — try again in ${reactionCooldown}s`
-                : undefined
-            }
-            className={cn('rx', reactionActive && 'is-on')}
-          >
-            <Heart
-              className={cn('size-[14px]', reactionActive && 'fill-current')}
-              strokeWidth={1.6}
-            />
-            {reactionActive ? 'Liked' : 'Like'}
-          </button>
-
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={saveCooldown > 0}
-            title={
-              saveCooldown > 0
-                ? `Rate limit — try again in ${saveCooldown}s`
-                : undefined
-            }
-            className={cn(
-              'rx',
-              research.currentUserSaved && 'border-brand/50 text-brand',
-            )}
-          >
-            {research.currentUserSaved ? (
-              <BookmarkCheck className="size-[14px]" strokeWidth={1.6} />
-            ) : (
-              <Bookmark className="size-[14px]" strokeWidth={1.6} />
-            )}
-            {saveCooldown > 0
+      {/* Action bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <ResearchAction
+          icon={Heart}
+          filled={reactionActive}
+          active={reactionActive}
+          tone="rose"
+          label={
+            reactionCooldown > 0
+              ? `${reactionCooldown}s`
+              : reactionActive
+                ? 'Liked'
+                : 'Like'
+          }
+          disabled={working || reactionCooldown > 0}
+          onClick={() => (reactionActive ? onClearReaction() : onPickReaction('LIKE'))}
+        />
+        <ResearchAction
+          icon={research.currentUserSaved ? BookmarkCheck : Bookmark}
+          active={Boolean(research.currentUserSaved)}
+          tone="cyan"
+          label={
+            saveCooldown > 0
               ? `Wait ${saveCooldown}s`
-              : research.currentUserSaved ? 'Saved' : 'Save'}
-          </button>
+              : research.currentUserSaved
+                ? 'Saved'
+                : 'Save'
+          }
+          disabled={saveCooldown > 0}
+          onClick={onSave}
+        />
+        <ResearchAction icon={Quote} label="Cite" onClick={onCite} />
+        <ResearchAction icon={Share2} label="Share" onClick={onShare} />
+        {downloadsEnabled && (research.mediaFiles?.length ?? 0) > 0 ? (
+          <ResearchAction
+            icon={Download}
+            label="Download"
+            tone="primary"
+            active
+            onClick={onDownload}
+          />
+        ) : null}
+      </div>
 
-          <button
-            type="button"
-            onClick={onCite}
-            className="rx"
+      {/* Metric strip */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+        {metrics.map(({ value, label }) => (
+          <div
+            key={label}
+            className="rounded-xl border border-border px-4 py-3"
           >
-            <Quote className="size-[14px]" strokeWidth={1.6} />
-            Cite
-          </button>
-
-          <button
-            type="button"
-            onClick={onShare}
-            className="rx"
-          >
-            <Share2 className="size-[14px]" strokeWidth={1.6} />
-            Share
-          </button>
-
-          {downloadsEnabled && (research.mediaFiles?.length ?? 0) > 0 ? (
-            <button
-              type="button"
-              onClick={onDownload}
-              className="rx"
-            >
-              <Download className="size-[14px]" strokeWidth={1.6} />
-              Download
-            </button>
-          ) : null}
-        </div>
-
-        {/* Metric strip — individual bordered boxes, live-ticking via
-            the page-level useResearchStream subscription. Each box uses
-            the same rounded-rect border as .rx so the whole header reads
-            as a cohesive set. */}
-        <div className="flex flex-wrap gap-2">
-          {metrics.map(({ value, label }) => (
-            <div
-              key={label}
-              className="flex flex-col gap-1.5 rounded-xl border-[0.5px] border-border px-5 py-4"
-            >
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
-                {label}
-              </p>
-              <p className="font-display text-[22px] font-semibold leading-none tracking-[-0.012em] tabular-nums text-ink sm:text-[26px]">
-                <AnimatePresence mode="popLayout" initial={false}>
-                  <motion.span
-                    key={value ?? 0}
-                    initial={{ y: 8, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -8, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-                    className="live-flash inline-block"
-                  >
-                    {formatNumber(value ?? 0)}
-                  </motion.span>
-                </AnimatePresence>
-              </p>
-            </div>
-          ))}
-        </div>
+            <p className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-ink-3">
+              {label}
+            </p>
+            <p className="mt-1.5 font-display text-[20px] font-semibold leading-none tabular-nums text-ink">
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={value ?? 0}
+                  initial={{ y: 8, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -8, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 460, damping: 30 }}
+                  className="inline-block"
+                >
+                  {formatNumber(value ?? 0)}
+                </motion.span>
+              </AnimatePresence>
+            </p>
+          </div>
+        ))}
+      </div>
     </section>
   )
 }
 
-// ─── Author pill — avatar + name + mono role label ─────────────────
-function AuthorPill({ author, label, verified }) {
-  const showVerified = Boolean(verified ?? author.verified)
-  return (
-    <div className="flex items-center gap-3">
-      <Link
-        to={author.username ? `/profile/${getRawUsername(author)}` : '#'}
-        className="shrink-0"
-      >
-        <UserAvatar user={author} className="size-10" />
-      </Link>
-      <div className="min-w-0 leading-tight">
-        <Link
-          to={author.username ? `/profile/${getRawUsername(author)}` : '#'}
-          className="inline-flex items-center gap-1 text-[14px] font-semibold tracking-tight text-ink hover:underline"
-        >
-          <span className="truncate">
-            {getFullName(author) || getHandle(author) || 'Unknown'}
-          </span>
-          {showVerified ? (
-            <Check
-              className="size-3.5 text-brand"
-              strokeWidth={2.4}
-              aria-label="Verified"
-            />
-          ) : null}
-        </Link>
-        <p className="mt-0.5 font-mono text-[9.5px] uppercase tracking-[0.14em] text-ink-3">
-          {label}
-          {showVerified ? ' · VERIFIED' : ''}
-        </p>
-      </div>
-    </div>
-  )
-}
-
-// ─── Sticky compact title bar (appears on scroll) ───────────────────
+/* ── Sticky compact title bar ────────────────────────────────── */
 function StickyTitleBar({ visible, research, onReact, onSave, onShare, working }) {
   const reactionCooldown = useCooldown('reaction')
   const author = {
@@ -723,66 +604,46 @@ function StickyTitleBar({ visible, research, onReact, onSave, onShare, working }
       initial={false}
       animate={{ y: visible ? 0 : -64, opacity: visible ? 1 : 0 }}
       transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-      className="pointer-events-auto fixed inset-x-0 top-0 z-40 hidden border-b border-border/60 bg-background/85 backdrop-blur lg:block"
+      className="pointer-events-auto fixed inset-x-0 top-0 z-40 hidden border-b border-border bg-background/90 backdrop-blur lg:block"
     >
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2 sm:px-6">
-        <UserAvatar user={author} className="size-7" />
+        <UserAvatar user={author} className="size-7 rounded-full" />
         <div className="min-w-0 flex-1">
-          <p
-            dir="auto"
-            className="truncate text-sm font-semibold tracking-tight"
-          >
+          <p dir="auto" className="truncate text-[13px] font-semibold tracking-tight">
             {research.title}
           </p>
-          <p className="truncate text-[11px] text-muted-foreground">
+          <p className="truncate text-[11px] text-ink-3">
             {research.researcherFullName ?? getHandle(author)}
           </p>
         </div>
-        <div className="hidden items-center gap-1 sm:flex">
-          <Button
+        <div className="hidden items-center gap-1.5 sm:flex">
+          <button
             type="button"
-            variant="outline"
-            size="sm"
             onClick={() =>
               research.currentUserReactionType ? onReact(null) : onReact('LIKE')
             }
             disabled={working || reactionCooldown > 0}
-            aria-pressed={Boolean(research.currentUserReactionType)}
-            aria-label={
-              reactionCooldown > 0
-                ? `Try again in ${reactionCooldown}s`
-                : research.currentUserReactionType ? 'Unlike' : 'Like'
-            }
-            title={
-              reactionCooldown > 0
-                ? `Rate limit — try again in ${reactionCooldown}s`
-                : undefined
-            }
             className={cn(
-              'h-7 rounded-full gap-1 transition-all duration-200 active:scale-95',
-              research.currentUserReactionType &&
-                'bg-rose-500/15 text-rose-600 ring-1 ring-rose-500/30',
+              'inline-flex h-8 items-center gap-1 rounded-lg border px-3 text-[12px] font-medium transition-colors',
+              research.currentUserReactionType
+                ? 'border-rose-300 bg-rose-50 text-rose-600'
+                : 'border-border text-ink-2 hover:text-ink',
             )}
           >
             <Heart
-              className={cn(
-                'size-3.5',
-                research.currentUserReactionType && 'fill-current',
-              )}
+              className={cn('size-3.5', research.currentUserReactionType && 'fill-current')}
               strokeWidth={1.8}
             />
-            <span>
-              {research.currentUserReactionType ? 'Liked' : 'Like'}
-            </span>
-          </Button>
-          <Button
+            {research.currentUserReactionType ? 'Liked' : 'Like'}
+          </button>
+          <button
             type="button"
-            variant="outline"
-            size="sm"
             onClick={onSave}
             className={cn(
-              'h-7 rounded-full',
-              research.currentUserSaved && 'text-foreground',
+              'inline-flex h-8 items-center gap-1 rounded-lg border px-3 text-[12px] font-medium transition-colors',
+              research.currentUserSaved
+                ? 'border-[#67E8F9] bg-[#ECFEFF] text-[#0891B2]'
+                : 'border-border text-ink-2 hover:text-ink',
             )}
           >
             {research.currentUserSaved ? (
@@ -791,254 +652,54 @@ function StickyTitleBar({ visible, research, onReact, onSave, onShare, working }
               <Bookmark className="size-3.5" />
             )}
             {research.currentUserSaved ? 'Saved' : 'Save'}
-          </Button>
-          <Button
+          </button>
+          <button
             type="button"
-            variant="outline"
-            size="sm"
             onClick={onShare}
-            className="h-7 rounded-full"
+            className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-3 text-[12px] font-medium text-ink-2 transition-colors hover:text-ink"
           >
             <Share2 className="size-3.5" />
             Share
-          </Button>
+          </button>
         </div>
       </div>
     </motion.div>
   )
 }
 
-// ─── Author card (right rail) ───────────────────────────────────────
-function AuthorCard({ research }) {
-  const author = {
-    id: research.researcherId,
-    username: research.researcherUsername,
-    fullName: research.researcherFullName,
-    profileImage: research.researcherProfileImage,
-    role: 'RESEARCHER',
-  }
-  return (
-    <Card className="overflow-hidden rounded-2xl border border-border bg-card">
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-center gap-3">
-          <Link to={`/profile/${getRawUsername(author)}`} className="shrink-0">
-            <UserAvatar
-              user={author}
-              className="size-12 ring-2 ring-background shadow-sm"
-            />
-          </Link>
-          <div className="min-w-0">
-            <Link
-              to={`/profile/${getRawUsername(author)}`}
-              className="block truncate text-sm font-semibold hover:underline"
-            >
-              {getFullName(author) || getHandle(author)}
-            </Link>
-            {getHandle(author) ? (
-              <p className="truncate text-xs text-muted-foreground">
-                @{getHandle(author)}
-              </p>
-            ) : null}
-          </div>
-          <RoleBadge role="RESEARCHER" size="xs" className="ml-auto shrink-0" />
-        </div>
-        <Button
-          asChild
-          variant="outline"
-          size="sm"
-          className="h-8 w-full justify-center rounded-full"
-        >
-          <Link to={`/profile/${getRawUsername(author)}`}>View profile</Link>
-        </Button>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Stats grid ────────────────────────────────────────────────────
-function StatsRail({ research }) {
-  const stats = [
-    { icon: Eye, value: research.viewCount, label: 'views' },
-    { icon: Heart, value: research.reactionCount, label: 'reactions' },
-    { icon: MessageCircle, value: research.commentCount, label: 'comments' },
-    { icon: Bookmark, value: research.saveCount, label: 'saves' },
-    { icon: Share2, value: research.shareCount, label: 'shares' },
-    { icon: Quote, value: research.citationCount, label: 'citations' },
-  ]
-  return (
-    <Card className="overflow-hidden rounded-2xl border border-border bg-card">
-      <CardContent className="grid grid-cols-3 gap-px overflow-hidden bg-border p-0">
-        {stats.map(({ icon: Icon, value, label }) => (
-          <div
-            key={label}
-            className="flex flex-col items-center justify-center gap-1 bg-card px-2 py-3 text-center"
-          >
-            <Icon className="size-3.5 text-muted-foreground" />
-            <p className="font-mono text-sm font-semibold tabular-nums">
-              {formatNumber(value ?? 0)}
-            </p>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {label}
-            </p>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Action rail (right rail) ───────────────────────────────────────
-function ActionRail({
-  research,
-  working,
-  downloadsEnabled,
-  onPick,
-  onClear,
-  onSave,
-  onShare,
-  onCite,
-  onDownload,
-}) {
-  const reactionCooldown = useCooldown('reaction')
-  return (
-    <Card className="overflow-hidden rounded-2xl border border-border bg-card">
-      <CardContent className="space-y-2 p-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            research.currentUserReactionType ? onClear() : onPick('LIKE')
-          }
-          disabled={working || reactionCooldown > 0}
-          aria-pressed={Boolean(research.currentUserReactionType)}
-          aria-label={
-            reactionCooldown > 0
-              ? `Try again in ${reactionCooldown}s`
-              : research.currentUserReactionType ? 'Unlike' : 'Like'
-          }
-          title={
-            reactionCooldown > 0
-              ? `Rate limit — try again in ${reactionCooldown}s`
-              : undefined
-          }
-          className={cn(
-            'h-10 w-full justify-start gap-2 rounded-xl transition-all duration-200 active:scale-[0.98]',
-            research.currentUserReactionType &&
-              'bg-rose-500/15 text-rose-600 ring-1 ring-rose-500/30',
-          )}
-        >
-          <Heart
-            className={cn(
-              'size-4',
-              research.currentUserReactionType && 'fill-current',
-            )}
-            strokeWidth={1.8}
-          />
-          <span className="font-medium">
-            {research.currentUserReactionType ? 'Liked' : 'Like'}
-          </span>
-          <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
-            {formatNumber(research.reactionCount ?? 0)}
-          </span>
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onSave}
-          className={cn(
-            'h-10 w-full justify-start gap-2 rounded-xl',
-            research.currentUserSaved && 'text-foreground',
-          )}
-        >
-          {research.currentUserSaved ? (
-            <BookmarkCheck className="size-4" />
-          ) : (
-            <Bookmark className="size-4" />
-          )}
-          <span className="font-medium">
-            {research.currentUserSaved ? 'Saved' : 'Save'}
-          </span>
-          <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
-            {formatNumber(research.saveCount ?? 0)}
-          </span>
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onShare}
-          className="h-10 w-full justify-start gap-2 rounded-xl"
-        >
-          <Share2 className="size-4" />
-          <span className="font-medium">Share</span>
-          <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
-            {formatNumber(research.shareCount ?? 0)}
-          </span>
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCite}
-          className="h-10 w-full justify-start gap-2 rounded-xl"
-        >
-          <Quote className="size-4" />
-          <span className="font-medium">Cite</span>
-          <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
-            {formatNumber(research.citationCount ?? 0)}
-          </span>
-        </Button>
-        {downloadsEnabled && (research.mediaFiles?.length ?? 0) > 0 ? (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onDownload}
-            className="h-10 w-full justify-start gap-2 rounded-xl"
-          >
-            <Download className="size-4" />
-            <span className="font-medium">Download</span>
-            <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
-              {formatNumber(research.downloadCount ?? 0)}
-            </span>
-          </Button>
-        ) : null}
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Keyword chips ──────────────────────────────────────────────────
+/* ── Keyword card ────────────────────────────────────────────── */
 function KeywordCard({ keywords, tags }) {
   if (!keywords.length && !tags?.length) return null
   return (
-    <Card className="overflow-hidden rounded-2xl border border-border bg-card">
+    <Card className="overflow-hidden rounded-2xl border-border bg-card">
       <CardContent className="space-y-3 p-4">
         {tags?.length ? (
           <div className="space-y-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-ink-3">
               Tags
             </p>
             <div className="flex flex-wrap gap-1.5">
               {tags.map((tag) => (
-                <Badge
+                <span
                   key={tag}
-                  variant="secondary"
-                  className="rounded-full text-[11px]"
+                  className="rounded-full bg-[#ECFEFF] px-2.5 py-0.5 font-mono text-[11px] text-[#0891B2]"
                 >
                   #{tag}
-                </Badge>
+                </span>
               ))}
             </div>
           </div>
         ) : null}
         {keywords.length ? (
           <div className="space-y-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-ink-3">
               Keywords
             </p>
             <div className="flex flex-wrap gap-1.5">
               {keywords.map((keyword) => (
                 <span
                   key={keyword}
-                  className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] text-foreground"
+                  className="inline-flex items-center rounded-full border border-border bg-paper px-2.5 py-0.5 text-[11px] text-ink"
                 >
                   {keyword}
                 </span>
@@ -1051,25 +712,25 @@ function KeywordCard({ keywords, tags }) {
   )
 }
 
-// ─── Citation card ──────────────────────────────────────────────────
+/* ── Citation card ───────────────────────────────────────────── */
 function CitationCard({ research }) {
   if (!research.citation && !research.shareUrl) return null
   return (
     <Card
       id="research-citations"
-      className="overflow-hidden rounded-2xl border border-border bg-card scroll-mt-24"
+      className="overflow-hidden rounded-2xl border-border bg-card scroll-mt-24"
     >
       <CardContent className="space-y-4 p-4">
         {research.citation ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <p className="flex items-center gap-1.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-ink-3">
                 <Quote className="size-3" />
                 How to cite
               </p>
               <CopyButton value={research.citation} label="Copy" />
             </div>
-            <p className="whitespace-pre-wrap rounded-xl border border-dashed border-border bg-muted/30 p-3 font-serif text-[13px] leading-relaxed">
+            <p className="whitespace-pre-wrap rounded-xl border border-dashed border-border bg-secondary/40 p-3 font-serif text-[13px] leading-relaxed">
               {research.citation}
             </p>
           </div>
@@ -1078,13 +739,13 @@ function CitationCard({ research }) {
         {research.shareUrl ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <p className="flex items-center gap-1.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-ink-3">
                 <Link2 className="size-3" />
                 Share link
               </p>
               <CopyButton value={research.shareUrl} label="Copy" />
             </div>
-            <code className="block truncate rounded-lg border border-border bg-muted px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground">
+            <code className="block truncate rounded-lg border border-border bg-secondary px-2.5 py-1.5 font-mono text-[11px] text-ink-3">
               {research.shareUrl}
             </code>
           </div>
@@ -1094,7 +755,7 @@ function CitationCard({ research }) {
   )
 }
 
-// ─── Media file tile ────────────────────────────────────────────────
+/* ── Media file tile ─────────────────────────────────────────── */
 function MediaFileTile({ media }) {
   const url = resolveMediaUrl(media.fileUrl)
   const thumb = resolveMediaUrl(media.thumbnailUrl)
@@ -1148,13 +809,13 @@ function MediaFileTile({ media }) {
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-muted to-muted/50 p-6 transition-opacity hover:opacity-90"
+        className="flex aspect-[4/3] items-center justify-center bg-secondary/60 p-6 transition-opacity hover:opacity-90"
       >
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="grid size-14 place-items-center rounded-2xl bg-background shadow-sm">
-            <FileText className="size-6 text-muted-foreground" />
+          <span className="grid size-14 place-items-center rounded-2xl bg-paper shadow-sm">
+            <FileText className="size-6 text-ink-3" />
           </span>
-          <span className="text-xs font-semibold text-foreground">
+          <span className="text-[12px] font-medium text-ink">
             Open {media.mimeType?.split('/')?.[1]?.toUpperCase() ?? 'file'}
           </span>
         </div>
@@ -1163,16 +824,16 @@ function MediaFileTile({ media }) {
   })()
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card transition-shadow hover:shadow-[0_18px_40px_-30px_oklch(0_0_0/0.25)]">
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
       {Body}
-      <div className="flex items-start justify-between gap-3 px-3.5 py-2.5 text-xs">
+      <div className="flex items-start justify-between gap-3 px-3.5 py-2.5 text-[12px]">
         <div className="min-w-0 flex-1">
           {media.caption || media.originalFileName ? (
-            <p className="truncate font-medium text-foreground">
+            <p className="truncate font-medium text-ink">
               {media.caption || media.originalFileName}
             </p>
           ) : null}
-          <div className="mt-0.5 flex items-center gap-2 text-muted-foreground">
+          <div className="mt-0.5 flex items-center gap-2 text-ink-3">
             {media.mimeType ? <span className="truncate">{media.mimeType}</span> : null}
             {media.fileSize ? (
               <>
@@ -1193,7 +854,7 @@ function MediaFileTile({ media }) {
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+            className="shrink-0 text-ink-3 transition-colors hover:text-ink"
             title="Open original"
           >
             <ExternalLink className="size-3.5" />
@@ -1204,31 +865,28 @@ function MediaFileTile({ media }) {
   )
 }
 
-// ─── Source / reference item (numbered) ─────────────────────────────
+/* ── Source / reference item ─────────────────────────────────── */
 function SourceItem({ source, index }) {
   const typeLabel = SOURCE_TYPE_LABEL[source.sourceType] ?? 'Reference'
   return (
-    <li className="group/source relative pl-9">
+    <li className="relative pl-10">
       <span
-        className="absolute left-0 top-1 grid size-7 place-items-center rounded-full border border-border bg-background font-mono text-[11px] font-semibold tabular-nums text-muted-foreground"
+        className="absolute left-0 top-1 grid size-7 place-items-center rounded-full border border-border bg-paper font-mono text-[11px] font-semibold tabular-nums text-ink-3"
         aria-hidden
       >
         {index + 1}
       </span>
       <div className="space-y-1">
         <div className="flex flex-wrap items-baseline gap-2">
-          <Badge
-            variant="outline"
-            className="rounded-full text-[10px] uppercase tracking-wider"
-          >
+          <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-wider text-ink-3">
             {typeLabel}
-          </Badge>
-          <p className="font-serif text-[15px] font-semibold leading-snug text-foreground">
+          </span>
+          <p className="font-serif text-[15px] font-semibold leading-snug text-ink">
             {source.title}
           </p>
         </div>
         {source.citationText ? (
-          <p className="whitespace-pre-wrap font-serif text-[13.5px] leading-relaxed text-muted-foreground">
+          <p className="whitespace-pre-wrap font-serif text-[13.5px] leading-relaxed text-ink-3">
             {source.citationText}
           </p>
         ) : null}
@@ -1238,14 +896,14 @@ function SourceItem({ source, index }) {
               href={`https://doi.org/${source.doi}`}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-foreground hover:underline"
+              className="inline-flex items-center gap-1 text-[#0891B2] hover:underline"
             >
               <Link2 className="size-3" />
               DOI · {source.doi}
             </a>
           ) : null}
           {source.isbn ? (
-            <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <span className="inline-flex items-center gap-1 text-ink-3">
               ISBN · {source.isbn}
             </span>
           ) : null}
@@ -1254,7 +912,7 @@ function SourceItem({ source, index }) {
               href={source.url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-foreground hover:underline"
+              className="inline-flex items-center gap-1 text-[#0891B2] hover:underline"
             >
               <ExternalLink className="size-3" />
               Open link
@@ -1265,7 +923,7 @@ function SourceItem({ source, index }) {
               href={resolveMediaUrl(source.fileUrl)}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-foreground hover:underline"
+              className="inline-flex items-center gap-1 text-[#0891B2] hover:underline"
             >
               <Download className="size-3" />
               {source.originalFileName ?? 'Download'}
@@ -1277,68 +935,49 @@ function SourceItem({ source, index }) {
   )
 }
 
-// ─── Section heading (in main column) ───────────────────────────────
+/* ── Section heading ─────────────────────────────────────────── */
 function SectionHeading({ icon: Icon, title, count }) {
   return (
     <div className="flex items-center gap-2">
-      {Icon ? <Icon className="size-3.5 text-muted-foreground" /> : null}
-      <h2 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+      {Icon ? <Icon className="size-3.5 text-ink-3" /> : null}
+      <h2 className="font-mono text-[9.5px] font-medium uppercase tracking-[0.16em] text-ink-3">
         {title}
       </h2>
       {count != null ? (
-        <span className="text-[11px] text-muted-foreground">· {count}</span>
+        <span className="text-[11px] text-ink-3">· {count}</span>
       ) : null}
       <span className="ml-2 h-px flex-1 bg-border" aria-hidden />
     </div>
   )
 }
 
-// ─── Mobile sticky action bar ───────────────────────────────────────
+/* ── Mobile sticky action bar ────────────────────────────────── */
 function MobileStickyActions({ research, working, onPick, onClear, onSave, onShare }) {
   const liked = Boolean(research.currentUserReactionType)
   const reactionCooldown = useCooldown('reaction')
   return (
     <div
-      className="fixed inset-x-0 z-30 mx-3 flex items-center gap-1 rounded-full border border-border bg-background/95 p-1 shadow-[0_18px_40px_-20px_oklch(0_0_0/0.25)] backdrop-blur lg:hidden"
-      style={{
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.5rem)',
-      }}
+      className="fixed inset-x-0 z-30 mx-3 flex items-center gap-1 rounded-full border border-border bg-background/95 p-1 backdrop-blur lg:hidden"
+      style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.5rem)' }}
     >
-      <Button
+      <button
         type="button"
-        variant="ghost"
-        size="sm"
         onClick={() => (liked ? onClear() : onPick('LIKE'))}
         disabled={working || reactionCooldown > 0}
-        aria-pressed={liked}
-        aria-label={
-          reactionCooldown > 0
-            ? `Try again in ${reactionCooldown}s`
-            : liked ? 'Unlike' : 'Like'
-        }
         className={cn(
-          'h-9 flex-1 gap-1.5 rounded-full transition-all duration-200 active:scale-95',
-          liked
-            ? 'bg-rose-500/15 text-rose-600 ring-1 ring-rose-500/30'
-            : 'text-muted-foreground',
+          'inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-[12.5px] font-medium transition-colors',
+          liked ? 'bg-rose-50 text-rose-600' : 'text-ink-3',
         )}
       >
-        <Heart
-          className={cn('size-4', liked && 'fill-current')}
-          strokeWidth={1.8}
-        />
-        <span className="font-medium">
-          {reactionCooldown > 0 ? `${reactionCooldown}s` : liked ? 'Liked' : 'Like'}
-        </span>
-      </Button>
-      <Button
+        <Heart className={cn('size-4', liked && 'fill-current')} strokeWidth={1.8} />
+        {reactionCooldown > 0 ? `${reactionCooldown}s` : liked ? 'Liked' : 'Like'}
+      </button>
+      <button
         type="button"
-        variant="ghost"
-        size="sm"
         onClick={onSave}
         className={cn(
-          'h-9 flex-1 rounded-full text-muted-foreground',
-          research.currentUserSaved && 'text-foreground',
+          'inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-[12.5px] font-medium transition-colors',
+          research.currentUserSaved ? 'bg-[#ECFEFF] text-[#0891B2]' : 'text-ink-3',
         )}
       >
         {research.currentUserSaved ? (
@@ -1347,27 +986,82 @@ function MobileStickyActions({ research, working, onPick, onClear, onSave, onSha
           <Bookmark className="size-4" />
         )}
         Save
-      </Button>
-      <Button
+      </button>
+      <button
         type="button"
-        variant="ghost"
-        size="sm"
         onClick={onShare}
-        className="h-9 flex-1 rounded-full text-muted-foreground"
+        className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-[12.5px] font-medium text-ink-3"
       >
         <Share2 className="size-4" />
         Share
-      </Button>
+      </button>
     </div>
   )
 }
 
-// ─── Page component ─────────────────────────────────────────────────
+/* ── Video promo ─────────────────────────────────────────────── */
+function VideoPromo({ url, thumbnail, duration }) {
+  const [playing, setPlaying] = useState(false)
+  if (!url) return null
+  const thumbUrl = resolveMediaUrl(thumbnail)
+  const videoUrl = resolveMediaUrl(url)
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-black">
+      {playing ? (
+        <video
+          src={videoUrl}
+          controls
+          autoPlay
+          playsInline
+          className="aspect-video w-full bg-black"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setPlaying(true)}
+          className="group relative block aspect-video w-full overflow-hidden"
+          aria-label="Play promo"
+        >
+          {thumbUrl ? (
+            <img
+              src={thumbUrl}
+              alt="Video promo"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1A1F2E] to-[#0B0E16]" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/15" />
+          <span className="absolute inset-0 grid place-items-center">
+            <motion.span
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 22 }}
+              className="grid size-[84px] place-items-center rounded-full bg-white text-black shadow-xl"
+            >
+              <Play className="size-8 translate-x-[3px] fill-black" />
+            </motion.span>
+          </span>
+          <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 font-mono text-[11px] font-medium tabular-nums text-white backdrop-blur">
+            <Play className="size-3 fill-white" strokeWidth={1.5} />
+            Video abstract
+            {duration ? ` · ${formatDuration(duration)}` : null}
+          </span>
+        </button>
+      )}
+    </div>
+  )
+}
+
+/* ─── ResearchDetailPage ─────────────────────────────────────── */
 export function ResearchDetailPage() {
   const { idOrSlug } = useParams()
   const navigate = useNavigate()
   const { user: currentUser, isAuthenticated } = useAuth()
   const toast = useToast()
+
+  const { i18n: i18nInst } = useTranslation()
 
   const articleRef = useRef(null)
   const heroRef = useRef(null)
@@ -1380,7 +1074,6 @@ export function ResearchDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [lifecycleWorking, setLifecycleWorking] = useState(false)
 
-  // Sticky bar visibility based on hero scroll
   useEffect(() => {
     const target = heroRef.current
     if (!target || typeof IntersectionObserver === 'undefined') return undefined
@@ -1392,7 +1085,6 @@ export function ResearchDetailPage() {
     return () => observer.disconnect()
   }, [research?.id])
 
-  // Load research
   useEffect(() => {
     let cancelled = false
     async function load() {
@@ -1403,17 +1095,11 @@ export function ResearchDetailPage() {
           : await getResearchBySlug(idOrSlug)
         if (!cancelled) {
           setResearch(data)
-          // Research's mapper resolves the viewer's row authoritatively,
-          // so this seed is the canonical "did I react / save" truth.
           if (data) seedFromResponse('research', data, { authoritative: true })
         }
         if (data?.id) recordResearchView(data.id).catch(() => {})
       } catch (error) {
         if (!cancelled) {
-          // 404 is the canonical "not visible to you" signal from the
-          // backend — covers both "doesn't exist" and "viewer is in a
-          // block edge with the researcher". Skip the toast and let the
-          // EmptyState below explain it.
           const status = error?.response?.status ?? error?.status
           if (status !== 404) {
             toast.error(extractApiMessage(error, 'Could not load research.'))
@@ -1430,12 +1116,6 @@ export function ResearchDetailPage() {
     }
   }, [idOrSlug, toast])
 
-  // ── Realtime ─────────────────────────────────────────────────
-  // Subscribe to /api/v1/researches/{id}/stream so every counter and
-  // every comment / reply / deletion lands live without a refetch.
-  // Backend uses atomic clamp-at-zero UPDATEs for every counter, so
-  // the values arriving here are authoritative — we trust them over
-  // any optimistic local +1 / -1.
   useResearchStream(
     research?.id,
     {
@@ -1455,13 +1135,6 @@ export function ResearchDetailPage() {
         toast.info('This research was removed by its author.')
         navigate('/research', { replace: true })
       },
-      // Own-actor guard: when the SSE echoes the viewer's own toggle,
-      // the optimistic update + DELETE-response reconciliation in
-      // handlePickReaction / handleClearReaction already wrote the
-      // authoritative count locally. Adopting payload.reactionCount
-      // here would clobber that with whatever number the backend
-      // snapshotted at broadcast time (which can lag the read-after-
-      // write). Other viewers' reactions still update the count live.
       REACTION_ADDED: (payload) => {
         const id = research?.id
         if (!payload || !id) return
@@ -1469,9 +1142,7 @@ export function ResearchDetailPage() {
         const next = payload.reactionCount
         if (next == null) return
         setCounter('research', id, 'rx', next)
-        setResearch((current) =>
-          current ? { ...current, reactionCount: next } : current,
-        )
+        setResearch((current) => (current ? { ...current, reactionCount: next } : current))
       },
       REACTION_REMOVED: (payload) => {
         const id = research?.id
@@ -1480,9 +1151,7 @@ export function ResearchDetailPage() {
         const next = payload.reactionCount
         if (next == null) return
         setCounter('research', id, 'rx', next)
-        setResearch((current) =>
-          current ? { ...current, reactionCount: next } : current,
-        )
+        setResearch((current) => (current ? { ...current, reactionCount: next } : current))
       },
       COMMENT_CREATED: (payload) => {
         const id = research?.id
@@ -1546,8 +1215,6 @@ export function ResearchDetailPage() {
       SAVE_COUNT_UPDATED: (payload) => {
         const id = research?.id
         if (!id || payload?.saveCount == null) return
-        // Own-actor guard: handleToggleSave already wrote the
-        // authoritative count from the HTTP response.
         if (currentUser?.id && payload.actorId === currentUser.id) return
         setCounter('research', id, 'sv', payload.saveCount)
         setResearch((current) =>
@@ -1572,8 +1239,6 @@ export function ResearchDetailPage() {
       },
     },
     {
-      // Catch-up after a reconnect: re-fetch the root entity so any
-      // counter we missed during the outage lands authoritatively.
       onReconnect: () => {
         if (!research?.id) return
         getResearch(research.id)
@@ -1643,10 +1308,6 @@ export function ResearchDetailPage() {
     bumpCounter('research', research.id, 'rx', previousReactionCount, -1)
     setWorking(true)
     try {
-      // DELETE now returns 200 with the full ResearchResponse — adopt
-      // the authoritative reactionCount + currentUserReacted:false in
-      // case the optimistic decrement lagged behind another viewer's
-      // concurrent reaction.
       const updated = await removeResearchReaction(research.id)
       if (updated?.id) {
         setResearch((current) => (current ? { ...current, ...updated } : updated))
@@ -1677,7 +1338,6 @@ export function ResearchDetailPage() {
     const previous = research
     const wasSaved = Boolean(research.currentUserSaved)
     const previousSaveCount = research?.saveCount ?? 0
-    // Optimistic flip first so the toggle feels instant.
     setResearch((current) => ({
       ...current,
       currentUserSaved: !wasSaved,
@@ -1688,9 +1348,6 @@ export function ResearchDetailPage() {
     setSaved('research', research.id, !wasSaved)
     bumpCounter('research', research.id, 'sv', previousSaveCount, wasSaved ? -1 : +1)
     try {
-      // Both endpoints return the updated ResearchResponse — reconcile
-      // against authoritative saveCount + currentUserSaved so the
-      // optimistic delta never drifts under concurrent savers.
       const updated = wasSaved
         ? await unsaveResearch(research.id)
         : await saveResearch(research.id)
@@ -1732,7 +1389,7 @@ export function ResearchDetailPage() {
         shareCount: result?.shareCount ?? (current?.shareCount ?? 0) + 1,
       }))
     } catch {
-      // user cancelled or unsupported
+      /* user cancelled or unsupported */
     }
   }
 
@@ -1792,10 +1449,7 @@ export function ResearchDetailPage() {
     }
   }
 
-  const keywords = useMemo(
-    () => parseKeywords(research?.keywords),
-    [research?.keywords],
-  )
+  const keywords = useMemo(() => parseKeywords(research?.keywords), [research?.keywords])
   const mediaFiles = useMemo(
     () =>
       [...(research?.mediaFiles ?? [])].sort(
@@ -1821,7 +1475,7 @@ export function ResearchDetailPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="aspect-[16/7] w-full rounded-[28px]" />
+        <Skeleton className="aspect-[16/7] w-full rounded-2xl" />
         <Skeleton className="h-10 w-3/4 rounded-2xl" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-full" />
@@ -1844,11 +1498,8 @@ export function ResearchDetailPage() {
     )
   }
 
-  const isOwner = Boolean(
-    currentUser?.id && currentUser.id === research.researcherId,
-  )
-  const visibility =
-    VISIBILITY_META[research.visibility] ?? VISIBILITY_META.PUBLIC
+  const isOwner = Boolean(currentUser?.id && currentUser.id === research.researcherId)
+  const visibility = VISIBILITY_META[research.visibility] ?? VISIBILITY_META.PUBLIC
   const scheduledDate = research.scheduledPublishAt
     ? new Date(research.scheduledPublishAt)
     : null
@@ -1857,16 +1508,10 @@ export function ResearchDetailPage() {
   const downloadsEnabled = research.downloadsEnabled !== false
 
   const description = research.description ?? ''
-  // Drop-cap is an English/Latin print convention only.
-  // Never show it in Arabic or Kurdish UI mode, or when the paragraph
-  // itself opens with a RTL character (Arabic/Kurdish/Hebrew content).
-  const { i18n: i18nInst } = useTranslation()
   const descriptionIsRtl = startsWithRtl(description)
   const uiIsEnglish = i18nInst.language === 'en'
-  const dropCap = (uiIsEnglish && !descriptionIsRtl) ? description.trim().charAt(0) : ''
-  const descriptionRest = dropCap
-    ? description.trim().slice(1)
-    : description.trim()
+  const dropCap = uiIsEnglish && !descriptionIsRtl ? description.trim().charAt(0) : ''
+  const descriptionRest = dropCap ? description.trim().slice(1) : description.trim()
 
   return (
     <article ref={articleRef} className="relative space-y-8 pb-20 lg:pb-12">
@@ -1886,7 +1531,7 @@ export function ResearchDetailPage() {
           asChild
           variant="ghost"
           size="sm"
-          className="rounded-full text-muted-foreground hover:text-foreground"
+          className="rounded-lg text-ink-3 hover:text-ink"
         >
           <Link to="/research">
             <ArrowLeft className="size-4" />
@@ -1900,7 +1545,7 @@ export function ResearchDetailPage() {
               type="button"
               variant="outline"
               size="sm"
-              className="rounded-full"
+              className="rounded-lg"
               onClick={() => setEditOpen(true)}
             >
               <Pencil className="size-4" />
@@ -1912,13 +1557,13 @@ export function ResearchDetailPage() {
                   type="button"
                   variant="outline"
                   size="icon-sm"
-                  className="rounded-full"
+                  className="rounded-lg"
                   title="More actions"
                 >
                   <MoreHorizontal className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-56 rounded-xl">
                 {status !== 'PUBLISHED' ? (
                   <DropdownMenuItem
                     onSelect={() => runLifecycle(publishResearch, 'published')}
@@ -1990,10 +1635,7 @@ export function ResearchDetailPage() {
 
       {/* Two-column reading area */}
       <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
-        {/* Main column */}
         <main className="space-y-10 lg:col-span-8">
-          {/* Reading tabs — smooth-anchor jump between primary
-              sections. Active section follows scroll. */}
           <ReadingTabs
             sourcesCount={sources.length}
             citationsCount={research.citationCount ?? 0}
@@ -2009,7 +1651,7 @@ export function ResearchDetailPage() {
                   {research.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-full bg-muted px-2.5 py-1 font-mono text-[11px] text-ink-2"
+                      className="rounded-full bg-[#ECFEFF] px-2.5 py-1 font-mono text-[11px] text-[#0891B2]"
                     >
                       #{tag}
                     </span>
@@ -2023,14 +1665,11 @@ export function ResearchDetailPage() {
           {description ? (
             <section className="space-y-3">
               <SectionHeading icon={Quote} title="Article" />
-              <div
-                dir="auto"
-                className="font-serif text-[18px] leading-[1.78] text-foreground"
-              >
+              <div dir="auto" className="font-serif text-[18px] leading-[1.78] text-ink">
                 {dropCap ? (
                   <span
                     aria-hidden
-                    className="float-left mr-3 mt-1 font-serif text-[64px] font-semibold leading-none tracking-[-0.04em] text-foreground sm:text-[80px]"
+                    className="float-left mr-3 mt-1 font-serif text-[64px] font-semibold leading-none tracking-[-0.04em] text-[#0891B2] sm:text-[80px]"
                   >
                     {dropCap}
                   </span>
@@ -2080,10 +1719,7 @@ export function ResearchDetailPage() {
 
           {/* Sources */}
           {sources.length ? (
-            <section
-              id="research-references"
-              className="space-y-3 scroll-mt-24"
-            >
+            <section id="research-references" className="space-y-3 scroll-mt-24">
               <SectionHeading
                 icon={Link2}
                 title="Sources & references"
@@ -2097,12 +1733,8 @@ export function ResearchDetailPage() {
             </section>
           ) : null}
 
-          {/* Discussion — rich threaded comments (1-level nest), live
-              via the existing useResearchStream SSE wiring. */}
-          <section
-            id="research-discussion"
-            className="space-y-4 scroll-mt-24"
-          >
+          {/* Discussion */}
+          <section id="research-discussion" className="space-y-4 scroll-mt-24">
             <SectionHeading
               icon={MessageCircle}
               title="Discussion"
@@ -2110,7 +1742,7 @@ export function ResearchDetailPage() {
             />
 
             {!commentsEnabled ? (
-              <p className="rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+              <p className="rounded-2xl border border-dashed border-border bg-secondary/40 px-4 py-3 text-[13px] text-ink-3">
                 Comments are disabled for this research.
               </p>
             ) : (
@@ -2129,9 +1761,7 @@ export function ResearchDetailPage() {
           </section>
         </main>
 
-        {/* Right rail — keywords + citation card. Action bar / stats /
-            author have moved into the hero, so the rail stays quiet
-            and contextual. */}
+        {/* Right rail */}
         <aside className="lg:col-span-4">
           <div className="space-y-4 lg:sticky lg:top-20">
             <KeywordCard keywords={keywords} tags={research.tags} />
@@ -2161,63 +1791,5 @@ export function ResearchDetailPage() {
         />
       ) : null}
     </article>
-  )
-}
-
-// ─── Video promo (kept inline, polished) ────────────────────────────
-//
-// Big black 16:9 surface. Centered white play button, single label
-// "📹 Video abstract · {duration}" in the bottom-left in mono.
-function VideoPromo({ url, thumbnail, duration }) {
-  const [playing, setPlaying] = useState(false)
-  if (!url) return null
-  const thumbUrl = resolveMediaUrl(thumbnail)
-  const videoUrl = resolveMediaUrl(url)
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl border-[0.5px] border-border bg-black">
-      {playing ? (
-        <video
-          src={videoUrl}
-          controls
-          autoPlay
-          playsInline
-          className="aspect-video w-full bg-black"
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setPlaying(true)}
-          className="group/promo relative block aspect-video w-full overflow-hidden"
-          aria-label="Play promo"
-        >
-          {thumbUrl ? (
-            <img
-              src={thumbUrl}
-              alt="Video promo"
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover/promo:scale-[1.04]"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1a1714] to-[#0c0a08]" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/15" />
-          <span className="absolute inset-0 grid place-items-center">
-            <motion.span
-              whileHover={{ scale: 1.06 }}
-              whileTap={{ scale: 0.94 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 22 }}
-              className="grid size-[88px] place-items-center rounded-full bg-white text-black shadow-[0_18px_48px_-10px_rgba(0,0,0,0.55)]"
-            >
-              <Play className="size-8 translate-x-[3px] fill-black" />
-            </motion.span>
-          </span>
-          <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 font-mono text-[11px] font-medium tabular-nums text-white backdrop-blur">
-            <Play className="size-3 fill-white" strokeWidth={1.5} />
-            Video abstract
-            {duration ? ` · ${formatDuration(duration)}` : null}
-          </span>
-        </button>
-      )}
-    </div>
   )
 }
