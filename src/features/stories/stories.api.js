@@ -79,6 +79,28 @@ export function storyStreamUrl(storyId, token) {
   return url.toString()
 }
 
+/**
+ * SSE stream for the viewer's story tray.
+ * Fires new_story instantly when a followed user posts, and story_removed on
+ * expiry / delete — no polling needed. Heartbeat every 25s.
+ * Returns a URL string (connect with EventSource).
+ */
+export function storyTrayStreamUrl(token) {
+  const url = new URL('/api/v1/stories/tray/stream', API_URL)
+  if (token) url.searchParams.set('token', token)
+  return url.toString()
+}
+
+/**
+ * Segmented view count breakdown for the story author.
+ * Returns { total, byCloseFriends, byFollowers, byPublic, byAuthor }.
+ * 403 when called by a non-author.
+ */
+export async function getStoryViewBreakdown(storyId) {
+  const response = await api.get(`/api/v1/stories/${storyId}/views/breakdown`)
+  return response.data
+}
+
 // ── Interactions ────────────────────────────────────────────────
 
 /** Record a view + watch duration. watchDurationMs: milliseconds watched. */
@@ -107,6 +129,19 @@ export async function voteOnStoryPoll(storyId, choice) {
 /** Delete own story (soft-delete, cleans R2 media). */
 export async function deleteStory(storyId) {
   await api.delete(`/api/v1/stories/${storyId}`)
+}
+
+// ── Sound on stories ──────────────────────────────────────────────────
+
+/** Attach or replace a sound on an existing story. payload: { soundId, clipStartSeconds, volume } */
+export async function attachSoundToStory(storyId, payload) {
+  const response = await api.patch(`/api/v1/stories/${storyId}/sound`, payload)
+  return response.data
+}
+
+/** Remove sound from a story. */
+export async function removeSoundFromStory(storyId) {
+  await api.delete(`/api/v1/stories/${storyId}/sound`)
 }
 
 /**

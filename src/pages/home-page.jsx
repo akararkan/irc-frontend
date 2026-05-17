@@ -4,6 +4,7 @@ import { CommunityComposer } from '@/components/app/community-composer'
 import { CommunityMasthead } from '@/components/app/community-masthead'
 import { ContactsRail } from '@/components/app/contacts-rail'
 import { ReelStrip } from '@/components/app/reel-strip'
+import { StoryBar } from '@/components/app/story-bar'
 import { UnifiedFeed } from '@/components/app/unified-feed'
 import { useAuth } from '@/features/auth/auth-context'
 
@@ -30,6 +31,9 @@ export function HomePage() {
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
       <div className="min-w-0 space-y-5">
         <CommunityMasthead />
+
+        {/* Story tray — above reels, below masthead */}
+        <StoryBar />
 
         <ReelStrip onCreateReel={handleCreateReel} />
 

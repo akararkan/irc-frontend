@@ -34,6 +34,8 @@ import { PostCard } from '@/components/app/post-card'
 import { QuestionFeedCard } from '@/components/app/question-feed-card'
 import { ResearchCard } from '@/components/app/research-card'
 import { RoleBadge } from '@/components/app/role-badge'
+import { StoryHighlightBar } from '@/components/app/story-highlight-bar'
+import { StoryViewer } from '@/components/app/story-viewer'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { cn } from '@/lib/utils'
 import { getUserByUsername } from '@/features/users/users.api'
@@ -54,6 +56,7 @@ import {
   getSavedResearch,
 } from '@/features/research/research.api'
 import { getMyQuestions } from '@/features/qna/qna.api'
+import { getStoriesByUser } from '@/features/stories/stories.api'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toaster'
 import { canPublishResearch } from '@/lib/roles'
@@ -492,10 +495,12 @@ export function ProfilePage() {
   const { username } = useParams()
   const toast = useToast()
   const { user: currentUser, isAuthenticated } = useAuth()
-  const [profile, setProfile] = useState(null)
-  const [status, setStatus] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [working, setWorking] = useState(false)
+  const [profile,        setProfile]        = useState(null)
+  const [status,         setStatus]         = useState(null)
+  const [loading,        setLoading]        = useState(true)
+  const [working,        setWorking]        = useState(false)
+  const [profileStories, setProfileStories] = useState([])
+  const [storyViewerOpen, setStoryViewerOpen] = useState(false)
 
   useEffect(() => {
     if (!username) return
@@ -535,6 +540,16 @@ export function ProfilePage() {
       cancelled = true
     }
   }, [username, isAuthenticated, currentUser?.id, toast])
+
+  // Fetch active stories for this profile so we can show the story ring on the avatar
+  useEffect(() => {
+    if (!profile?.id || !isAuthenticated) return
+    let cancelled = false
+    getStoriesByUser(profile.id)
+      .then((data) => { if (!cancelled) setProfileStories(Array.isArray(data) ? data : []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [profile?.id, isAuthenticated])
 
   const isMe = currentUser && profile && currentUser.id === profile.id
 
@@ -710,17 +725,33 @@ export function ProfilePage() {
         {/* ── 3-column hero: avatar | info | actions ──────────── */}
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
 
-          {/* Avatar — large square */}
+          {/* Avatar — large square, with story ring when active stories exist */}
           <motion.div
             initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 280, damping: 22, delay: 0.05 }}
             className="shrink-0"
           >
-            <UserAvatar
-              user={profile}
-              className="size-28 rounded-2xl text-[40px] sm:size-32"
-            />
+            {profileStories.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setStoryViewerOpen(true)}
+                className="block rounded-[18px] p-[3px] focus:outline-none"
+                style={{ background: 'linear-gradient(135deg, var(--brand), var(--gold), var(--accent-violet))' }}
+              >
+                <div className="rounded-2xl bg-card p-[2px]">
+                  <UserAvatar
+                    user={profile}
+                    className="size-28 rounded-2xl text-[40px] sm:size-32"
+                  />
+                </div>
+              </button>
+            ) : (
+              <UserAvatar
+                user={profile}
+                className="size-28 rounded-2xl text-[40px] sm:size-32"
+              />
+            )}
           </motion.div>
 
           {/* Info column */}
@@ -871,6 +902,9 @@ export function ProfilePage() {
         </div>
       </motion.section>
 
+      {/* ── Story highlights — shown when user has highlights or it's own profile ── */}
+      <StoryHighlightBar userId={profile.id} isMe={isMe} />
+
       <Tabs defaultValue={showsResearch ? 'research' : 'activity'}>
         <TabsList className="scrollbar-none flex w-full justify-start gap-0 overflow-x-auto rounded-none border-0 border-b-[0.5px] border-border bg-transparent p-0">
           {showsResearch ? (
@@ -967,6 +1001,17 @@ export function ProfilePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Story viewer — opens when avatar ring is clicked */}
+      <AnimatePresence>
+        {storyViewerOpen && profileStories.length > 0 ? (
+          <StoryViewer
+            groups={[{ author: profile, stories: profileStories, hasUnseen: true }]}
+            initialGroupIndex={0}
+            onClose={() => setStoryViewerOpen(false)}
+          />
+        ) : null}
+      </AnimatePresence>
     </div>
   )
 }
