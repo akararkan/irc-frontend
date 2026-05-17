@@ -17,6 +17,11 @@ export async function getUserById(id) {
   return response.data
 }
 
+export async function getUserByEmail(email) {
+  const response = await api.get(`/api/v1/users/email/${encodeURIComponent(email)}`)
+  return response.data
+}
+
 export async function searchUsers({ q = '', page = 0, size = 20, specialization, madhhab, tier } = {}) {
   const response = await api.get('/api/v1/users/search', {
     params: { q, page, size, specialization, madhhab, tier },
@@ -28,6 +33,11 @@ export async function searchUsers({ q = '', page = 0, size = 20, specialization,
 export async function updateProfile(payload) {
   const response = await api.patch('/api/v1/users/me', payload)
   return response.data
+}
+
+/** Soft-delete own account. */
+export async function deleteMyAccount() {
+  await api.delete('/api/v1/users/me')
 }
 
 // ── Public profile layer (UserProfile entity) ─────────────────────────────────
@@ -89,12 +99,22 @@ export async function addLink(payload) {
   return response.data
 }
 
+export async function editLink(linkId, payload) {
+  const response = await api.patch(`/api/v1/users/me/links/${linkId}`, payload)
+  return response.data
+}
+
 export async function deleteLink(linkId) {
   await api.delete(`/api/v1/users/me/links/${linkId}`)
 }
 
 export async function addContact(payload) {
   const response = await api.post('/api/v1/users/me/contacts', payload)
+  return response.data
+}
+
+export async function editContact(contactId, payload) {
+  const response = await api.patch(`/api/v1/users/me/contacts/${contactId}`, payload)
   return response.data
 }
 
@@ -113,4 +133,41 @@ export async function applyForVerification(payload) {
 export async function getMyVerificationStatus() {
   const response = await api.get('/api/v1/verification/my-status')
   return response.data
+}
+
+// ── Admin: verification queue ─────────────────────────────────────────────────
+
+export async function getVerificationQueue({ status = 'PENDING', page = 0, size = 20 } = {}) {
+  const response = await api.get('/api/v1/admin/verification/queue', {
+    params: { status, page, size },
+  })
+  return response.data
+}
+
+export async function approveVerification(applicationId, { reviewerNote } = {}) {
+  const response = await api.post(`/api/v1/admin/verification/${applicationId}/approve`, { reviewerNote })
+  return response.data
+}
+
+export async function rejectVerification(applicationId, { reviewerNote } = {}) {
+  const response = await api.post(`/api/v1/admin/verification/${applicationId}/reject`, { reviewerNote })
+  return response.data
+}
+
+// ── Close friends ─────────────────────────────────────────────────────────────
+
+export async function getCloseFriends({ page = 0, size = 20 } = {}) {
+  const response = await api.get('/api/v1/users/me/close-friends', {
+    params: { page, size },
+  })
+  return response.data
+}
+
+export async function addCloseFriend(userId) {
+  const response = await api.post(`/api/v1/users/me/close-friends/${userId}`)
+  return response.data
+}
+
+export async function removeCloseFriend(userId) {
+  await api.delete(`/api/v1/users/me/close-friends/${userId}`)
 }

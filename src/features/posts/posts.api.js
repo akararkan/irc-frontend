@@ -78,6 +78,11 @@ export async function getFollowingReels({ page = 0, size = 10 } = {}) {
   return response.data
 }
 
+export async function getFollowingFeed({ page = 0, size = 20 } = {}) {
+  const response = await api.get('/api/v1/posts/feed/following', { params: { page, size } })
+  return response.data
+}
+
 // ── Read ───────────────────────────────────────────────────────
 
 export async function getPost(postId) {
@@ -283,6 +288,20 @@ export async function renamePostCollection(oldName, newName) {
   await api.patch('/api/v1/posts/me/saved/collections', null, {
     params: { oldName, newName },
   })
+}
+
+// ── Sound on post/reel ─────────────────────────────────────────
+//
+// payload: { soundId, clipStartSeconds, volume }
+// Use PATCH to both attach (first time) and replace (already has one).
+
+export async function attachSoundToPost(postId, payload) {
+  const response = await api.patch(`/api/v1/posts/${postId}/sound`, payload)
+  return response.data
+}
+
+export async function removeSoundFromPost(postId) {
+  await api.delete(`/api/v1/posts/${postId}/sound`)
 }
 
 // ══════════════════════════════════════════════════════════════

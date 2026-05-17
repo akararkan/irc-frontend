@@ -2,6 +2,13 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* Newsreader — editorial serif (variable font: weight 300–800, optical sizes 6–72) */
+@import url("https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..800;1,6..72,300..800&display=swap");
+/* Noto Naskh Arabic — scholarly naskh for Arabic/Kurdish body text */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap");
+/* Amiri — calligraphic naskh for Arabic headlines */
+@import url("https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&display=swap");
+
 @custom-variant dark (&:is(.dark *));
 
 /* ───────────────────────────────────────────────────────────
@@ -84,6 +91,16 @@
   --color-mute-fg: var(--mute-fg);
   --color-purple-bg: var(--purple-bg);
   --color-purple-fg: var(--purple-fg);
+
+  /* Extended badge palette — badge system (accountType + verificationTier) */
+  --color-teal-bg:   var(--teal-bg);
+  --color-teal-fg:   var(--teal-fg);
+  --color-coral-bg:  var(--coral-bg);
+  --color-coral-fg:  var(--coral-fg);
+  --color-blue-bg:   var(--blue-bg);
+  --color-blue-fg:   var(--blue-fg);
+  --color-indigo-bg: var(--indigo-bg);
+  --color-indigo-fg: var(--indigo-fg);
 
   /* Radii — spec calls for 4 / 6 / 10 / 14 / pill */
   --radius-sm: calc(var(--radius) * 0.4);   /* ≈ 4px  */
@@ -170,6 +187,23 @@
   --purple-bg:#ECEAFA;  --purple-fg:#3C3489;
   --love-bg:  #FFE4E6;  --love-fg:  #BE123C;  /* heart-liked state — rose-100 / rose-700 */
 
+  /* Extended badge + role palette --------------------------------- */
+  --teal-bg:   #CEEEE6;  --teal-fg:   #086B52;  /* Verified Scholar (ti-certificate) */
+  --coral-bg:  #FBDFD8;  --coral-fg:  #993420;  /* Media account  (ti-broadcast) */
+  --blue-bg:   #DAE8F8;  --blue-fg:   #1249A0;  /* Institution    (ti-building) */
+  --indigo-bg: #E6E4F8;  --indigo-fg: #3830A8;  /* Editor role    (book-open) */
+
+  /* Elevation shadow tokens ---------------------------------------- */
+  --shadow-xs:   0 1px 2px -1px color-mix(in oklch, var(--foreground) 10%, transparent);
+  --shadow-sm:   0 1px 3px -1px color-mix(in oklch, var(--foreground) 12%, transparent),
+                 0 1px 2px -1px color-mix(in oklch, var(--foreground) 8%, transparent);
+  --shadow-md:   0 4px 12px -4px color-mix(in oklch, var(--foreground) 16%, transparent),
+                 0 2px 4px -2px  color-mix(in oklch, var(--foreground) 10%, transparent);
+  --shadow-lg:   0 10px 28px -8px color-mix(in oklch, var(--foreground) 18%, transparent),
+                 0 4px 8px -4px   color-mix(in oklch, var(--foreground) 10%, transparent);
+  --shadow-xl:   0 20px 48px -12px color-mix(in oklch, var(--foreground) 22%, transparent),
+                 0 8px 16px -8px   color-mix(in oklch, var(--foreground) 12%, transparent);
+
   /* In-content accents — kept for back-compat with components */
   --accent-rust:   #B57417;
   --accent-sage:   #0F6E56;
@@ -251,6 +285,19 @@
   --mute-bg: rgba(235, 224, 200, 0.10); --mute-fg: #DED8C8;
   --purple-bg: rgba(160, 152, 220, 0.22);--purple-fg: #C8C0F0;
   --love-bg: rgba(244, 63, 94, 0.20);   --love-fg: #FDAFC0;
+
+  /* Dark extended badge palette */
+  --teal-bg:   rgba(14, 140, 110, 0.22);  --teal-fg:   #76E0C0;
+  --coral-bg:  rgba(200, 80,  50, 0.22);  --coral-fg:  #F0B8A0;
+  --blue-bg:   rgba(60,  120, 220, 0.22); --blue-fg:   #A8C8F8;
+  --indigo-bg: rgba(100, 90,  230, 0.22); --indigo-fg: #C0B8F8;
+
+  /* Dark elevation — ambient light on warm charcoal */
+  --shadow-xs:  0 1px 2px -1px rgba(0,0,0,0.28);
+  --shadow-sm:  0 1px 3px -1px rgba(0,0,0,0.32), 0 1px 2px -1px rgba(0,0,0,0.24);
+  --shadow-md:  0 4px 12px -4px rgba(0,0,0,0.40), 0 2px 4px -2px rgba(0,0,0,0.28);
+  --shadow-lg:  0 10px 28px -8px rgba(0,0,0,0.48), 0 4px 8px -4px rgba(0,0,0,0.32);
+  --shadow-xl:  0 20px 48px -12px rgba(0,0,0,0.56), 0 8px 16px -8px rgba(0,0,0,0.36);
 
   --accent-rust:   #E89060;
   --accent-sage:   #5BBA9C;
@@ -541,22 +588,52 @@
     font-feature-settings: "tnum" 1;
   }
 
-  ::selection {
-    background-color: var(--brand);
-    color: var(--brand-foreground);
+  /* Headings — optical sizing so small/large text renders at its best */
+  h1, h2, h3, h4, h5, h6 {
+    font-optical-sizing: auto;
+    text-wrap: balance;
   }
 
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  /* Long-form paragraphs avoid orphan single words at line breaks */
+  p { text-wrap: pretty; }
+
+  ::selection {
+    background-color: color-mix(in oklch, var(--brand) 28%, transparent);
+    color: inherit;
+  }
+
+  /* Elegant 8px scrollbar — thin enough to feel modern */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: color-mix(in oklch, var(--foreground) 14%, transparent);
+    background: color-mix(in oklch, var(--foreground) 12%, transparent);
     border: 2px solid transparent;
     background-clip: padding-box;
     border-radius: 999px;
+    transition: background-color 180ms;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in oklch, var(--foreground) 24%, transparent);
+    background: color-mix(in oklch, var(--foreground) 22%, transparent);
     background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-corner { background: transparent; }
+
+  /* Focus rings — brand-coloured, offset for breathing room */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: inherit;
+  }
+
+  /* Input / textarea — inset ring instead of outline (feels more native) */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 1px var(--ring),
+      0 0 0 3px color-mix(in oklch, var(--ring) 18%, transparent);
+    transition: box-shadow 150ms cubic-bezier(0.22, 0.61, 0.36, 1);
   }
 }
 
@@ -568,8 +645,10 @@
   /* Frosted top-chrome — sticky topbar over warm cream. */
   .glass-panel {
     background: color-mix(in oklch, var(--background) 85%, transparent);
-    backdrop-filter: saturate(180%) blur(10px);
-    -webkit-backdrop-filter: saturate(180%) blur(10px);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    /* Subtle inner light line at top edge */
+    box-shadow: inset 0 1px 0 color-mix(in oklch, var(--paper) 60%, transparent);
   }
 
   /* Hairline divider — spec's 0.5px warm line under chrome. */
@@ -594,11 +673,12 @@
     height: 1px;
     background: linear-gradient(
       90deg,
-      transparent,
-      color-mix(in oklch, var(--brand) 60%, transparent),
-      color-mix(in oklch, var(--gold) 70%, transparent),
-      color-mix(in oklch, var(--accent-violet) 50%, transparent),
-      transparent
+      transparent 0%,
+      color-mix(in oklch, var(--brand) 45%, transparent) 20%,
+      color-mix(in oklch, var(--gold) 65%, transparent) 42%,
+      color-mix(in oklch, var(--accent-violet) 55%, transparent) 64%,
+      color-mix(in oklch, var(--teal-fg) 40%, transparent) 82%,
+      transparent 100%
     );
     pointer-events: none;
   }
@@ -719,7 +799,8 @@
     font-feature-settings: "tnum";
     transition: background-color 180ms, border-color 180ms, color 180ms;
   }
-  .rx:hover { background: var(--secondary); }
+  .rx:hover    { background: var(--secondary); }
+  .rx:active   { transform: translateY(1px) scale(0.98); transition-duration: 80ms; }
   .rx.is-on {
     background: var(--love-bg);
     border-color: color-mix(in oklab, var(--love-fg) 38%, transparent);
@@ -790,6 +871,210 @@
   .bg-islamic-gradient-soft { background-color: var(--muted); }
   .text-gradient-islamic { color: var(--foreground); }
   .ring-islamic { background: var(--border); }
+
+  /* ── Extended pill variants ──────────────────────────────────── */
+  .pill-teal   { background: var(--teal-bg);   color: var(--teal-fg); }
+  .pill-coral  { background: var(--coral-bg);  color: var(--coral-fg); }
+  .pill-blue   { background: var(--blue-bg);   color: var(--blue-fg); }
+  .pill-indigo { background: var(--indigo-bg); color: var(--indigo-fg); }
+  .pill-gold   { background: var(--gold-soft); color: var(--gold); }
+
+  /* ── Badge chips — accountType + verificationTier display ───────
+     Same semantic structure as pills but designed for inline use
+     next to display names. Always pair with an icon.             */
+  .badge-gold   { background: var(--gold-soft); color: var(--gold);   border: 0.5px solid color-mix(in oklch, var(--gold) 30%, transparent); }
+  .badge-teal   { background: var(--teal-bg);   color: var(--teal-fg); border: 0.5px solid color-mix(in oklch, var(--teal-fg) 25%, transparent); }
+  .badge-purple { background: var(--purple-bg); color: var(--purple-fg); border: 0.5px solid color-mix(in oklch, var(--purple-fg) 25%, transparent); }
+  .badge-blue   { background: var(--blue-bg);   color: var(--blue-fg);  border: 0.5px solid color-mix(in oklch, var(--blue-fg) 25%, transparent); }
+  .badge-coral  { background: var(--coral-bg);  color: var(--coral-fg); border: 0.5px solid color-mix(in oklch, var(--coral-fg) 25%, transparent); }
+  .badge-gray   { background: var(--mute-bg);   color: var(--mute-fg);  border: 0.5px solid color-mix(in oklch, var(--mute-fg) 20%, transparent); }
+
+  /* ── Elevation system — 5 layers of depth ───────────────────────
+     Use these instead of ad-hoc shadow-* utilities. Each level adds
+     both an ambient shadow (large, soft) and a key shadow (tight, darker)
+     for a physically grounded depth model.                         */
+  .elevation-0 { box-shadow: none; }
+  .elevation-1 { box-shadow: var(--shadow-xs); }
+  .elevation-2 { box-shadow: var(--shadow-sm); }
+  .elevation-3 { box-shadow: var(--shadow-md); }
+  .elevation-4 { box-shadow: var(--shadow-lg); }
+  .elevation-5 { box-shadow: var(--shadow-xl); }
+
+  /* ── Glow utilities — brand / semantic highlights ────────────────
+     Pair with elevation-1 for a "selected" or "active" feel.      */
+  .glow-brand {
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--brand) 22%, transparent),
+                var(--shadow-sm);
+  }
+  .glow-gold {
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--gold) 22%, transparent),
+                var(--shadow-sm);
+  }
+  .glow-danger {
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive) 22%, transparent),
+                var(--shadow-sm);
+  }
+
+  /* ── Gradient text — brand moments ──────────────────────────────
+     Used for hero copy and verified account display names.         */
+  .text-gradient-brand {
+    background: linear-gradient(135deg, var(--brand), var(--brand-muted));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .text-gradient-gold {
+    background: linear-gradient(135deg, var(--gold), var(--gold-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .text-gradient-scholar {
+    background: linear-gradient(135deg, var(--teal-fg), var(--brand));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Shimmer — skeleton loading ──────────────────────────────────
+     Apply to any loading placeholder. Uses mask-based gradient sweep
+     for hardware-accelerated shimmer without background-position hack. */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+    background: var(--muted);
+  }
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in oklch, var(--card) 60%, transparent) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer-sweep 1.6s ease-in-out infinite;
+  }
+
+  /* ── Surface layers ──────────────────────────────────────────────
+     Semantic surface tokens that communicate hierarchy without colour. */
+  .surface-sunken  { background: var(--muted); }
+  .surface-base    { background: var(--background); }
+  .surface-card    { background: var(--card); border: 0.5px solid var(--border); }
+  .surface-raised  { background: var(--card); box-shadow: var(--shadow-sm); border: 0.5px solid var(--border); }
+  .surface-overlay { background: var(--popover); box-shadow: var(--shadow-lg); border: 0.5px solid var(--border); }
+
+  /* ── Glass panel variants ────────────────────────────────────────
+     Stronger variant for modals / sheets over light content.       */
+  .glass-panel-strong {
+    background: color-mix(in oklch, var(--background) 90%, transparent);
+    backdrop-filter: saturate(200%) blur(20px);
+    -webkit-backdrop-filter: saturate(200%) blur(20px);
+  }
+  .glass-card {
+    background: color-mix(in oklch, var(--card) 80%, transparent);
+    backdrop-filter: saturate(160%) blur(12px);
+    -webkit-backdrop-filter: saturate(160%) blur(12px);
+    border: 0.5px solid color-mix(in oklch, var(--foreground) 8%, transparent);
+  }
+
+  /* ── Card interactive states ─────────────────────────────────────
+     Upgrade from the basic .card-hover to a proper lift interaction. */
+  .card-lift {
+    transition: transform 200ms cubic-bezier(0.22, 0.61, 0.36, 1),
+                box-shadow 200ms cubic-bezier(0.22, 0.61, 0.36, 1),
+                border-color 200ms ease;
+  }
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: color-mix(in oklch, var(--brand) 20%, var(--border));
+  }
+  .card-lift:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-xs);
+    transition-duration: 80ms;
+  }
+
+  /* ── Press state ─────────────────────────────────────────────────
+     Tactile press feedback for any interactive element.            */
+  .press-active:active { transform: translateY(1px) scale(0.99); }
+
+  /* ── Animate utilities ───────────────────────────────────────────
+     Named animation helpers for page and component transitions.    */
+  .animate-fade-in    { animation: fade-in    250ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .animate-fade-out   { animation: fade-out   200ms cubic-bezier(0.55, 0, 1, 0.45) both; }
+  .animate-slide-up   { animation: slide-up   320ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .animate-slide-down { animation: slide-down 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .animate-scale-in   { animation: scale-in   220ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .animate-float      { animation: float      3.5s ease-in-out infinite; }
+  .animate-pulse-soft { animation: pulse-soft 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+  /* ── Live indicator dot ──────────────────────────────────────────
+     Pulsing green dot for live sessions / active scholars.         */
+  .live-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 9999px;
+    background: var(--ok-fg);
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--ok-fg) 40%, transparent);
+    animation: live-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* ── Waveform bars (sound scrubber) ──────────────────────────────
+     Used by the SoundPicker / story sound overlay.                 */
+  .waveform-bar {
+    display: inline-block;
+    width: 3px;
+    border-radius: 9999px;
+    background: var(--brand);
+    opacity: 0.5;
+    transition: height 80ms ease, opacity 80ms ease;
+  }
+  .waveform-bar.active { opacity: 1; }
+  .waveform-bar.played { opacity: 0.35; }
+
+  /* ── Story text overlay chips ────────────────────────────────────
+     Semi-transparent chips used on story text overlays.            */
+  .story-chip-light {
+    background: rgba(255, 255, 255, 0.85);
+    color: #131316;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .story-chip-dark {
+    background: rgba(0, 0, 0, 0.72);
+    color: #FFFFFF;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .story-chip-brand {
+    background: color-mix(in oklch, var(--brand) 88%, transparent);
+    color: var(--brand-foreground);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  /* ── Prose enhancement — long-form reading surfaces ─────────────
+     Applied to research abstracts, fatwa bodies, long post text.   */
+  .prose-body {
+    font-size: 16px;
+    line-height: 1.75;
+    font-feature-settings: "kern" 1, "liga" 1, "onum" 1;
+    color: var(--ink-2);
+  }
+  .prose-body > p + p { margin-top: 1.2em; }
+
+  /* ── Inset panel — card within card ─────────────────────────────
+     For nested content: answer inside a question, quote inside a post. */
+  .inset-panel {
+    background: var(--muted);
+    border-radius: calc(var(--radius) - 2px);
+    border: 0.5px solid var(--border);
+    padding: 0.875rem 1rem;
+  }
 }
 
 /* TikTok-style shimmer used by the reels loading skeleton. The mask
@@ -798,6 +1083,60 @@
   0%   { background-position: -150% 0; }
   100% { background-position:  150% 0; }
 }
+
+/* .shimmer pseudo-element sweep — hardware-accelerated via transform */
+@keyframes shimmer-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX( 100%); }
+}
+
+/* Fade */
+@keyframes fade-in  { from { opacity: 0; }                 to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; }                 to { opacity: 0; } }
+
+/* Slide up — feed items, toasts, bottom-sheets */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Scale in — dialogs, popovers, dropdown menus */
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Float — ambient motion for empty-state illustrations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+/* Soft pulse — loading indicators, skeleton pulse alternative */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/* Live indicator — radial pulse on the green dot */
+@keyframes live-pulse {
+  0%  { box-shadow: 0 0 0 0 color-mix(in oklch, var(--ok-fg) 45%, transparent); }
+  70% { box-shadow: 0 0 0 8px transparent; }
+  100%{ box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Bounce-in — notification badges, new-message indicators */
+@keyframes bounce-in {
+  0%   { transform: scale(0);    opacity: 0; }
+  55%  { transform: scale(1.18); opacity: 1; }
+  75%  { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+.animate-bounce-in { animation: bounce-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 
 /* Live counter flash — applied to a number whose value just changed
    via SSE so the user's eye registers the realtime update without
@@ -832,6 +1171,22 @@
    only the colour change. */
 :where([data-reduced-motion="true"]) .live-flash {
   animation: none;
+}
+/* Kill all new animations under reduced-motion too */
+:where([data-reduced-motion="true"]) .shimmer::after,
+:where([data-reduced-motion="true"]) .live-dot,
+:where([data-reduced-motion="true"]) .animate-float,
+:where([data-reduced-motion="true"]) .animate-bounce-in {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after, .live-dot, .animate-float,
+  .animate-slide-up, .animate-slide-down, .animate-scale-in,
+  .animate-fade-in, .animate-bounce-in, .animate-pulse-soft {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────
