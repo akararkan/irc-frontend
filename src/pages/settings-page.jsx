@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   AtSign,
+  BadgeCheck,
   BellRing,
+  CheckCircle2,
+  Clock,
   Eye,
   EyeOff,
-  KeyRound,
+  GraduationCap,
+  ImagePlus,
   Link2,
   Loader2,
   Lock,
@@ -20,6 +24,7 @@ import {
   Upload,
   User,
   Users,
+  XCircle,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -41,21 +46,22 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { EmptyState } from '@/components/app/empty-state'
-import { PageHeader } from '@/components/app/page-header'
 import { UserAvatar } from '@/components/app/user-avatar'
-import { ActivityPanel } from '@/pages/activity-page'
 import { useAuth } from '@/features/auth/auth-context'
 import {
   addContact,
   addLink,
+  applyForVerification,
   deleteContact,
+  deleteCoverImage,
   deleteLink,
   deleteProfileImage,
+  getMyVerificationStatus,
   updateProfile,
   updateUserProfile,
+  uploadCoverImage,
   uploadProfileImage,
 } from '@/features/users/users.api'
 import {
@@ -67,6 +73,7 @@ import {
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { extractApiMessage, friendlyApiMessage } from '@/lib/api-error'
+import { getAvatarUrl, getCoverUrl } from '@/lib/format'
 
 const LINK_PLATFORMS = [
   'PERSONAL_WEBSITE',
@@ -94,13 +101,23 @@ const CONTACT_PLATFORMS = [
   'OTHER',
 ]
 
+const CONTENT_LANGUAGES = [
+  { value: 'EN', label: 'English' },
+  { value: 'AR', label: 'Arabic (العربية)' },
+  { value: 'CKB', label: 'Sorani Kurdish (کوردی)' },
+]
+
+const VERIFICATION_TIERS = [
+  { value: 'STUDENT_OF_KNOWLEDGE', label: 'Student of Knowledge', description: 'Contributes to Q&A. Cannot issue fatwas.' },
+  { value: 'SCHOLAR', label: 'Scholar', description: 'Can draft fatwas and review research submissions.' },
+  { value: 'SENIOR_SCHOLAR', label: 'Senior Scholar', description: 'Full fatwa authority and research editorial rights.' },
+]
+
 function prettyPlatform(value) {
   return value.replace('_', ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())
 }
 
 // ─── Shared form-row layout ─────────────────────────────────────────
-// Left col: mono uppercase label + italic serif hint.
-// Right col: the input/control.
 function FieldRow({ label, hint, hintMono, children, noBorder = false }) {
   return (
     <div
@@ -125,6 +142,7 @@ function FieldRow({ label, hint, hintMono, children, noBorder = false }) {
   )
 }
 
+// ─── Profile form (identity + public profile layer) ─────────────────
 function ProfileForm() {
   const { user, refreshCurrentUser } = useAuth()
   const toast = useToast()
@@ -132,24 +150,31 @@ function ProfileForm() {
     fname: '',
     lname: '',
     username: '',
+    displayName: '',
     location: '',
     selfDescriber: '',
     profileBio: '',
   })
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [uploadingCover, setUploadingCover] = useState(false)
+
+  function buildForm(u) {
+    return {
+      fname: u.fname ?? '',
+      lname: u.lname ?? '',
+      username: u.username ?? '',
+      displayName: u.profile?.displayName ?? '',
+      location: u.profile?.location ?? u.location ?? '',
+      selfDescriber: u.profile?.selfDescriber ?? u.selfDescriber ?? '',
+      profileBio: u.profile?.profileBio ?? u.profileBio ?? '',
+    }
+  }
 
   useEffect(() => {
     if (!user) return
-    setForm({
-      fname: user.fname ?? '',
-      lname: user.lname ?? '',
-      username: user.username ?? '',
-      location: user.profile?.location ?? user.location ?? '',
-      selfDescriber: user.profile?.selfDescriber ?? user.selfDescriber ?? '',
-      profileBio: user.profile?.profileBio ?? user.profileBio ?? '',
-    })
+    setForm(buildForm(user))
     setDirty(false)
   }, [user])
 
@@ -161,14 +186,7 @@ function ProfileForm() {
 
   function handleDiscard() {
     if (!user) return
-    setForm({
-      fname: user.fname ?? '',
-      lname: user.lname ?? '',
-      username: user.username ?? '',
-      location: user.profile?.location ?? user.location ?? '',
-      selfDescriber: user.profile?.selfDescriber ?? user.selfDescriber ?? '',
-      profileBio: user.profile?.profileBio ?? user.profileBio ?? '',
-    })
+    setForm(buildForm(user))
     setDirty(false)
   }
 
@@ -176,10 +194,14 @@ function ProfileForm() {
     event.preventDefault()
     setSaving(true)
     try {
-      // Auth-layer fields go to /me; profile-layer fields go to /me/profile
       await Promise.all([
         updateProfile({ fname: form.fname, lname: form.lname, username: form.username }),
-        updateUserProfile({ location: form.location, selfDescriber: form.selfDescriber, profileBio: form.profileBio }),
+        updateUserProfile({
+          displayName: form.displayName || null,
+          location: form.location,
+          selfDescriber: form.selfDescriber,
+          profileBio: form.profileBio,
+        }),
       ])
       await refreshCurrentUser()
       toast.success('Profile updated.')
@@ -194,7 +216,7 @@ function ProfileForm() {
   async function handleAvatarUpload(event) {
     const file = event.target.files?.[0]
     if (!file) return
-    setUploading(true)
+    setUploadingAvatar(true)
     try {
       await uploadProfileImage(file)
       await refreshCurrentUser()
@@ -202,13 +224,13 @@ function ProfileForm() {
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not upload photo.'))
     } finally {
-      setUploading(false)
+      setUploadingAvatar(false)
       event.target.value = ''
     }
   }
 
   async function handleAvatarRemove() {
-    setUploading(true)
+    setUploadingAvatar(true)
     try {
       await deleteProfileImage()
       await refreshCurrentUser()
@@ -216,15 +238,46 @@ function ProfileForm() {
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not remove photo.'))
     } finally {
-      setUploading(false)
+      setUploadingAvatar(false)
+    }
+  }
+
+  async function handleCoverUpload(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setUploadingCover(true)
+    try {
+      await uploadCoverImage(file)
+      await refreshCurrentUser()
+      toast.success('Cover image updated.')
+    } catch (error) {
+      toast.error(extractApiMessage(error, 'Could not upload cover image.'))
+    } finally {
+      setUploadingCover(false)
+      event.target.value = ''
+    }
+  }
+
+  async function handleCoverRemove() {
+    setUploadingCover(true)
+    try {
+      await deleteCoverImage()
+      await refreshCurrentUser()
+      toast.success('Cover image removed.')
+    } catch (error) {
+      toast.error(extractApiMessage(error, 'Could not remove cover image.'))
+    } finally {
+      setUploadingCover(false)
     }
   }
 
   if (!user) return null
 
+  const hasCover = Boolean(getCoverUrl(user))
+  const hasAvatar = Boolean(getAvatarUrl(user))
+
   return (
     <div>
-      {/* Breadcrumb */}
       <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">
         Account · Profile
       </p>
@@ -232,35 +285,35 @@ function ProfileForm() {
         Your public profile.
       </h2>
       <p className="mt-2 font-display text-[14px] italic leading-[1.6] text-ink-3">
-        All fields on /users/me — name, username, location, bio, self-describer.
+        Name, avatar, cover image, bio, and public tagline.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8">
-        {/* PHOTO */}
-        <FieldRow label="Photo" hint="/users/me/profile-image">
+        {/* AVATAR */}
+        <FieldRow label="Photo" hint="Shown everywhere next to your name.">
           <div className="flex items-center gap-4">
             <UserAvatar user={user} className="size-[72px] rounded-2xl text-[24px]" />
             <label
               className={cn(
                 'inline-flex cursor-pointer items-center gap-1.5 rounded-xl border-[0.5px] border-border px-4 py-2.5 text-[13px] font-medium text-ink transition-colors hover:bg-secondary',
-                uploading && 'cursor-not-allowed opacity-50',
+                uploadingAvatar && 'cursor-not-allowed opacity-50',
               )}
             >
               <Upload className="size-3.5" strokeWidth={1.8} />
-              {uploading ? 'Uploading…' : 'Upload'}
+              {uploadingAvatar ? 'Uploading…' : 'Upload'}
               <input
                 type="file"
                 accept="image/*"
                 className="sr-only"
                 onChange={handleAvatarUpload}
-                disabled={uploading}
+                disabled={uploadingAvatar}
               />
             </label>
-            {(user.profile?.avatarUrl ?? user.profileImage) ? (
+            {hasAvatar ? (
               <button
                 type="button"
                 onClick={handleAvatarRemove}
-                disabled={uploading}
+                disabled={uploadingAvatar}
                 className="text-[13px] font-medium text-ink-3 transition-colors hover:text-ink disabled:opacity-50"
               >
                 Remove
@@ -269,8 +322,67 @@ function ProfileForm() {
           </div>
         </FieldRow>
 
+        {/* COVER IMAGE */}
+        <FieldRow label="Cover image" hint="Banner shown at the top of your profile page.">
+          <div className="space-y-3">
+            {hasCover ? (
+              <div className="relative overflow-hidden rounded-xl border-[0.5px] border-border">
+                <img
+                  src={getCoverUrl(user)}
+                  alt="Cover"
+                  className="h-24 w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-24 items-center justify-center rounded-xl border-[0.5px] border-dashed border-border bg-muted/30">
+                <span className="text-[12px] text-ink-3">No cover image</span>
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              <label
+                className={cn(
+                  'inline-flex cursor-pointer items-center gap-1.5 rounded-xl border-[0.5px] border-border px-4 py-2.5 text-[13px] font-medium text-ink transition-colors hover:bg-secondary',
+                  uploadingCover && 'cursor-not-allowed opacity-50',
+                )}
+              >
+                <ImagePlus className="size-3.5" strokeWidth={1.8} />
+                {uploadingCover ? 'Uploading…' : hasCover ? 'Replace' : 'Upload'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleCoverUpload}
+                  disabled={uploadingCover}
+                />
+              </label>
+              {hasCover ? (
+                <button
+                  type="button"
+                  onClick={handleCoverRemove}
+                  disabled={uploadingCover}
+                  className="text-[13px] font-medium text-ink-3 transition-colors hover:text-ink disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </FieldRow>
+
+        {/* DISPLAY NAME */}
+        <FieldRow label="Display name" hint="Public name shown on your profile. For organisations, use the org name.">
+          <Input
+            id="displayName"
+            name="displayName"
+            value={form.displayName}
+            onChange={handleChange}
+            placeholder={`${form.fname} ${form.lname}`.trim() || 'Your display name'}
+            className="rounded-xl"
+          />
+        </FieldRow>
+
         {/* NAME */}
-        <FieldRow label="Name" hint="First and last.">
+        <FieldRow label="Name" hint="First and last — used in emails and auth.">
           <div className="flex gap-3">
             <Input
               id="fname"
@@ -309,13 +421,13 @@ function ProfileForm() {
         </FieldRow>
 
         {/* SELF-DESCRIBER */}
-        <FieldRow label="Self–Describer" hint="One line." hintMono="selfDescriber">
+        <FieldRow label="Tagline" hint="One-line description shown under your name.">
           <Input
             id="selfDescriber"
             name="selfDescriber"
             value={form.selfDescriber}
             onChange={handleChange}
-            placeholder="One sentence about your work."
+            placeholder="Researcher in Uṣūl al-Fiqh and Comparative Fiqh"
             className="rounded-xl"
           />
         </FieldRow>
@@ -327,13 +439,13 @@ function ProfileForm() {
             name="location"
             value={form.location}
             onChange={handleChange}
-            placeholder="Palo Alto"
+            placeholder="Sulaymaniyah, Kurdistan Region"
             className="rounded-xl"
           />
         </FieldRow>
 
         {/* BIO */}
-        <FieldRow label="Bio" hintMono="profileBio" hint="— longer description." noBorder>
+        <FieldRow label="Bio" hint="Longer description shown on your profile page." noBorder>
           <Textarea
             id="profileBio"
             name="profileBio"
@@ -375,6 +487,460 @@ function ProfileForm() {
   )
 }
 
+// ─── Academic / institutional profile panel ─────────────────────────
+function AcademicPanel() {
+  const { user, refreshCurrentUser } = useAuth()
+  const toast = useToast()
+  const [form, setForm] = useState({
+    academicTitle: '',
+    institutionName: '',
+    websiteUrl: '',
+    contentLanguage: 'EN',
+    isForHire: false,
+  })
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  function buildForm(u) {
+    return {
+      academicTitle: u.profile?.academicTitle ?? '',
+      institutionName: u.profile?.institutionName ?? '',
+      websiteUrl: u.profile?.websiteUrl ?? u.website ?? '',
+      contentLanguage: u.profile?.contentLanguage ?? 'EN',
+      isForHire: u.profile?.isForHire ?? false,
+    }
+  }
+
+  useEffect(() => {
+    if (!user) return
+    setForm(buildForm(user))
+    setDirty(false)
+  }, [user])
+
+  function handleChange(event) {
+    const { name, value, type, checked } = event.target
+    setForm((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }))
+    setDirty(true)
+  }
+
+  function handleDiscard() {
+    if (!user) return
+    setForm(buildForm(user))
+    setDirty(false)
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+    setSaving(true)
+    try {
+      await updateUserProfile({
+        academicTitle: form.academicTitle || null,
+        institutionName: form.institutionName || null,
+        websiteUrl: form.websiteUrl || null,
+        contentLanguage: form.contentLanguage,
+        isForHire: form.isForHire,
+      })
+      await refreshCurrentUser()
+      toast.success('Academic profile updated.')
+      setDirty(false)
+    } catch (error) {
+      toast.error(extractApiMessage(error, 'Could not update academic profile.'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!user) return null
+
+  return (
+    <div>
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+        Account · Academic
+      </p>
+      <h2 className="font-display text-[32px] font-semibold leading-[1.05] tracking-[-0.018em] text-ink sm:text-[38px]">
+        Academic profile.
+      </h2>
+      <p className="mt-2 font-display text-[14px] italic leading-[1.6] text-ink-3">
+        Institution, title, website, and content language.
+      </p>
+
+      <form onSubmit={handleSubmit} className="mt-8">
+        {/* ACADEMIC TITLE */}
+        <FieldRow label="Academic title" hint="Your formal title at your institution.">
+          <Input
+            id="academicTitle"
+            name="academicTitle"
+            value={form.academicTitle}
+            onChange={handleChange}
+            placeholder="Professor of Islamic Jurisprudence"
+            className="rounded-xl"
+          />
+        </FieldRow>
+
+        {/* INSTITUTION */}
+        <FieldRow label="Institution" hint="University, research center, or Islamic institution.">
+          <Input
+            id="institutionName"
+            name="institutionName"
+            value={form.institutionName}
+            onChange={handleChange}
+            placeholder="University of Sulaymaniyah"
+            className="rounded-xl"
+          />
+        </FieldRow>
+
+        {/* WEBSITE */}
+        <FieldRow label="Website" hint="Personal or institutional website.">
+          <Input
+            id="websiteUrl"
+            name="websiteUrl"
+            type="url"
+            value={form.websiteUrl}
+            onChange={handleChange}
+            placeholder="https://example.com"
+            className="rounded-xl"
+          />
+        </FieldRow>
+
+        {/* CONTENT LANGUAGE */}
+        <FieldRow label="Content language" hint="The primary language you publish in.">
+          <div className="flex flex-wrap gap-2">
+            {CONTENT_LANGUAGES.map((lang) => (
+              <label
+                key={lang.value}
+                className={cn(
+                  'inline-flex cursor-pointer items-center gap-2 rounded-xl border-[0.5px] px-4 py-2.5 text-[13px] font-medium transition-colors',
+                  form.contentLanguage === lang.value
+                    ? 'border-ink bg-ink text-paper'
+                    : 'border-border text-ink-2 hover:bg-secondary',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="contentLanguage"
+                  value={lang.value}
+                  checked={form.contentLanguage === lang.value}
+                  onChange={handleChange}
+                  className="sr-only"
+                />
+                {lang.label}
+              </label>
+            ))}
+          </div>
+        </FieldRow>
+
+        {/* IS FOR HIRE */}
+        <FieldRow label="Available for consultation" hint="Show a badge that you're open to lectures or consultations." noBorder>
+          <label className="inline-flex cursor-pointer items-center gap-3">
+            <div
+              role="switch"
+              aria-checked={form.isForHire}
+              onClick={() => {
+                setForm((f) => ({ ...f, isForHire: !f.isForHire }))
+                setDirty(true)
+              }}
+              className={cn(
+                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors',
+                form.isForHire
+                  ? 'bg-emerald-500/80 hover:bg-emerald-500'
+                  : 'bg-muted hover:bg-muted-foreground/20',
+              )}
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  'inline-block size-5 rounded-full bg-background shadow-sm transition-transform',
+                  form.isForHire ? 'translate-x-[22px]' : 'translate-x-[2px]',
+                )}
+              />
+            </div>
+            <span className="text-[13px] font-medium text-ink">
+              {form.isForHire ? 'Available for consultation' : 'Not currently available'}
+            </span>
+          </label>
+        </FieldRow>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 pt-8">
+          <button
+            type="button"
+            onClick={handleDiscard}
+            disabled={saving || !dirty}
+            className="rounded-xl border-[0.5px] border-border px-6 py-3 text-[14px] font-medium text-ink transition-colors hover:bg-secondary disabled:opacity-40"
+          >
+            Discard
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-xl border-[0.5px] border-ink bg-ink px-6 py-3 text-[14px] font-semibold text-paper transition-colors hover:bg-ink-2 disabled:opacity-50"
+          >
+            {saving ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin" />
+                Saving…
+              </span>
+            ) : (
+              'Save changes'
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+// ─── Scholar verification panel ──────────────────────────────────────
+const VERIFICATION_STATUS_META = {
+  PENDING: { icon: Clock, color: 'text-amber-600', label: 'Under review' },
+  UNDER_REVIEW: { icon: Clock, color: 'text-amber-600', label: 'Under review' },
+  APPROVED: { icon: CheckCircle2, color: 'text-emerald-600', label: 'Approved' },
+  REJECTED: { icon: XCircle, color: 'text-destructive', label: 'Rejected' },
+}
+
+function VerificationPanel() {
+  const { user, refreshCurrentUser } = useAuth()
+  const toast = useToast()
+  const [status, setStatus] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState({
+    claimedTier: 'SCHOLAR',
+    affiliation: '',
+    orcidId: '',
+    evidenceUrls: '',
+  })
+  const [submitting, setSubmitting] = useState(false)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await getMyVerificationStatus()
+      setStatus(data)
+    } catch {
+      setStatus(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      await applyForVerification({
+        claimedTier: form.claimedTier,
+        affiliation: form.affiliation.trim() || null,
+        orcidId: form.orcidId.trim() || null,
+        evidenceUrls: form.evidenceUrls.trim() || null,
+      })
+      toast.success('Verification application submitted. An admin will review your application.')
+      await refresh()
+    } catch (error) {
+      toast.error(extractApiMessage(error, 'Could not submit application.'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!user) return null
+
+  const currentTier = user.verificationTier ?? 'NONE'
+  const currentType = user.accountType ?? 'REGULAR'
+  const isAlreadyVerified = currentType === 'VERIFIED_SCHOLAR' || currentType === 'VERIFIED_RESEARCHER'
+
+  return (
+    <div>
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+        Account · Verification
+      </p>
+      <h2 className="font-display text-[32px] font-semibold leading-[1.05] tracking-[-0.018em] text-ink sm:text-[38px]">
+        Scholar verification.
+      </h2>
+      <p className="mt-2 font-display text-[14px] italic leading-[1.6] text-ink-3">
+        Apply to become a verified scholar or researcher on the platform.
+      </p>
+
+      <div className="mt-8 space-y-6">
+        {/* Current status */}
+        <Card>
+          <CardContent className="p-5">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Current status</p>
+            <div className="flex flex-wrap gap-4">
+              <div className="space-y-1">
+                <p className="text-[11px] uppercase tracking-wider text-ink-3 font-mono">Account type</p>
+                <p className="text-sm font-semibold">{currentType.replace('_', ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[11px] uppercase tracking-wider text-ink-3 font-mono">Verification tier</p>
+                <p className="text-sm font-semibold">
+                  {currentTier === 'NONE' ? 'None' : currentTier.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Pending / existing application */}
+        {loading ? (
+          <Card>
+            <CardContent className="flex items-center justify-center p-8">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </CardContent>
+          </Card>
+        ) : status ? (
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-start gap-3">
+                {(() => {
+                  const meta = VERIFICATION_STATUS_META[status.status] ?? VERIFICATION_STATUS_META.PENDING
+                  const Icon = meta.icon
+                  return (
+                    <>
+                      <Icon className={cn('mt-0.5 size-5 shrink-0', meta.color)} strokeWidth={1.8} />
+                      <div className="space-y-1">
+                        <p className="text-[13.5px] font-semibold">{meta.label}</p>
+                        <p className="text-[12px] text-muted-foreground">
+                          Claimed tier: <span className="font-medium">{status.claimedTier?.replace(/_/g, ' ')}</span>
+                        </p>
+                        {status.reviewerNote ? (
+                          <p className="mt-2 rounded-lg bg-muted/50 px-3 py-2 text-[12px] italic text-ink-2">
+                            &ldquo;{status.reviewerNote}&rdquo;
+                          </p>
+                        ) : null}
+                        {status.status === 'REJECTED' ? (
+                          <button
+                            type="button"
+                            className="mt-2 text-[12px] font-medium text-primary hover:underline"
+                            onClick={() => setStatus(null)}
+                          >
+                            Apply again
+                          </button>
+                        ) : null}
+                      </div>
+                    </>
+                  )
+                })()}
+              </div>
+            </CardContent>
+          </Card>
+        ) : isAlreadyVerified ? (
+          <Card>
+            <CardContent className="flex items-start gap-3 p-5">
+              <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" strokeWidth={1.8} />
+              <div>
+                <p className="text-[13.5px] font-semibold text-emerald-700 dark:text-emerald-400">
+                  Your account is already verified.
+                </p>
+                <p className="mt-0.5 text-[12px] text-muted-foreground">
+                  Contact an admin if you need to update your verification tier.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          /* Application form */
+          <Card>
+            <CardContent className="p-5">
+              <p className="mb-1 text-sm font-semibold">Apply for verification</p>
+              <p className="mb-5 text-[12px] text-muted-foreground">
+                All applications are reviewed manually by platform admins. Provide as much supporting information as possible.
+              </p>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label>Verification tier you&rsquo;re claiming</Label>
+                  <div className="space-y-2">
+                    {VERIFICATION_TIERS.map((tier) => (
+                      <label
+                        key={tier.value}
+                        className={cn(
+                          'flex cursor-pointer items-start gap-3 rounded-xl border-[0.5px] px-4 py-3 transition-colors',
+                          form.claimedTier === tier.value
+                            ? 'border-ink bg-ink/5'
+                            : 'border-border hover:bg-secondary',
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="claimedTier"
+                          value={tier.value}
+                          checked={form.claimedTier === tier.value}
+                          onChange={(e) => setForm((f) => ({ ...f, claimedTier: e.target.value }))}
+                          className="mt-0.5 size-4 shrink-0"
+                        />
+                        <div>
+                          <p className="text-[13px] font-medium">{tier.label}</p>
+                          <p className="text-[12px] text-muted-foreground">{tier.description}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="affiliation">Affiliation / institution</Label>
+                  <Input
+                    id="affiliation"
+                    value={form.affiliation}
+                    onChange={(e) => setForm((f) => ({ ...f, affiliation: e.target.value }))}
+                    placeholder="University of Sulaymaniyah"
+                    className="rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="orcidId">ORCID ID <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                  <Input
+                    id="orcidId"
+                    value={form.orcidId}
+                    onChange={(e) => setForm((f) => ({ ...f, orcidId: e.target.value }))}
+                    placeholder="0000-0002-1825-0097"
+                    className="rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="evidenceUrls">
+                    Evidence URLs <span className="font-normal text-muted-foreground">(optional — credentials, publications)</span>
+                  </Label>
+                  <Textarea
+                    id="evidenceUrls"
+                    value={form.evidenceUrls}
+                    onChange={(e) => setForm((f) => ({ ...f, evidenceUrls: e.target.value }))}
+                    rows={3}
+                    placeholder="https://university.edu/profile, https://scholar.google.com/..."
+                    className="rounded-xl"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Separate multiple URLs with a comma or newline.</p>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <Button type="submit" disabled={submitting} className="rounded-full">
+                    {submitting ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="size-4 animate-spin" />
+                        Submitting…
+                      </span>
+                    ) : (
+                      'Submit application'
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Links panel ─────────────────────────────────────────────────────
 function AddLinkDialog({ onAdded }) {
   const toast = useToast()
   const [open, setOpen] = useState(false)
@@ -479,8 +1045,8 @@ function LinksList() {
   const [items, setItems] = useState([])
 
   useEffect(() => {
-    setItems(user?.links ?? [])
-  }, [user?.links])
+    setItems(user?.profile?.links ?? user?.links ?? [])
+  }, [user?.profile?.links, user?.links])
 
   async function handleDelete(id) {
     try {
@@ -549,6 +1115,7 @@ function LinksList() {
   )
 }
 
+// ─── Contacts panel ──────────────────────────────────────────────────
 function AddContactDialog({ onAdded }) {
   const toast = useToast()
   const [open, setOpen] = useState(false)
@@ -646,8 +1213,8 @@ function ContactsList() {
   const [items, setItems] = useState([])
 
   useEffect(() => {
-    setItems(user?.contacts ?? [])
-  }, [user?.contacts])
+    setItems(user?.profile?.contacts ?? user?.contacts ?? [])
+  }, [user?.profile?.contacts, user?.contacts])
 
   async function handleDelete(id) {
     try {
@@ -714,19 +1281,7 @@ function ContactsList() {
   )
 }
 
-// ─── Email preferences panel ────────────────────────────────────
-//
-// Mirrors the four boolean columns the backend keeps per user:
-//
-//   - emailNotificationsEnabled (master kill switch)
-//   - emailSocialEnabled        (POSTS / QNA / RESEARCH)
-//   - emailMentionsEnabled      (USER_MENTIONED)
-//   - emailSystemEnabled        (system / admin alerts)
-//
-// Optimistic toggles + last-write-wins server sync. Switching the
-// master OFF visually disables the per-category rows because the
-// backend won't email regardless of those booleans when the master
-// is off.
+// ─── Email preferences panel ────────────────────────────────────────
 const PREFERENCE_ROWS = [
   {
     key: 'emailSocialEnabled',
@@ -868,7 +1423,6 @@ function EmailPreferencesPanel() {
 
   return (
     <div className="space-y-4">
-      {/* Master switch */}
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
           <div className="flex items-start gap-3">
@@ -905,7 +1459,6 @@ function EmailPreferencesPanel() {
         </CardContent>
       </Card>
 
-      {/* Per-category toggles */}
       <Card>
         <CardContent className="space-y-4 p-5">
           <div className="space-y-1">
@@ -950,7 +1503,6 @@ function EmailPreferencesPanel() {
         </CardContent>
       </Card>
 
-      {/* Diagnostics + danger row */}
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
           <div className="flex items-start gap-3">
@@ -1166,12 +1718,19 @@ function PasswordPanel() {
 // ─── Sidebar nav ────────────────────────────────────────────────────
 const NAV_SECTIONS = [
   {
-    label: 'Account',
+    label: 'Profile',
     items: [
       { id: 'profile', label: 'Profile', icon: User },
+      { id: 'academic', label: 'Academic', icon: GraduationCap },
       { id: 'links', label: 'Links', icon: Link2 },
       { id: 'contacts', label: 'Contacts', icon: Phone },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
       { id: 'password', label: 'Password', icon: Lock },
+      { id: 'verification', label: 'Verification', icon: BadgeCheck },
     ],
   },
   {
@@ -1243,6 +1802,55 @@ function SettingsNav({ active, onSelect }) {
 export function SettingsPage() {
   const [panel, setPanel] = useState('profile')
 
+  function renderPanel() {
+    switch (panel) {
+      case 'profile':
+        return <ProfileForm />
+      case 'academic':
+        return <AcademicPanel />
+      case 'verification':
+        return <VerificationPanel />
+      case 'password':
+        return <PasswordPanel />
+      case 'links':
+        return (
+          <>
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Profile · Links</p>
+            <h2 className="mb-8 font-display text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
+              Your links.
+            </h2>
+            <LinksList />
+          </>
+        )
+      case 'contacts':
+        return (
+          <>
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Profile · Contacts</p>
+            <h2 className="mb-8 font-display text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
+              Contact channels.
+            </h2>
+            <ContactsList />
+          </>
+        )
+      case 'email':
+        return (
+          <>
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Notifications · Email</p>
+            <h2 className="mb-8 font-display text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
+              Email preferences.
+            </h2>
+            <EmailPreferencesPanel />
+          </>
+        )
+      default:
+        return (
+          <div className="flex h-48 items-center justify-center text-[14px] text-ink-3">
+            Coming soon.
+          </div>
+        )
+    }
+  }
+
   return (
     <div className="flex min-h-[60vh] gap-0 overflow-hidden">
       {/* ── Sidebar ────────────────────────────────────────────── */}
@@ -1252,39 +1860,7 @@ export function SettingsPage() {
 
       {/* ── Main content ───────────────────────────────────────── */}
       <main className="min-w-0 flex-1 bg-paper px-8 py-8 sm:px-12">
-        {panel === 'profile' ? (
-          <ProfileForm />
-        ) : panel === 'password' ? (
-          <PasswordPanel />
-        ) : panel === 'links' ? (
-          <>
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Account · Links</p>
-            <h2 className="mb-8 font-display text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
-              Your links.
-            </h2>
-            <LinksList />
-          </>
-        ) : panel === 'contacts' ? (
-          <>
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Account · Contacts</p>
-            <h2 className="mb-8 font-display text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
-              Contact channels.
-            </h2>
-            <ContactsList />
-          </>
-        ) : panel === 'email' ? (
-          <>
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Notifications · Email</p>
-            <h2 className="mb-8 font-display text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
-              Email preferences.
-            </h2>
-            <EmailPreferencesPanel />
-          </>
-        ) : (
-          <div className="flex h-48 items-center justify-center text-[14px] text-ink-3">
-            Coming soon.
-          </div>
-        )}
+        {renderPanel()}
       </main>
     </div>
   )
