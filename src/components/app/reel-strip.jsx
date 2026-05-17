@@ -6,7 +6,6 @@ import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getReels } from '@/features/posts/posts.api'
 import { useAuth } from '@/features/auth/auth-context'
-import { cn } from '@/lib/utils'
 import {
   formatNumber,
   getFullName,
@@ -54,7 +53,7 @@ function ReelThumb({ post, index }) {
     >
       <Link
         to={`/reels?id=${post.id}`}
-        className="group relative flex h-56 w-[148px] overflow-hidden rounded-2xl bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        className="group relative flex h-56 w-[148px] overflow-hidden rounded-2xl bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.12)' }}
       >
         {/* Media */}

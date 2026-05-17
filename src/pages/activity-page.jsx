@@ -456,8 +456,8 @@ export function ActivityPanel({ embedded = false }) {
               className={cn(
                 'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-all duration-200 active:scale-95',
                 active
-                  ? 'border-foreground bg-foreground text-background shadow-soft'
-                  : 'border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground',
+                  ? 'border-brand bg-brand text-brand-foreground'
+                  : 'border-border bg-paper text-ink-3 hover:border-brand/40 hover:text-brand',
               )}
             >
               <Icon className="size-3.5" />

@@ -300,7 +300,7 @@ export function SearchPage() {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder='Try "ihsan", "#hadith", or @username'
-          className="h-12 w-full rounded-xl border border-border bg-card pl-10 pr-4 text-[14px] text-foreground placeholder:text-muted-foreground focus:border-brand/50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/15"
+          className="h-12 w-full rounded-xl border border-border bg-paper pl-10 pr-4 text-[14px] text-ink placeholder:text-ink-4 focus:border-brand/50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/15"
           autoFocus
         />
       </div>
@@ -318,8 +318,8 @@ export function SearchPage() {
                 className={cn(
                   'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
                   active
-                    ? 'border-foreground bg-foreground text-background shadow-soft'
-                    : 'border-border bg-card text-muted-foreground hover:border-foreground/40 hover:text-foreground',
+                    ? 'border-brand bg-brand text-brand-foreground'
+                    : 'border-border bg-paper text-ink-3 hover:border-brand/40 hover:text-brand',
                 )}
                 aria-pressed={active}
               >

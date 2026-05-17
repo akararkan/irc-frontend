@@ -3,7 +3,6 @@ import { motion } from 'motion/react'
 import { Compass, Search, Sparkles, Users, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
@@ -13,11 +12,6 @@ import { searchUsers } from '@/features/users/users.api'
 import { cn } from '@/lib/utils'
 import { getFullName, getHandle, getRawUsername } from '@/lib/format'
 
-/**
- * Right-rail "Companions" panel: the people the current user follows,
- * with a "Discover" suggestions block when their list is short. Editorial
- * styling — eyebrow caps, paper-tinted card, role badges, no presence dot.
- */
 export function ContactsRail() {
   const { user, isAuthenticated } = useAuth()
   const [following, setFollowing] = useState([])
@@ -39,10 +33,6 @@ export function ContactsRail() {
         if (!cancelled) setFollowing(followingItems)
 
         if (followingItems.length < 6) {
-          // Pull a larger discover pool so the panel has enough rows
-          // to scroll through. The inner container caps height and
-          // owns its own scrollbar, so a long list doesn't push the
-          // sticky rail past the viewport.
           const discover = await searchUsers({ q: '', page: 0, size: 30 }).catch(() => null)
           const discoverItems = (discover?.content ?? []).filter(
             (candidate) =>
@@ -82,18 +72,18 @@ export function ContactsRail() {
       <div className="space-y-3">
         {following.length > 0 ? (
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-ink-4" />
+            <input
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
               placeholder="Filter…"
-              className="h-9 rounded-full border-border bg-card pl-8 pr-8 text-sm shadow-none focus-visible:ring-1"
+              className="h-9 w-full rounded-lg border border-border bg-paper pl-8 pr-8 text-[13px] text-ink outline-none placeholder:text-ink-4 transition-colors focus:border-brand/45 focus:ring-[3px] focus:ring-brand/12"
             />
             {filter ? (
               <button
                 type="button"
                 onClick={() => setFilter('')}
-                className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
                 aria-label="Clear"
               >
                 <X className="size-3.5" />
@@ -118,11 +108,11 @@ export function ContactsRail() {
               <CompanionRow key={person.id} person={person} index={index} />
             ))
           ) : following.length > 0 ? (
-            <p className="px-2 py-3 text-xs text-muted-foreground">
+            <p className="px-2 py-3 text-[12px] text-ink-3">
               No companion matches “{filter}”.
             </p>
           ) : (
-            <p className="rounded-2xl border border-dashed border-border bg-muted/20 px-3 py-4 text-center text-xs text-muted-foreground">
+            <p className="rounded-xl border border-dashed border-border bg-secondary/40 px-3 py-4 text-center text-[12px] text-ink-3">
               You aren’t following anyone yet. Discover scholars and thinkers below.
             </p>
           )}
@@ -132,11 +122,6 @@ export function ContactsRail() {
       {suggestions.length > 0 ? (
         <div className="space-y-3">
           <SectionEyebrow icon={Compass} title="Discover" />
-          {/* Discover list owns its own scroll — caps at ~5.5 rows on
-              the desktop rail so the user can browse the full
-              suggestion pool without the parent sticky rail growing
-              past the viewport. Hairline mask at the bottom hints
-              there's more to scroll. */}
           <div className="relative">
             <div className="scrollbar-none max-h-[360px] space-y-0.5 overflow-y-auto pr-1">
               {suggestions.map((person, index) => (
@@ -161,12 +146,11 @@ export function ContactsRail() {
   )
 }
 
-// ─── Section eyebrow (small caps + thin rule) ──────────────────────
 function SectionEyebrow({ icon: Icon, title }) {
   return (
     <div className="flex items-center gap-2">
-      <Icon className="size-3.5 text-muted-foreground" />
-      <h2 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+      <Icon className="size-3.5 text-brand" strokeWidth={1.7} />
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">
         {title}
       </h2>
       <span className="ml-1 h-px flex-1 bg-border" aria-hidden />
@@ -174,7 +158,6 @@ function SectionEyebrow({ icon: Icon, title }) {
   )
 }
 
-// ─── Companion row ────────────────────────────────────────────────
 function CompanionRow({ person, index, muted = false }) {
   const handle = getHandle(person)
   const route = getRawUsername(person)
@@ -192,28 +175,28 @@ function CompanionRow({ person, index, muted = false }) {
       <Link
         to={`/profile/${route}`}
         className={cn(
-          'group/row flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-muted/60',
+          'group/row flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-secondary/60',
         )}
       >
         <UserAvatar
           user={person}
-          className="size-9 shrink-0 ring-1 ring-border transition-shadow group-hover/row:ring-foreground/30"
+          className="size-9 shrink-0 rounded-full ring-1 ring-border transition-shadow group-hover/row:ring-brand/40"
         />
         <div className="min-w-0 flex-1 leading-tight">
           <div className="flex items-center gap-1.5">
-            <p className="truncate text-sm font-medium">
+            <p className="truncate text-[13.5px] font-medium text-ink">
               {getFullName(person) || handle}
             </p>
             {person.role ? <RoleBadge role={person.role} size="xs" /> : null}
           </div>
           {handle ? (
-            <p className="truncate text-[11px] text-muted-foreground">
+            <p className="truncate font-mono text-[10.5px] text-ink-3">
               @{handle}
             </p>
           ) : null}
         </div>
         {muted ? (
-          <Sparkles className="size-3 shrink-0 text-muted-foreground/60 transition-colors group-hover/row:text-foreground" />
+          <Sparkles className="size-3 shrink-0 text-ink-4 transition-colors group-hover/row:text-brand" />
         ) : null}
       </Link>
     </motion.div>

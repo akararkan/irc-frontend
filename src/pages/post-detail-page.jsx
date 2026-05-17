@@ -75,7 +75,7 @@ export function PostDetailPage() {
     return (
       <div className="space-y-4">
         <BackBar />
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <div className="flex items-center justify-center py-16 text-ink-3">
           <Loader2 className="size-5 animate-spin" />
         </div>
       </div>
@@ -119,7 +119,7 @@ function BackBar() {
     <div className="flex items-center justify-between gap-3">
       <Link
         to="/"
-        className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-ink-3 transition-colors hover:text-ink"
       >
         <ArrowLeft className="size-3.5" />
         Back to feed
