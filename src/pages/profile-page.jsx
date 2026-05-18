@@ -525,7 +525,7 @@ export function ProfilePage() {
   const { user: currentUser, isAuthenticated } = useAuth()
   const [profile, setProfile] = useState(null)
   const [status, setStatus] = useState(null)
-  const [counts, setCounts] = useState({ posts: null, research: null })
+  const [counts, setCounts] = useState({ posts: null, research: null, saved: null })
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [profileStories, setProfileStories] = useState([])
@@ -536,7 +536,7 @@ export function ProfilePage() {
     let cancelled = false
     setProfile(null)
     setStatus(null)
-    setCounts({ posts: null, research: null })
+    setCounts({ posts: null, research: null, saved: null })
     setLoading(true)
 
     async function load() {
@@ -561,14 +561,22 @@ export function ProfilePage() {
                 if (!cancelled) setStatus(null)
               })
           }
+          // Saved library is private — only fetch its size when viewing
+          // your own profile. The endpoint already requires auth, but
+          // skipping the request avoids a 403 on other users' pages.
+          const isOwnProfile = isAuthenticated && currentUser?.id === userId
           Promise.all([
             getUserPosts(userId, { page: 0, size: 1 }).catch(() => null),
             getResearcherPublications(userId, { page: 0, size: 1 }).catch(() => null),
-          ]).then(([postsPage, researchPage]) => {
+            isOwnProfile
+              ? getSavedResearch({ page: 0, size: 1 }).catch(() => null)
+              : Promise.resolve(null),
+          ]).then(([postsPage, researchPage, savedPage]) => {
             if (cancelled) return
             setCounts({
               posts: postsPage?.totalElements ?? null,
               research: researchPage?.totalElements ?? null,
+              saved: savedPage?.totalElements ?? null,
             })
           })
         }
@@ -730,6 +738,7 @@ export function ProfilePage() {
   // No backend endpoint lists answers by user yet, so this stays at the
   // DTO-provided value if any (today: always 0).
   const answersCount = profile.answersCount ?? profile.answerCount ?? 0
+  const savedCount = counts.saved
   const reelsCount = profile.reelsCount ?? 0
   const hasStories = profileStories.length > 0
 
@@ -1004,7 +1013,11 @@ export function ProfilePage() {
           </TabPill>
           <TabPill value="activity">Activity</TabPill>
           {isMe ? <TabPill value="questions">Questions</TabPill> : null}
-          {isMe ? <TabPill value="saved">Saved</TabPill> : null}
+          {isMe ? (
+            <TabPill value="saved" count={savedCount ?? undefined}>
+              Saved
+            </TabPill>
+          ) : null}
           <TabPill value="about">About</TabPill>
         </TabsList>
 
