@@ -525,6 +525,7 @@ export function ProfilePage() {
   const { user: currentUser, isAuthenticated } = useAuth()
   const [profile, setProfile] = useState(null)
   const [status, setStatus] = useState(null)
+  const [counts, setCounts] = useState({ posts: null, research: null })
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [profileStories, setProfileStories] = useState([])
@@ -535,6 +536,7 @@ export function ProfilePage() {
     let cancelled = false
     setProfile(null)
     setStatus(null)
+    setCounts({ posts: null, research: null })
     setLoading(true)
 
     async function load() {
@@ -542,15 +544,33 @@ export function ProfilePage() {
         const user = await getUserByUsername(username)
         if (cancelled) return
         setProfile(user)
-        if (isAuthenticated && user?.id && user.id !== currentUser?.id) {
-          try {
-            const socialStatus = await getSocialStatus(user.id)
-            if (!cancelled) setStatus(socialStatus)
-          } catch {
-            if (!cancelled) setStatus(null)
+
+        // The UserResponse DTO ships no counter fields, so post/research
+        // totals come from the first page of each paged endpoint
+        // (Spring Page<T>.totalElements). Social status carries the real
+        // follower/following counts — fetched for own-profile too so the
+        // header shows them when viewing yourself, not just strangers.
+        if (user?.id) {
+          const userId = user.id
+          if (isAuthenticated) {
+            getSocialStatus(userId)
+              .then((socialStatus) => {
+                if (!cancelled) setStatus(socialStatus)
+              })
+              .catch(() => {
+                if (!cancelled) setStatus(null)
+              })
           }
-        } else if (!cancelled) {
-          setStatus(null)
+          Promise.all([
+            getUserPosts(userId, { page: 0, size: 1 }).catch(() => null),
+            getResearcherPublications(userId, { page: 0, size: 1 }).catch(() => null),
+          ]).then(([postsPage, researchPage]) => {
+            if (cancelled) return
+            setCounts({
+              posts: postsPage?.totalElements ?? null,
+              research: researchPage?.totalElements ?? null,
+            })
+          })
         }
       } catch (error) {
         if (cancelled) return
@@ -696,12 +716,19 @@ export function ProfilePage() {
   const joinedLabel = joinedDate
     ? joinedDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
     : null
-  const postsCount = profile.postsCount ?? profile.postCount ?? 0
+  // Prefer the live totals fetched from the paged endpoints; the DTO
+  // counter fields are kept as a fallback in case the backend starts
+  // shipping them on UserResponse later.
+  const postsCount =
+    counts.posts ?? profile.postsCount ?? profile.postCount ?? 0
   const researchCount =
+    counts.research ??
     profile.profile?.researchCount ??
     profile.researchCount ??
     profile.publicationsCount ??
     0
+  // No backend endpoint lists answers by user yet, so this stays at the
+  // DTO-provided value if any (today: always 0).
   const answersCount = profile.answersCount ?? profile.answerCount ?? 0
   const reelsCount = profile.reelsCount ?? 0
   const hasStories = profileStories.length > 0
