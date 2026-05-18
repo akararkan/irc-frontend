@@ -18,8 +18,10 @@ import { useEffect, useState } from 'react'
  *   { "post:<uuid>": "LIKE", "comment:<uuid>": "LIKE", … }
  *
  * Scoped per user so logging out / switching accounts doesn't leak
- * one viewer's reactions onto another's feed. Cleared on sign-out by
- * AuthProvider via {@link clearReactionCache}.
+ * one viewer's reactions onto another's feed — each viewer reads their
+ * own `rxn-cache:<userId>` key, so the cache deliberately survives
+ * sign-out and lets the same user's next sign-in still see their
+ * hearts filled in.
  */
 
 const STORAGE_PREFIX = 'rxn-cache:'

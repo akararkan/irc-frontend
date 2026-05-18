@@ -9,7 +9,7 @@ import {
   saveStoredSession,
 } from '@/features/auth/auth-storage'
 import { getCurrentUser } from '@/features/users/users.api'
-import { clearReactionCache, setReactionCacheUser } from '@/lib/reaction-cache'
+import { setReactionCacheUser } from '@/lib/reaction-cache'
 import { setCurrentUserId } from '@/lib/my-reaction-store'
 import { seedUserCache } from '@/lib/user-cache'
 
@@ -138,8 +138,12 @@ export function AuthProvider({ children }) {
         refreshToken: currentSession?.refreshToken ?? null,
       })
     } finally {
+      // Intentionally do NOT call clearReactionCache() — the reaction
+      // cache is keyed `rxn-cache:<userId>` per viewer, so the next
+      // sign-in (same user) restores their "liked by me" hearts even
+      // though feed endpoints still return myReaction: null. Wiping it
+      // here was the cause of the post-logout re-react double-toggle.
       clearStoredSession()
-      clearReactionCache()
       setSession(null)
       setStatus('guest')
     }
