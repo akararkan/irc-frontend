@@ -4,8 +4,8 @@ import {
   BellOff,
   BellRing,
   Check,
+  MoreHorizontal,
   Plus,
-  Sparkles,
   Trash2,
   Volume2,
   VolumeX,
@@ -383,7 +383,7 @@ export function NotificationsPage() {
                 disabled={items.length === 0}
                 title="More options"
               >
-                <Sparkles className="size-3.5" />
+                <MoreHorizontal className="size-3.5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52 rounded-xl">

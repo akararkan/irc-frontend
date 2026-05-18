@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 
 import { AppSidebar } from '@/components/app/app-sidebar'
@@ -9,11 +9,22 @@ import { cn } from '@/lib/utils'
 import { RTL_LANGS } from '@/i18n'
 import { useTweaks } from '@/features/tweaks/tweaks-context'
 
+const SIDEBAR_COLLAPSED_KEY = 'sidebar:collapsed'
+
 export function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof localStorage === 'undefined') return false
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+  })
   const location = useLocation()
   const { lang } = useTweaks()
   const isRtl = RTL_LANGS.has(lang ?? 'en')
+
+  useEffect(() => {
+    if (typeof localStorage === 'undefined') return
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0')
+  }, [sidebarCollapsed])
 
   // Reels is an immersive vertical-video experience. On mobile/tablet
   // it owns the entire viewport — topbar and bottom tabs collapse so
@@ -25,8 +36,18 @@ export function AppLayout() {
 
   return (
     <div dir={isRtl ? 'rtl' : 'ltr'} className="flex min-h-[100dvh] bg-background text-foreground">
-      <aside className="hidden w-60 shrink-0 border-r border-border bg-sidebar lg:block">
-        <div className="sticky top-0 h-screen">
+      {/* Desktop sidebar — animates its own width so the main column
+          reflows alongside. Inner wrapper stays at the natural width
+          so the nav links don't squeeze mid-animation; clipping is
+          handled by overflow-hidden on the aside. The cubic-bezier
+          matches the mobile Sheet so both surfaces feel consistent. */}
+      <aside
+        className={cn(
+          'hidden shrink-0 overflow-hidden border-r border-border bg-sidebar transition-[width] duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)] lg:block',
+          sidebarCollapsed ? 'w-0 border-r-0' : 'w-60',
+        )}
+      >
+        <div className="sticky top-0 h-screen w-60">
           <AppSidebar />
         </div>
       </aside>
@@ -42,7 +63,11 @@ export function AppLayout() {
             Desktop still keeps the sidebar; reels detail chrome lives
             inside the page on lg. */}
         <div className={cn(hideMobileChrome && 'hidden lg:block')}>
-          <AppTopbar onMenuClick={() => setMenuOpen(true)} />
+          <AppTopbar
+            onMenuClick={() => setMenuOpen(true)}
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
+          />
         </div>
         {/* Main padding tightens on phones (px-3) and stretches out on
             tablets / desktops. `pb-[calc(...)]` leaves room for the

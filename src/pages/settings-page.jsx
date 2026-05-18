@@ -4,7 +4,6 @@ import {
   BadgeCheck,
   BellRing,
   CheckCircle2,
-  Clock,
   Eye,
   EyeOff,
   GraduationCap,
@@ -24,7 +23,6 @@ import {
   Upload,
   User,
   Users,
-  XCircle,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -53,12 +51,10 @@ import { useAuth } from '@/features/auth/auth-context'
 import {
   addContact,
   addLink,
-  applyForVerification,
   deleteContact,
   deleteCoverImage,
   deleteLink,
   deleteProfileImage,
-  getMyVerificationStatus,
   updateProfile,
   updateUserProfile,
   uploadCoverImage,
@@ -105,12 +101,6 @@ const CONTENT_LANGUAGES = [
   { value: 'EN', label: 'English' },
   { value: 'AR', label: 'Arabic (العربية)' },
   { value: 'CKB', label: 'Sorani Kurdish (کوردی)' },
-]
-
-const VERIFICATION_TIERS = [
-  { value: 'STUDENT_OF_KNOWLEDGE', label: 'Student of Knowledge', description: 'Contributes to Q&A. Cannot issue fatwas.' },
-  { value: 'SCHOLAR', label: 'Scholar', description: 'Can draft fatwas and review research submissions.' },
-  { value: 'SENIOR_SCHOLAR', label: 'Senior Scholar', description: 'Full fatwa authority and research editorial rights.' },
 ]
 
 function prettyPlatform(value) {
@@ -691,67 +681,27 @@ function AcademicPanel() {
 }
 
 // ─── Scholar verification panel ──────────────────────────────────────
-const VERIFICATION_STATUS_META = {
-  PENDING: { icon: Clock, color: 'text-amber-600', label: 'Under review' },
-  UNDER_REVIEW: { icon: Clock, color: 'text-amber-600', label: 'Under review' },
-  APPROVED: { icon: CheckCircle2, color: 'text-emerald-600', label: 'Approved' },
-  REJECTED: { icon: XCircle, color: 'text-destructive', label: 'Rejected' },
+//
+// Verification is admin-assigned only — there is no self-service apply
+// flow. This panel just shows the viewer their current account type and
+// tier; an admin can promote them via the admin dashboard.
+
+function prettyEnum(value) {
+  if (!value) return '—'
+  return value
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/^\w/, (c) => c.toUpperCase())
 }
 
 function VerificationPanel() {
-  const { user, refreshCurrentUser } = useAuth()
-  const toast = useToast()
-  const [status, setStatus] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({
-    claimedTier: 'SCHOLAR',
-    affiliation: '',
-    orcidId: '',
-    evidenceUrls: '',
-  })
-  const [submitting, setSubmitting] = useState(false)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await getMyVerificationStatus()
-      setStatus(data)
-    } catch {
-      setStatus(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
-
-  async function handleSubmit(event) {
-    event.preventDefault()
-    if (submitting) return
-    setSubmitting(true)
-    try {
-      await applyForVerification({
-        claimedTier: form.claimedTier,
-        affiliation: form.affiliation.trim() || null,
-        orcidId: form.orcidId.trim() || null,
-        evidenceUrls: form.evidenceUrls.trim() || null,
-      })
-      toast.success('Verification application submitted. An admin will review your application.')
-      await refresh()
-    } catch (error) {
-      toast.error(extractApiMessage(error, 'Could not submit application.'))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
+  const { user } = useAuth()
   if (!user) return null
 
   const currentTier = user.verificationTier ?? 'NONE'
   const currentType = user.accountType ?? 'REGULAR'
-  const isAlreadyVerified = currentType === 'VERIFIED_SCHOLAR' || currentType === 'VERIFIED_RESEARCHER'
+  const isVerified =
+    currentType === 'VERIFIED_SCHOLAR' || currentType === 'VERIFIED_RESEARCHER'
 
   return (
     <div>
@@ -762,79 +712,45 @@ function VerificationPanel() {
         Scholar verification.
       </h2>
       <p className="mt-2 font-display text-[14px] italic leading-[1.6] text-ink-3">
-        Apply to become a verified scholar or researcher on the platform.
+        Verification is granted by platform admins. Reach out if you believe
+        your account should be promoted.
       </p>
 
       <div className="mt-8 space-y-6">
-        {/* Current status */}
         <Card>
           <CardContent className="p-5">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Current status</p>
-            <div className="flex flex-wrap gap-4">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Current status
+            </p>
+            <div className="flex flex-wrap gap-6">
               <div className="space-y-1">
-                <p className="text-[11px] uppercase tracking-wider text-ink-3 font-mono">Account type</p>
-                <p className="text-sm font-semibold">{currentType.replace('_', ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}</p>
+                <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                  Account type
+                </p>
+                <p className="text-sm font-semibold">{prettyEnum(currentType)}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[11px] uppercase tracking-wider text-ink-3 font-mono">Verification tier</p>
+                <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                  Verification tier
+                </p>
                 <p className="text-sm font-semibold">
-                  {currentTier === 'NONE' ? 'None' : currentTier.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}
+                  {currentTier === 'NONE' ? 'None' : prettyEnum(currentTier)}
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Pending / existing application */}
-        {loading ? (
-          <Card>
-            <CardContent className="flex items-center justify-center p-8">
-              <Loader2 className="size-5 animate-spin text-muted-foreground" />
-            </CardContent>
-          </Card>
-        ) : status ? (
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-start gap-3">
-                {(() => {
-                  const meta = VERIFICATION_STATUS_META[status.status] ?? VERIFICATION_STATUS_META.PENDING
-                  const Icon = meta.icon
-                  return (
-                    <>
-                      <Icon className={cn('mt-0.5 size-5 shrink-0', meta.color)} strokeWidth={1.8} />
-                      <div className="space-y-1">
-                        <p className="text-[13.5px] font-semibold">{meta.label}</p>
-                        <p className="text-[12px] text-muted-foreground">
-                          Claimed tier: <span className="font-medium">{status.claimedTier?.replace(/_/g, ' ')}</span>
-                        </p>
-                        {status.reviewerNote ? (
-                          <p className="mt-2 rounded-lg bg-muted/50 px-3 py-2 text-[12px] italic text-ink-2">
-                            &ldquo;{status.reviewerNote}&rdquo;
-                          </p>
-                        ) : null}
-                        {status.status === 'REJECTED' ? (
-                          <button
-                            type="button"
-                            className="mt-2 text-[12px] font-medium text-primary hover:underline"
-                            onClick={() => setStatus(null)}
-                          >
-                            Apply again
-                          </button>
-                        ) : null}
-                      </div>
-                    </>
-                  )
-                })()}
-              </div>
-            </CardContent>
-          </Card>
-        ) : isAlreadyVerified ? (
+        {isVerified ? (
           <Card>
             <CardContent className="flex items-start gap-3 p-5">
-              <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" strokeWidth={1.8} />
+              <CheckCircle2
+                className="mt-0.5 size-5 shrink-0 text-emerald-600"
+                strokeWidth={1.8}
+              />
               <div>
                 <p className="text-[13.5px] font-semibold text-emerald-700 dark:text-emerald-400">
-                  Your account is already verified.
+                  Your account is verified.
                 </p>
                 <p className="mt-0.5 text-[12px] text-muted-foreground">
                   Contact an admin if you need to update your verification tier.
@@ -842,99 +758,7 @@ function VerificationPanel() {
               </div>
             </CardContent>
           </Card>
-        ) : (
-          /* Application form */
-          <Card>
-            <CardContent className="p-5">
-              <p className="mb-1 text-sm font-semibold">Apply for verification</p>
-              <p className="mb-5 text-[12px] text-muted-foreground">
-                All applications are reviewed manually by platform admins. Provide as much supporting information as possible.
-              </p>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label>Verification tier you&rsquo;re claiming</Label>
-                  <div className="space-y-2">
-                    {VERIFICATION_TIERS.map((tier) => (
-                      <label
-                        key={tier.value}
-                        className={cn(
-                          'flex cursor-pointer items-start gap-3 rounded-xl border-[0.5px] px-4 py-3 transition-colors',
-                          form.claimedTier === tier.value
-                            ? 'border-ink bg-ink/5'
-                            : 'border-border hover:bg-secondary',
-                        )}
-                      >
-                        <input
-                          type="radio"
-                          name="claimedTier"
-                          value={tier.value}
-                          checked={form.claimedTier === tier.value}
-                          onChange={(e) => setForm((f) => ({ ...f, claimedTier: e.target.value }))}
-                          className="mt-0.5 size-4 shrink-0"
-                        />
-                        <div>
-                          <p className="text-[13px] font-medium">{tier.label}</p>
-                          <p className="text-[12px] text-muted-foreground">{tier.description}</p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="affiliation">Affiliation / institution</Label>
-                  <Input
-                    id="affiliation"
-                    value={form.affiliation}
-                    onChange={(e) => setForm((f) => ({ ...f, affiliation: e.target.value }))}
-                    placeholder="University of Sulaymaniyah"
-                    className="rounded-xl"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="orcidId">ORCID ID <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                  <Input
-                    id="orcidId"
-                    value={form.orcidId}
-                    onChange={(e) => setForm((f) => ({ ...f, orcidId: e.target.value }))}
-                    placeholder="0000-0002-1825-0097"
-                    className="rounded-xl"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="evidenceUrls">
-                    Evidence URLs <span className="font-normal text-muted-foreground">(optional — credentials, publications)</span>
-                  </Label>
-                  <Textarea
-                    id="evidenceUrls"
-                    value={form.evidenceUrls}
-                    onChange={(e) => setForm((f) => ({ ...f, evidenceUrls: e.target.value }))}
-                    rows={3}
-                    placeholder="https://university.edu/profile, https://scholar.google.com/..."
-                    className="rounded-xl"
-                  />
-                  <p className="text-[11px] text-muted-foreground">Separate multiple URLs with a comma or newline.</p>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <Button type="submit" disabled={submitting} className="rounded-full">
-                    {submitting ? (
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="size-4 animate-spin" />
-                        Submitting…
-                      </span>
-                    ) : (
-                      'Submit application'
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        )}
+        ) : null}
       </div>
     </div>
   )

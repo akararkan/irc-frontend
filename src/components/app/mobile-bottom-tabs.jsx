@@ -3,7 +3,7 @@ import {
   Bell,
   BookOpenText,
   Clapperboard,
-  Sparkles,
+  Home,
   User2,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils'
 // (Q&A, People, My research, Saved, Settings) via the existing Sheet
 // — keeps the bottom bar focused.
 const TABS = [
-  { to: '/', icon: Sparkles, label: 'Home', end: true },
+  { to: '/', icon: Home, label: 'Home', end: true },
   { to: '/research', icon: BookOpenText, label: 'Research' },
   { to: '/reels', icon: Clapperboard, label: 'Reels' },
   { to: '/notifications', icon: Bell, label: 'Alerts', badge: 'notifications' },

@@ -123,15 +123,19 @@ export async function deleteContact(contactId) {
 }
 
 // ── Scholar verification ──────────────────────────────────────────────────────
+//
+// The user-facing "apply for verification" + "my status" endpoints were
+// removed on the backend: scholar/researcher account type is now
+// admin-assigned only (see PATCH /api/v1/admin/users/{userId}/account-type
+// in `changeUserAccountType`). The admin queue endpoints below survive so
+// admins can close out legacy pending rows.
 
-/** Apply for scholar/researcher verification. payload: { claimedTier, affiliation, evidenceUrls, orcidId } */
-export async function applyForVerification(payload) {
-  const response = await api.post('/api/v1/verification/apply', payload)
-  return response.data
-}
-
-export async function getMyVerificationStatus() {
-  const response = await api.get('/api/v1/verification/my-status')
+/**
+ * Admin-only: change a user's account type / verification tier / role.
+ * Body: { accountType, verificationTier?, role?, reason? }
+ */
+export async function changeUserAccountType(userId, payload) {
+  const response = await api.patch(`/api/v1/admin/users/${userId}/account-type`, payload)
   return response.data
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Plus, Sparkles } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 import { Skeleton } from '@/components/ui/skeleton'
 import { UserAvatar } from '@/components/app/user-avatar'
@@ -145,7 +145,6 @@ function EmptyTrayState() {
       animate={{ opacity: 1 }}
       className="flex items-center gap-2 py-1 text-ink-3"
     >
-      <Sparkles className="size-3.5 shrink-0" strokeWidth={1.5} />
       <p className="text-[13px] italic">Follow people to see their stories here.</p>
     </motion.div>
   )

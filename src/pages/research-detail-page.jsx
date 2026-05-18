@@ -46,6 +46,7 @@ import { EditResearchDialog } from '@/components/app/edit-research-dialog'
 import { EmptyState } from '@/components/app/empty-state'
 import { MentionText } from '@/components/app/mention-text'
 import { ResearchComments } from '@/components/app/research-comments'
+import { ResearchContributors } from '@/components/app/research-contributors'
 import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
 import {
@@ -365,6 +366,10 @@ function EditorialHero({
   onCite,
   onDownload,
 }) {
+  const { user: currentUser } = useAuth()
+  const isOwner = Boolean(
+    currentUser?.id && currentUser.id === research.researcherId,
+  )
   const cover = resolveMediaUrl(research.coverImageUrl)
   const VisibilityIcon = visibility.icon
   const statusMeta = STATUS_META[status] ?? null
@@ -515,6 +520,16 @@ function EditorialHero({
           </Link>
         ) : null}
       </div>
+
+      {/* Contributors — co-authors, advisors, reviewers, translators,
+          editors. Renders nothing for guests when the list is empty,
+          renders an inline editor for the owner. */}
+      <ResearchContributors
+        researchId={research.id}
+        isOwner={isOwner}
+        ownerId={research.researcherId}
+        initialContributors={research.contributors}
+      />
 
       {/* Action bar */}
       <div className="flex flex-wrap items-center gap-2">

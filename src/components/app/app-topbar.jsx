@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronRight, Loader2, Menu, Search, Sliders } from 'lucide-react'
+import { ChevronRight, Loader2, Menu, PanelLeftClose, PanelLeftOpen, Search, Sliders } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -392,7 +392,7 @@ function AccountMenu() {
   )
 }
 
-export function AppTopbar({ onMenuClick, title, className }) {
+export function AppTopbar({ onMenuClick, onToggleSidebar, sidebarCollapsed, title, className }) {
   const { isAuthenticated } = useAuth()
   const [scrolled, setScrolled] = useState(false)
 
@@ -425,6 +425,27 @@ export function AppTopbar({ onMenuClick, title, className }) {
       >
         <Menu className="size-5" />
       </Button>
+
+      {/* Desktop-only sidebar toggle. Icon flips to mirror the panel's
+          current state so a glance tells you which direction the click
+          will move it. */}
+      {onToggleSidebar ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="hidden rounded-full text-ink-2 hover:bg-accent hover:text-ink lg:inline-flex"
+          onClick={onToggleSidebar}
+          aria-label={sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}
+          title={sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}
+        >
+          {sidebarCollapsed ? (
+            <PanelLeftOpen className="size-[18px]" strokeWidth={1.75} />
+          ) : (
+            <PanelLeftClose className="size-[18px]" strokeWidth={1.75} />
+          )}
+        </Button>
+      ) : null}
 
       <Link to="/" className="flex items-center gap-2 lg:hidden">
         <BrandWordmark size="md" />

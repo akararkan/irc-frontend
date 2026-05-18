@@ -4,8 +4,8 @@ import {
   CornerDownRight,
   MessageCircle,
   MessageCircleQuestion,
+  Newspaper,
   Search,
-  Sparkles,
   User,
 } from 'lucide-react'
 
@@ -13,7 +13,7 @@ const TYPE_META = {
   POST: {
     label: 'Post',
     plural: 'Posts',
-    icon: Sparkles,
+    icon: Newspaper,
     accent:
       'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30',
   },

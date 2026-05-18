@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Clapperboard, Eye, Play, Plus, Sparkles } from 'lucide-react'
+import { Clapperboard, Eye, Play, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Skeleton } from '@/components/ui/skeleton'
@@ -182,7 +182,6 @@ export function ReelStrip({ onCreateReel }) {
           <h2 className="font-display text-[14.5px] font-semibold tracking-[-0.008em] text-ink">
             Featured reels
           </h2>
-          <Sparkles className="size-3.5 text-gold-2" strokeWidth={1.5} />
         </div>
         <Link
           to="/reels"

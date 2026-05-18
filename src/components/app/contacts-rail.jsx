@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'motion/react'
-import { Compass, Search, Sparkles, Users, X } from 'lucide-react'
+import { Compass, Search, Users, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Skeleton } from '@/components/ui/skeleton'
@@ -196,7 +196,7 @@ function CompanionRow({ person, index, muted = false }) {
           ) : null}
         </div>
         {muted ? (
-          <Sparkles className="size-3 shrink-0 text-ink-4 transition-colors group-hover/row:text-brand" />
+          <span className="size-1.5 shrink-0 rounded-full bg-ink-4 transition-colors group-hover/row:bg-brand" />
         ) : null}
       </Link>
     </motion.div>

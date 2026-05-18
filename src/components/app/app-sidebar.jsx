@@ -3,10 +3,10 @@ import {
   BookMarked,
   BookOpenText,
   Clapperboard,
+  Home,
   LogOut,
   MessageCircleQuestion,
   Settings,
-  Sparkles,
   User2,
   Users,
 } from 'lucide-react'
@@ -24,7 +24,7 @@ import { getFullName, getHandle } from '@/lib/format'
 import { useTranslation } from 'react-i18next'
 
 const PRIMARY_ROUTES = [
-  { to: '/', icon: Sparkles, key: 'nav.home', end: true },
+  { to: '/', icon: Home, key: 'nav.home', end: true },
   { to: '/research', icon: BookOpenText, key: 'nav.research' },
   { to: '/questions', icon: MessageCircleQuestion, key: 'nav.questions' },
   { to: '/reels', icon: Clapperboard, key: 'nav.reels' },

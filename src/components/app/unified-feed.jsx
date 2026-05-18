@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { FileText, Loader2, RefreshCw, Sparkles } from 'lucide-react'
+import { FileText, Loader2, RefreshCw } from 'lucide-react'
 
 import { EmptyState } from '@/components/app/empty-state'
 import { PostCard } from '@/components/app/post-card'
@@ -288,7 +288,6 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Left: label */}
         <div className="flex items-center gap-2">
-          <Sparkles className="size-3.5 text-gold-2" strokeWidth={1.5} />
           <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3">
             Your Feed
           </span>
@@ -406,7 +405,7 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
               >
                 {loading
                   ? <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
-                  : <Sparkles className="size-3.5 text-gold-2" strokeWidth={1.5} />
+                  : <RefreshCw className="size-3.5" strokeWidth={1.5} />
                 }
                 {loading ? 'Loading…' : 'Load more'}
               </motion.button>

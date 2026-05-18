@@ -22,8 +22,12 @@ function SheetOverlay({ className, ...props }) {
   )
 }
 
+// The cubic-bezier here is the Apple "ease" curve — decelerates as the
+// drawer settles, which reads as "physical" rather than mechanical.
+// Open is slightly longer than close so the entrance feels deliberate
+// while the dismissal stays snappy.
 const sheetVariants = cva(
-  'fixed z-50 gap-4 bg-background p-6 shadow-xl transition ease-in-out data-[state=closed]:duration-200 data-[state=open]:duration-300 data-[state=closed]:animate-out data-[state=open]:animate-in',
+  'fixed z-50 gap-4 bg-background p-6 shadow-2xl transition ease-[cubic-bezier(0.32,0.72,0,1)] data-[state=closed]:duration-[250ms] data-[state=open]:duration-[400ms] data-[state=closed]:animate-out data-[state=open]:animate-in',
   {
     variants: {
       side: {

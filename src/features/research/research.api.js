@@ -377,6 +377,75 @@ export async function requestResearchDownload(id, mediaId) {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  CONTRIBUTORS  —  /api/v1/researches/{id}/contributors
+// ══════════════════════════════════════════════════════════════
+//
+// Named co-authors / advisors / reviewers / translators / editors /
+// generic contributors attached to a research. Read endpoint is public;
+// mutating endpoints (POST/PUT/PATCH/DELETE) are owner-only — the
+// backend returns 403 for non-owners. Target users must already be
+// RESEARCHER / SCHOLAR / admin; the owner can't list themselves.
+//
+// ContributorRole enum (must match backend):
+//   CO_AUTHOR | ADVISOR | REVIEWER | TRANSLATOR | EDITOR | CONTRIBUTOR
+//
+// Contributor body shape:
+//   { userId, role, displayOrder?, note? }
+//
+// Inline at create-time: pass `contributors: [...]` inside the
+// CreateResearchRequest `data` part of createResearch().
+
+export const CONTRIBUTOR_ROLES = [
+  'CO_AUTHOR',
+  'ADVISOR',
+  'REVIEWER',
+  'TRANSLATOR',
+  'EDITOR',
+  'CONTRIBUTOR',
+]
+
+export async function getResearchContributors(researchId) {
+  const response = await api.get(`/api/v1/researches/${researchId}/contributors`)
+  return response.data
+}
+
+export async function addResearchContributor(researchId, payload) {
+  const response = await api.post(
+    `/api/v1/researches/${researchId}/contributors`,
+    payload,
+  )
+  return response.data
+}
+
+/**
+ * PUT — replace the full contributors list in one call. Pass `[]` to
+ * clear. Server rejects duplicate userIds in the same request (400).
+ */
+export async function replaceResearchContributors(researchId, contributors) {
+  const response = await api.put(
+    `/api/v1/researches/${researchId}/contributors`,
+    contributors,
+  )
+  return response.data
+}
+
+/**
+ * PATCH semantics — null fields are not overwritten, so callers can
+ * tweak just `role` or just `note` without re-sending the userId.
+ */
+export async function updateResearchContributor(researchId, contributorId, payload) {
+  const response = await api.patch(
+    `/api/v1/researches/${researchId}/contributors/${contributorId}`,
+    payload,
+  )
+  return response.data
+}
+
+export async function removeResearchContributor(researchId, contributorId) {
+  await api.delete(`/api/v1/researches/${researchId}/contributors/${contributorId}`)
+}
+
+// ══════════════════════════════════════════════════════════════
 //  REALTIME  —  /api/v1/researches/{id}/stream  (SSE)
 // ══════════════════════════════════════════════════════════════
 //

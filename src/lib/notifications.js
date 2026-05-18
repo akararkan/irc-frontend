@@ -9,11 +9,11 @@ import {
   Lock,
   MessageCircle,
   MessageCircleQuestion,
+  Newspaper,
   Pencil,
   Repeat2,
   Settings,
   Share2,
-  Sparkles,
   Unlock,
   UserPlus,
   Users,
@@ -245,7 +245,7 @@ export const NOTIFICATION_CATEGORIES = [
   {
     value: 'POSTS',
     label: 'Posts',
-    icon: Sparkles,
+    icon: Newspaper,
     accent:
       'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   },
