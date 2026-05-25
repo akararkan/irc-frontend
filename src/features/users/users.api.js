@@ -92,6 +92,23 @@ export async function updateSpecializations(items) {
   return response.data
 }
 
+/**
+ * Update which notification categories the user receives by email.
+ * Body shape: subset of { onMention, onComment, onReaction, onAnswer,
+ * onAnswerAccepted, onFollow, onResearchPublished, weeklyDigest, ... }.
+ * Server merges partial payloads.
+ */
+export async function updateEmailPreferences(payload) {
+  const response = await api.patch('/api/v1/users/me/email-preferences', payload)
+  return response.data
+}
+
+/** Read the current email-preferences row (paired with the PATCH above). */
+export async function getEmailPreferences() {
+  const response = await api.get('/api/v1/users/me/email-preferences')
+  return response.data
+}
+
 // ── Links & contacts (moved to profile layer; URL paths unchanged) ────────────
 
 export async function addLink(payload) {

@@ -46,6 +46,18 @@ export async function getQuestion(questionId) {
   return response.data
 }
 
+/**
+ * Elasticsearch (irc-qna) BM25 search over questions.
+ * Same response convention as the other ES corpora — `{query, page, size,
+ * results: [UUID]}` (callers hydrate via getQuestion per id).
+ */
+export async function searchQuestions({ q = '', page = 0, size = 20 } = {}) {
+  const response = await api.get('/api/v1/questions/search', {
+    params: { q, page, size },
+  })
+  return response.data
+}
+
 // ── Create / Edit / Delete question ───────────────────────────
 
 /**
@@ -191,43 +203,29 @@ export async function createReanswerWithMedia(
 
 /**
  * GET /api/v1/questions/{questionId}/answers/{answerId}/reanswers
- *   (alias `/replies` is still accepted by older backends — we try the
- *    canonical path first and silently fall back if it 404s.)
  *
- * Returns the reanswers (replies) hanging under any answer (top-level
- * OR a nested reanswer — the structure is recursive), ordered oldest-
+ * Returns the reanswers hanging under any answer (top-level OR a
+ * nested reanswer — the structure is recursive), ordered oldest-
  * first. Public — no auth required to read. Block-aware: a viewer in
  * a block edge with the author never sees the row.
  *
- * The backend's `getReanswers(viewerId, Pageable)` overload may
- * serialize either as a bare List (legacy) or a Spring Page envelope.
- * Callers want an array, so we unwrap defensively.
+ * Backend response may be either a bare List or a Spring Page
+ * envelope — unwrap defensively. (The legacy `/replies` alias is
+ * accepted server-side but no longer used here.)
  */
 export async function getAnswerReplies(
   questionId,
   answerId,
   { page = 0, size = 50 } = {},
 ) {
-  async function fetchAt(path) {
-    const response = await api.get(path, { params: { page, size } })
-    const data = response.data
-    if (Array.isArray(data)) return data
-    if (Array.isArray(data?.content)) return data.content
-    return []
-  }
-
-  try {
-    return await fetchAt(
-      `/api/v1/questions/${questionId}/answers/${answerId}/reanswers`,
-    )
-  } catch (error) {
-    if (error?.response?.status === 404) {
-      return await fetchAt(
-        `/api/v1/questions/${questionId}/answers/${answerId}/replies`,
-      )
-    }
-    throw error
-  }
+  const response = await api.get(
+    `/api/v1/questions/${questionId}/answers/${answerId}/reanswers`,
+    { params: { page, size } },
+  )
+  const data = response.data
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.content)) return data.content
+  return []
 }
 
 /**
@@ -464,6 +462,23 @@ export async function deleteAnswerAttachment(questionId, answerId, attachmentId)
   )
 }
 
+/**
+ * PATCH .../attachments/{attachmentId}
+ * Body: { caption?, displayOrder? } — partial.
+ */
+export async function updateAnswerAttachment(
+  questionId,
+  answerId,
+  attachmentId,
+  payload,
+) {
+  const response = await api.patch(
+    `/api/v1/questions/${questionId}/answers/${answerId}/attachments/${attachmentId}`,
+    payload,
+  )
+  return response.data
+}
+
 // ══════════════════════════════════════════════════════════════
 //  SOURCES / REFERENCES on an answer
 //  Citation references (URL / DOI / ISBN / MEDIA_FILE / MANUAL).
@@ -493,6 +508,23 @@ export async function deleteAnswerSource(questionId, answerId, sourceId) {
   await api.delete(
     `/api/v1/questions/${questionId}/answers/${answerId}/sources/${sourceId}`,
   )
+}
+
+/**
+ * PATCH .../sources/{sourceId}
+ * Body: { sourceType?, title?, citationText?, url?, doi?, isbn? } — partial.
+ */
+export async function updateAnswerSource(
+  questionId,
+  answerId,
+  sourceId,
+  payload,
+) {
+  const response = await api.patch(
+    `/api/v1/questions/${questionId}/answers/${answerId}/sources/${sourceId}`,
+    payload,
+  )
+  return response.data
 }
 
 // ══════════════════════════════════════════════════════════════

@@ -113,13 +113,13 @@ function FieldRow({ label, hint, hintMono, children, noBorder = false }) {
     <div
       className={cn(
         'grid grid-cols-1 gap-4 py-7 sm:grid-cols-[1fr_1.6fr] sm:gap-10',
-        !noBorder && 'border-b-[0.5px] border-border',
+        !noBorder && 'border-b-[0.5px] border-line',
       )}
     >
       <div className="pt-0.5">
-        <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{label}</p>
+        <p className="font-mono text-[11px] uppercase tracking-wider text-fg-muted">{label}</p>
         {hint ? (
-          <p className="mt-1 font-display text-[13px] italic leading-[1.5] text-ink-3">
+          <p className="mt-1 font-semibold text-[13px] italic leading-[1.5] text-fg-muted">
             {hint}
             {hintMono ? (
               <> <code className="font-mono not-italic">{hintMono}</code></>
@@ -268,13 +268,13 @@ function ProfileForm() {
 
   return (
     <div>
-      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-fg-muted">
         Account · Profile
       </p>
-      <h2 className="font-display text-[32px] font-semibold leading-[1.05] tracking-[-0.018em] text-ink sm:text-[38px]">
+      <h2 className="font-semibold text-[32px] font-semibold leading-[1.05] tracking-[-0.018em] text-ink sm:text-[38px]">
         Your public profile.
       </h2>
-      <p className="mt-2 font-display text-[14px] italic leading-[1.6] text-ink-3">
+      <p className="mt-2 font-semibold text-[14px] italic leading-[1.6] text-fg-muted">
         Name, avatar, cover image, bio, and public tagline.
       </p>
 
@@ -282,10 +282,10 @@ function ProfileForm() {
         {/* AVATAR */}
         <FieldRow label="Photo" hint="Shown everywhere next to your name.">
           <div className="flex items-center gap-4">
-            <UserAvatar user={user} className="size-[72px] rounded-2xl text-[24px]" />
+            <UserAvatar user={user} className="size-[72px] rounded-lg text-[24px]" />
             <label
               className={cn(
-                'inline-flex cursor-pointer items-center gap-1.5 rounded-xl border-[0.5px] border-border px-4 py-2.5 text-[13px] font-medium text-ink transition-colors hover:bg-secondary',
+                'inline-flex cursor-pointer items-center gap-1.5 rounded-md border-[0.5px] border-line px-4 py-2.5 text-[13px] font-medium text-ink transition-colors hover:bg-bg-soft',
                 uploadingAvatar && 'cursor-not-allowed opacity-50',
               )}
             >
@@ -304,7 +304,7 @@ function ProfileForm() {
                 type="button"
                 onClick={handleAvatarRemove}
                 disabled={uploadingAvatar}
-                className="text-[13px] font-medium text-ink-3 transition-colors hover:text-ink disabled:opacity-50"
+                className="text-[13px] font-medium text-fg-muted transition-colors hover:text-ink disabled:opacity-50"
               >
                 Remove
               </button>
@@ -316,7 +316,7 @@ function ProfileForm() {
         <FieldRow label="Cover image" hint="Banner shown at the top of your profile page.">
           <div className="space-y-3">
             {hasCover ? (
-              <div className="relative overflow-hidden rounded-xl border-[0.5px] border-border">
+              <div className="relative overflow-hidden rounded-md border-[0.5px] border-line">
                 <img
                   src={getCoverUrl(user)}
                   alt="Cover"
@@ -324,14 +324,14 @@ function ProfileForm() {
                 />
               </div>
             ) : (
-              <div className="flex h-24 items-center justify-center rounded-xl border-[0.5px] border-dashed border-border bg-muted/30">
-                <span className="text-[12px] text-ink-3">No cover image</span>
+              <div className="flex h-24 items-center justify-center rounded-md border-[0.5px] border-dashed border-line bg-muted/30">
+                <span className="text-[12px] text-fg-muted">No cover image</span>
               </div>
             )}
             <div className="flex items-center gap-3">
               <label
                 className={cn(
-                  'inline-flex cursor-pointer items-center gap-1.5 rounded-xl border-[0.5px] border-border px-4 py-2.5 text-[13px] font-medium text-ink transition-colors hover:bg-secondary',
+                  'inline-flex cursor-pointer items-center gap-1.5 rounded-md border-[0.5px] border-line px-4 py-2.5 text-[13px] font-medium text-ink transition-colors hover:bg-bg-soft',
                   uploadingCover && 'cursor-not-allowed opacity-50',
                 )}
               >
@@ -350,7 +350,7 @@ function ProfileForm() {
                   type="button"
                   onClick={handleCoverRemove}
                   disabled={uploadingCover}
-                  className="text-[13px] font-medium text-ink-3 transition-colors hover:text-ink disabled:opacity-50"
+                  className="text-[13px] font-medium text-fg-muted transition-colors hover:text-ink disabled:opacity-50"
                 >
                   Remove
                 </button>
@@ -367,7 +367,7 @@ function ProfileForm() {
             value={form.displayName}
             onChange={handleChange}
             placeholder={`${form.fname} ${form.lname}`.trim() || 'Your display name'}
-            className="rounded-xl"
+            className="rounded-md"
           />
         </FieldRow>
 
@@ -380,7 +380,7 @@ function ProfileForm() {
               value={form.fname}
               onChange={handleChange}
               placeholder="First"
-              className="rounded-xl"
+              className="rounded-md"
             />
             <Input
               id="lname"
@@ -388,7 +388,7 @@ function ProfileForm() {
               value={form.lname}
               onChange={handleChange}
               placeholder="Last"
-              className="rounded-xl"
+              className="rounded-md"
             />
           </div>
         </FieldRow>
@@ -396,7 +396,7 @@ function ProfileForm() {
         {/* USERNAME */}
         <FieldRow label="Username" hint="Public handle.">
           <div className="relative">
-            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] font-medium text-ink-3">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] font-medium text-fg-muted">
               @
             </span>
             <Input
@@ -405,7 +405,7 @@ function ProfileForm() {
               value={form.username}
               onChange={handleChange}
               placeholder="yourhandle"
-              className="rounded-xl pl-8"
+              className="rounded-md pl-8"
             />
           </div>
         </FieldRow>
@@ -418,7 +418,7 @@ function ProfileForm() {
             value={form.selfDescriber}
             onChange={handleChange}
             placeholder="Researcher in Uṣūl al-Fiqh and Comparative Fiqh"
-            className="rounded-xl"
+            className="rounded-md"
           />
         </FieldRow>
 
@@ -430,7 +430,7 @@ function ProfileForm() {
             value={form.location}
             onChange={handleChange}
             placeholder="Sulaymaniyah, Kurdistan Region"
-            className="rounded-xl"
+            className="rounded-md"
           />
         </FieldRow>
 
@@ -443,7 +443,7 @@ function ProfileForm() {
             onChange={handleChange}
             rows={5}
             placeholder="Tell the community about your work, specialisation, and interests."
-            className="rounded-xl"
+            className="rounded-md"
           />
         </FieldRow>
 
@@ -453,14 +453,14 @@ function ProfileForm() {
             type="button"
             onClick={handleDiscard}
             disabled={saving || !dirty}
-            className="rounded-xl border-[0.5px] border-border px-6 py-3 text-[14px] font-medium text-ink transition-colors hover:bg-secondary disabled:opacity-40"
+            className="rounded-md border-[0.5px] border-line px-6 py-3 text-[14px] font-medium text-ink transition-colors hover:bg-bg-soft disabled:opacity-40"
           >
             Discard
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="rounded-xl border-[0.5px] border-ink bg-ink px-6 py-3 text-[14px] font-semibold text-paper transition-colors hover:bg-ink-2 disabled:opacity-50"
+            className="rounded-md border-[0.5px] border-ink bg-ink px-6 py-3 text-[14px] font-semibold text-paper transition-colors hover:bg-ink-2 disabled:opacity-50"
           >
             {saving ? (
               <span className="flex items-center gap-2">
@@ -544,13 +544,13 @@ function AcademicPanel() {
 
   return (
     <div>
-      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-fg-muted">
         Account · Academic
       </p>
-      <h2 className="font-display text-[32px] font-semibold leading-[1.05] tracking-[-0.018em] text-ink sm:text-[38px]">
+      <h2 className="font-semibold text-[32px] font-semibold leading-[1.05] tracking-[-0.018em] text-ink sm:text-[38px]">
         Academic profile.
       </h2>
-      <p className="mt-2 font-display text-[14px] italic leading-[1.6] text-ink-3">
+      <p className="mt-2 font-semibold text-[14px] italic leading-[1.6] text-fg-muted">
         Institution, title, website, and content language.
       </p>
 
@@ -563,7 +563,7 @@ function AcademicPanel() {
             value={form.academicTitle}
             onChange={handleChange}
             placeholder="Professor of Islamic Jurisprudence"
-            className="rounded-xl"
+            className="rounded-md"
           />
         </FieldRow>
 
@@ -575,7 +575,7 @@ function AcademicPanel() {
             value={form.institutionName}
             onChange={handleChange}
             placeholder="University of Sulaymaniyah"
-            className="rounded-xl"
+            className="rounded-md"
           />
         </FieldRow>
 
@@ -588,7 +588,7 @@ function AcademicPanel() {
             value={form.websiteUrl}
             onChange={handleChange}
             placeholder="https://example.com"
-            className="rounded-xl"
+            className="rounded-md"
           />
         </FieldRow>
 
@@ -599,10 +599,10 @@ function AcademicPanel() {
               <label
                 key={lang.value}
                 className={cn(
-                  'inline-flex cursor-pointer items-center gap-2 rounded-xl border-[0.5px] px-4 py-2.5 text-[13px] font-medium transition-colors',
+                  'inline-flex cursor-pointer items-center gap-2 rounded-md border-[0.5px] px-4 py-2.5 text-[13px] font-medium transition-colors',
                   form.contentLanguage === lang.value
                     ? 'border-ink bg-ink text-paper'
-                    : 'border-border text-ink-2 hover:bg-secondary',
+                    : 'border-line text-fg-soft hover:bg-bg-soft',
                 )}
               >
                 <input
@@ -656,14 +656,14 @@ function AcademicPanel() {
             type="button"
             onClick={handleDiscard}
             disabled={saving || !dirty}
-            className="rounded-xl border-[0.5px] border-border px-6 py-3 text-[14px] font-medium text-ink transition-colors hover:bg-secondary disabled:opacity-40"
+            className="rounded-md border-[0.5px] border-line px-6 py-3 text-[14px] font-medium text-ink transition-colors hover:bg-bg-soft disabled:opacity-40"
           >
             Discard
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="rounded-xl border-[0.5px] border-ink bg-ink px-6 py-3 text-[14px] font-semibold text-paper transition-colors hover:bg-ink-2 disabled:opacity-50"
+            className="rounded-md border-[0.5px] border-ink bg-ink px-6 py-3 text-[14px] font-semibold text-paper transition-colors hover:bg-ink-2 disabled:opacity-50"
           >
             {saving ? (
               <span className="flex items-center gap-2">
@@ -705,13 +705,13 @@ function VerificationPanel() {
 
   return (
     <div>
-      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-fg-muted">
         Account · Verification
       </p>
-      <h2 className="font-display text-[32px] font-semibold leading-[1.05] tracking-[-0.018em] text-ink sm:text-[38px]">
+      <h2 className="font-semibold text-[32px] font-semibold leading-[1.05] tracking-[-0.018em] text-ink sm:text-[38px]">
         Scholar verification.
       </h2>
-      <p className="mt-2 font-display text-[14px] italic leading-[1.6] text-ink-3">
+      <p className="mt-2 font-semibold text-[14px] italic leading-[1.6] text-fg-muted">
         Verification is granted by platform admins. Reach out if you believe
         your account should be promoted.
       </p>
@@ -724,13 +724,13 @@ function VerificationPanel() {
             </p>
             <div className="flex flex-wrap gap-6">
               <div className="space-y-1">
-                <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                <p className="font-mono text-[11px] uppercase tracking-wider text-fg-muted">
                   Account type
                 </p>
                 <p className="text-sm font-semibold">{prettyEnum(currentType)}</p>
               </div>
               <div className="space-y-1">
-                <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                <p className="font-mono text-[11px] uppercase tracking-wider text-fg-muted">
                   Verification tier
                 </p>
                 <p className="text-sm font-semibold">
@@ -1012,7 +1012,7 @@ function AddContactDialog({ onAdded }) {
                 type="checkbox"
                 checked={isPublic}
                 onChange={(event) => setIsPublic(event.target.checked)}
-                className="size-4 rounded border-border"
+                className="size-4 rounded border-line"
               />
               Visible on your public profile
             </label>
@@ -1330,7 +1330,7 @@ function EmailPreferencesPanel() {
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
           <div className="flex items-start gap-3">
-            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-brand/10 text-brand">
+            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-brand/10 text-accent-indigo">
               <MailCheck className="size-4" strokeWidth={1.9} />
             </span>
             <div className="leading-tight">
@@ -1427,11 +1427,11 @@ function PasswordPanel() {
 
   return (
     <div>
-      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Account · Password</p>
-      <h2 className="font-display text-[32px] font-semibold leading-[1.05] tracking-[-0.018em] text-ink sm:text-[38px]">
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-fg-muted">Account · Password</p>
+      <h2 className="font-semibold text-[32px] font-semibold leading-[1.05] tracking-[-0.018em] text-ink sm:text-[38px]">
         Change password.
       </h2>
-      <p className="mt-2 font-display text-[14px] italic leading-[1.6] text-ink-3">
+      <p className="mt-2 font-semibold text-[14px] italic leading-[1.6] text-fg-muted">
         Changing your password signs out every other device. You stay logged in here.
       </p>
 
@@ -1446,7 +1446,7 @@ function PasswordPanel() {
               autoComplete="current-password"
               required
               className={cn(
-                'w-full rounded-xl border-[0.5px] border-border bg-paper px-4 py-3 pr-10 text-[15px] text-ink outline-none ring-0 transition-colors focus:border-ink/50 focus:ring-1 focus:ring-ink/20',
+                'w-full rounded-md border-[0.5px] border-line bg-background px-4 py-3 pr-10 text-[15px] text-ink outline-none ring-0 transition-colors focus:border-ink/50 focus:ring-1 focus:ring-ink/20',
                 fieldError === 'current' && 'border-destructive focus:border-destructive',
               )}
               placeholder="••••••••"
@@ -1454,7 +1454,7 @@ function PasswordPanel() {
             <button
               type="button"
               onClick={() => setShow((s) => ({ ...s, current: !s.current }))}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted hover:text-ink"
               tabIndex={-1}
               aria-label={show.current ? 'Hide password' : 'Show password'}
             >
@@ -1474,7 +1474,7 @@ function PasswordPanel() {
               required
               minLength={8}
               className={cn(
-                'w-full rounded-xl border-[0.5px] border-border bg-paper px-4 py-3 pr-10 text-[15px] text-ink outline-none ring-0 transition-colors focus:border-ink/50 focus:ring-1 focus:ring-ink/20',
+                'w-full rounded-md border-[0.5px] border-line bg-background px-4 py-3 pr-10 text-[15px] text-ink outline-none ring-0 transition-colors focus:border-ink/50 focus:ring-1 focus:ring-ink/20',
                 fieldError === 'next' && 'border-destructive focus:border-destructive',
               )}
               placeholder="••••••••"
@@ -1482,7 +1482,7 @@ function PasswordPanel() {
             <button
               type="button"
               onClick={() => setShow((s) => ({ ...s, next: !s.next }))}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted hover:text-ink"
               tabIndex={-1}
               aria-label={show.next ? 'Hide password' : 'Show password'}
             >
@@ -1501,7 +1501,7 @@ function PasswordPanel() {
               autoComplete="new-password"
               required
               className={cn(
-                'w-full rounded-xl border-[0.5px] border-border bg-paper px-4 py-3 pr-10 text-[15px] text-ink outline-none ring-0 transition-colors focus:border-ink/50 focus:ring-1 focus:ring-ink/20',
+                'w-full rounded-md border-[0.5px] border-line bg-background px-4 py-3 pr-10 text-[15px] text-ink outline-none ring-0 transition-colors focus:border-ink/50 focus:ring-1 focus:ring-ink/20',
                 fieldError === 'confirm' && 'border-destructive focus:border-destructive',
               )}
               placeholder="••••••••"
@@ -1509,7 +1509,7 @@ function PasswordPanel() {
             <button
               type="button"
               onClick={() => setShow((s) => ({ ...s, confirm: !s.confirm }))}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted hover:text-ink"
               tabIndex={-1}
               aria-label={show.confirm ? 'Hide password' : 'Show password'}
             >
@@ -1522,7 +1522,7 @@ function PasswordPanel() {
           <button
             type="submit"
             disabled={saving || !form.currentPassword || !form.newPassword || !form.confirmPassword}
-            className="rounded-xl border-[0.5px] border-ink bg-ink px-6 py-3 text-[14px] font-semibold text-paper transition-colors hover:bg-ink-2 disabled:opacity-50"
+            className="rounded-md border-[0.5px] border-ink bg-ink px-6 py-3 text-[14px] font-semibold text-paper transition-colors hover:bg-ink-2 disabled:opacity-50"
           >
             {saving ? (
               <span className="flex items-center gap-2">
@@ -1583,7 +1583,7 @@ function SettingsNav({ active, onSelect }) {
     <nav className="space-y-6">
       {NAV_SECTIONS.map((section) => (
         <div key={section.label}>
-          <p className="mb-2 px-3 font-mono text-[10px] uppercase tracking-wider text-ink-4">
+          <p className="mb-2 px-3 font-mono text-[10px] uppercase tracking-wider text-fg-faint">
             {section.label}
           </p>
           <ul className="space-y-0.5">
@@ -1596,18 +1596,18 @@ function SettingsNav({ active, onSelect }) {
                     type="button"
                     onClick={() => onSelect(item.id)}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition-colors',
+                      'flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-[14px] font-medium transition-colors',
                       isActive
                         ? 'bg-paper text-ink shadow-[0_0_0_0.5px_var(--border)]'
                         : item.danger
                           ? 'text-destructive hover:bg-muted/60'
-                          : 'text-ink-3 hover:bg-muted/60 hover:text-ink',
+                          : 'text-fg-muted hover:bg-muted/60 hover:text-ink',
                     )}
                   >
                     <Icon
                       className={cn(
                         'size-4 shrink-0',
-                        isActive ? 'text-ink' : item.danger ? 'text-destructive' : 'text-ink-3',
+                        isActive ? 'text-ink' : item.danger ? 'text-destructive' : 'text-fg-muted',
                       )}
                       strokeWidth={1.5}
                     />
@@ -1639,8 +1639,8 @@ export function SettingsPage() {
       case 'links':
         return (
           <>
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Profile · Links</p>
-            <h2 className="mb-8 font-display text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-fg-muted">Profile · Links</p>
+            <h2 className="mb-8 font-semibold text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
               Your links.
             </h2>
             <LinksList />
@@ -1649,8 +1649,8 @@ export function SettingsPage() {
       case 'contacts':
         return (
           <>
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Profile · Contacts</p>
-            <h2 className="mb-8 font-display text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-fg-muted">Profile · Contacts</p>
+            <h2 className="mb-8 font-semibold text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
               Contact channels.
             </h2>
             <ContactsList />
@@ -1659,8 +1659,8 @@ export function SettingsPage() {
       case 'email':
         return (
           <>
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-3">Notifications · Email</p>
-            <h2 className="mb-8 font-display text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-fg-muted">Notifications · Email</p>
+            <h2 className="mb-8 font-semibold text-[32px] font-semibold leading-tight tracking-[-0.018em] text-ink">
               Email preferences.
             </h2>
             <EmailPreferencesPanel />
@@ -1668,7 +1668,7 @@ export function SettingsPage() {
         )
       default:
         return (
-          <div className="flex h-48 items-center justify-center text-[14px] text-ink-3">
+          <div className="flex h-48 items-center justify-center text-[14px] text-fg-muted">
             Coming soon.
           </div>
         )
@@ -1678,12 +1678,12 @@ export function SettingsPage() {
   return (
     <div className="flex min-h-[60vh] gap-0 overflow-hidden">
       {/* ── Sidebar ────────────────────────────────────────────── */}
-      <aside className="w-[220px] shrink-0 border-r-[0.5px] border-border bg-secondary/30 px-4 py-6 sm:w-[240px]">
+      <aside className="w-[220px] shrink-0 border-r-[0.5px] border-line bg-bg-soft px-4 py-6 sm:w-[240px]">
         <SettingsNav active={panel} onSelect={setPanel} />
       </aside>
 
       {/* ── Main content ───────────────────────────────────────── */}
-      <main className="min-w-0 flex-1 bg-paper px-8 py-8 sm:px-12">
+      <main className="min-w-0 flex-1 bg-background px-8 py-8 sm:px-12">
         {renderPanel()}
       </main>
     </div>

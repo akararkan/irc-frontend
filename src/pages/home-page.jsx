@@ -26,7 +26,7 @@ function SectionDivider({ label }) {
           className="inline-block size-1.5 rotate-45"
           style={{ background: 'var(--gold)' }}
         />
-        <span className="font-display text-[11.5px] italic tracking-[0.06em] text-ink-4">
+        <span className="font-semibold text-[11.5px] italic tracking-[0.06em] text-fg-faint">
           {label}
         </span>
         <span

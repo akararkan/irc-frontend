@@ -11,7 +11,7 @@ import {
   VolumeX,
   X,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/app/empty-state'
@@ -49,6 +49,7 @@ function aggregateLabel(notification, actor) {
 
 /* ── Notification row ────────────────────────────────────────── */
 function NotificationRow({ notification, onMarkRead, onDelete }) {
+  const navigate = useNavigate()
   const meta = getNotificationTypeMeta(notification.type)
   const categoryMeta = getNotificationCategoryMeta(notification.category)
   const actor = pickPrimaryActor(notification)
@@ -64,12 +65,18 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
 
   function handleOpen() {
     if (unread) onMarkRead(notification.id)
+    if (href) navigate(href)
   }
 
+  // The row used to wrap everything in <Link to={href}>, but the body
+  // also contains links (actor name, mention chips, "Follow back"),
+  // producing an invalid <a> in <a> tree. Keep navigation behavior
+  // via onClick / role=link instead.
   const containerClass = cn(
-    'group/notif relative flex items-start gap-3 border-b border-border px-0 py-4 transition-colors sm:gap-4 sm:py-5',
-    'hover:bg-secondary/30',
-    unread && 'bg-paper',
+    'group/notif relative flex items-start gap-3 border-b border-line px-0 py-4 transition-colors sm:gap-4 sm:py-5',
+    'hover:bg-bg-soft',
+    href && 'cursor-pointer',
+    unread && 'bg-bg-soft',
   )
 
   const inner = (
@@ -93,7 +100,7 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
         {notification.aggregateCount > 1 ? (
           <span
             aria-hidden
-            className="absolute -bottom-1 -right-1 inline-flex h-[18px] min-w-[20px] items-center justify-center rounded-full bg-brand px-1 font-mono text-[10px] font-semibold tabular-nums text-brand-foreground ring-2 ring-paper"
+            className="absolute -bottom-1 -right-1 inline-flex h-[18px] min-w-[20px] items-center justify-center rounded-full bg-brand px-1 font-mono text-[10px] font-semibold tabular-nums text-accent-indigo-foreground ring-2 ring-paper"
             title={`${notification.aggregateCount} contributors`}
           >
             {notification.aggregateCount > 99 ? '99+' : notification.aggregateCount}
@@ -116,7 +123,7 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
             <span className="font-semibold">{name}</span>
           )}
           {' '}
-          <span className="font-display italic text-ink-2">{meta.verb}</span>
+          <span className="font-semibold italic text-fg-soft">{meta.verb}</span>
           {notification.title && !aggregate ? (
             <>
               {' '}
@@ -129,13 +136,13 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
 
         {/* Body quote */}
         {notification.body ? (
-          <p className="border-l-2 border-brand pl-3 font-display text-[13.5px] italic leading-[1.6] text-ink-3">
+          <p className="border-l-2 border-accent-indigo pl-3 font-semibold text-[13.5px] italic leading-[1.6] text-fg-muted">
             <MentionText text={`"${notification.body}"`} />
           </p>
         ) : null}
 
         {/* Meta — CATEGORY · TIME */}
-        <div className="flex flex-wrap items-center gap-x-2 font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
+        <div className="flex flex-wrap items-center gap-x-2 font-mono text-[10.5px] uppercase tracking-wider text-fg-muted">
           {notification.category ? (
             <span>{categoryMeta.label}</span>
           ) : null}
@@ -153,7 +160,7 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
           <Link
             to={actorLink ?? '#'}
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-paper px-3 py-2 text-[12.5px] font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand-soft/50 sm:px-4 sm:py-2.5 sm:text-[13px]"
+            className="inline-flex items-center gap-1.5 rounded-md border border-line bg-background px-3 py-2 text-[12.5px] font-medium text-accent-indigo transition-colors hover:border-accent-indigo/40 hover:bg-accent-indigo-soft/50 sm:px-4 sm:py-2.5 sm:text-[13px]"
           >
             <Plus className="size-3.5" strokeWidth={2} />
             <span>Follow back</span>
@@ -161,7 +168,7 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
         ) : (
           <button
             type="button"
-            className="rounded-full p-1.5 text-ink-3 opacity-0 transition-colors hover:text-destructive group-hover/notif:opacity-100 focus-visible:opacity-100"
+            className="rounded-full p-1.5 text-fg-muted opacity-0 transition-colors hover:text-destructive group-hover/notif:opacity-100 focus-visible:opacity-100"
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
@@ -179,9 +186,20 @@ function NotificationRow({ notification, onMarkRead, onDelete }) {
 
   if (href) {
     return (
-      <Link to={href} onClick={handleOpen} className={containerClass}>
+      <div
+        role="link"
+        tabIndex={0}
+        onClick={handleOpen}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleOpen()
+          }
+        }}
+        className={containerClass}
+      >
         {inner}
-      </Link>
+      </div>
     )
   }
   return <div className={containerClass}>{inner}</div>
@@ -206,14 +224,14 @@ function PushPermissionBanner() {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/25 bg-[#EFF6FF] px-4 py-3.5">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-accent-indigo/25 bg-[#EFF6FF] px-4 py-3.5">
       <div className="flex items-center gap-3">
-        <span className="grid size-9 place-items-center rounded-full bg-brand/15 text-brand">
+        <span className="grid size-9 place-items-center rounded-full bg-brand/15 text-accent-indigo">
           <BellRing className="size-4" strokeWidth={1.8} />
         </span>
         <div className="leading-tight">
           <p className="text-[13.5px] font-semibold text-ink">Get notified anywhere</p>
-          <p className="mt-0.5 text-[12px] text-brand">
+          <p className="mt-0.5 text-[12px] text-accent-indigo">
             Allow browser notifications even when this tab is in the background.
           </p>
         </div>
@@ -221,7 +239,7 @@ function PushPermissionBanner() {
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="rounded-lg px-3 py-1.5 text-[12.5px] font-medium text-ink-3 transition-colors hover:bg-brand/10 hover:text-ink"
+          className="rounded-lg px-3 py-1.5 text-[12.5px] font-medium text-fg-muted transition-colors hover:bg-accent-indigo/10 hover:text-ink"
           onClick={() => setDismissed(true)}
           disabled={working}
         >
@@ -229,7 +247,7 @@ function PushPermissionBanner() {
         </button>
         <button
           type="button"
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand px-4 text-[13px] font-semibold text-brand-foreground transition-colors hover:bg-brand/90 disabled:opacity-60"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand px-4 text-[13px] font-semibold text-accent-indigo-foreground transition-colors hover:bg-accent-indigo/90 disabled:opacity-60"
           onClick={handleEnable}
           disabled={working}
         >
@@ -254,7 +272,7 @@ function SoundToggle() {
         'inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[12.5px] font-medium transition-colors',
         enabled
           ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-          : 'border-border text-ink-2 hover:border-brand/40 hover:text-ink',
+          : 'border-line text-fg-soft hover:border-accent-indigo/40 hover:text-ink',
       )}
     >
       <Icon className="size-[15px]" strokeWidth={1.8} />
@@ -271,13 +289,13 @@ function InboxTab({ label, count, active, onSelect }) {
       onClick={onSelect}
       className={cn(
         'relative shrink-0 whitespace-nowrap pb-3 pr-6 text-[14px] font-medium transition-colors',
-        active ? 'text-brand' : 'text-ink-3 hover:text-ink',
+        active ? 'text-accent-indigo' : 'text-ink-3 hover:text-ink',
       )}
       aria-pressed={active}
     >
       {label}
       {count > 0 ? (
-        <span className="ml-1.5 font-mono text-[10.5px] tabular-nums text-ink-4">
+        <span className="ml-1.5 font-mono text-[10.5px] tabular-nums text-fg-faint">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
@@ -339,7 +357,7 @@ export function NotificationsPage() {
               <Button asChild variant="outline" size="sm" className="rounded-full">
                 <Link to="/login">Sign in</Link>
               </Button>
-              <Button asChild size="sm" className="rounded-full bg-brand text-brand-foreground hover:bg-brand/90">
+              <Button asChild size="sm" className="rounded-full bg-brand text-accent-indigo-foreground hover:bg-accent-indigo/90">
                 <Link to="/signup">Create account</Link>
               </Button>
             </div>
@@ -354,11 +372,11 @@ export function NotificationsPage() {
       {/* ── Header ──────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-3 pb-5 sm:pb-6">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
-          <h1 className="font-display text-[28px] font-semibold leading-[1.1] tracking-[-0.018em] text-ink sm:text-[32px]">
+          <h1 className="font-semibold text-[28px] font-semibold leading-[1.1] tracking-[-0.018em] text-ink sm:text-[32px]">
             Notifications
           </h1>
           {unreadCount > 0 ? (
-            <span className="inline-flex shrink-0 items-center rounded-full bg-brand px-2.5 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-wider text-brand-foreground sm:px-3">
+            <span className="inline-flex shrink-0 items-center rounded-full bg-brand px-2.5 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-wider text-accent-indigo-foreground sm:px-3">
               {unreadCount} New
             </span>
           ) : null}
@@ -369,7 +387,7 @@ export function NotificationsPage() {
             type="button"
             onClick={markAllAsRead}
             disabled={unreadCount === 0}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-paper px-3 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-brand/40 hover:bg-secondary hover:text-ink disabled:opacity-40 sm:px-4"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-background px-3 text-[12.5px] font-medium text-fg-soft transition-colors hover:border-accent-indigo/40 hover:bg-bg-soft hover:text-ink disabled:opacity-40 sm:px-4"
             title="Mark all read"
           >
             <Check className="size-3.5" strokeWidth={2} />
@@ -379,14 +397,14 @@ export function NotificationsPage() {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-paper px-2.5 text-[13px] font-medium text-ink-2 transition-colors hover:bg-secondary disabled:opacity-40"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-background px-2.5 text-[13px] font-medium text-fg-soft transition-colors hover:bg-bg-soft disabled:opacity-40"
                 disabled={items.length === 0}
                 title="More options"
               >
                 <MoreHorizontal className="size-3.5" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 rounded-xl">
+            <DropdownMenuContent align="end" className="w-52 rounded-md">
               <DropdownMenuItem
                 onSelect={purgeReadNotifications}
                 className="text-destructive focus:text-destructive"
@@ -403,7 +421,7 @@ export function NotificationsPage() {
       <PushPermissionBanner />
 
       {/* ── Tabs ────────────────────────────────────────────── */}
-      <div className="mt-5 flex items-end border-b border-border">
+      <div className="mt-5 flex items-end border-b border-line">
         <InboxTab
           label="All"
           count={counts.all}
@@ -427,7 +445,7 @@ export function NotificationsPage() {
       {/* ── List ────────────────────────────────────────────── */}
       <div className="pt-1">
         {isLoading && items.length === 0 ? (
-          <p className="py-10 text-center text-[13px] text-ink-3">Loading…</p>
+          <p className="py-10 text-center text-[13px] text-fg-muted">Loading…</p>
         ) : visible.length === 0 ? (
           <EmptyState
             icon={BellOff}

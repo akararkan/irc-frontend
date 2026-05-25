@@ -49,7 +49,8 @@ function FeedSkeleton() {
  * Everyone; guests always see the public feed.
  */
 export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
-  const { isAuthenticated } = useAuth()
+  const { user, isAuthenticated } = useAuth()
+  const userId = user?.id ?? null
   const toast = useToast()
   const [posts, setPosts] = useState([])
   // Both PUBLIC and FOLLOWING use cursor pagination — stable under
@@ -60,6 +61,26 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
   const [initializing, setInitializing] = useState(true)
   const [filter, setFilter] = useState(isAuthenticated ? 'FOLLOWING' : 'PUBLIC')
 
+  // Cassandra feed may return a plain array (no envelope). Infer the
+  // next cursor from the last row's createdAt and treat a full page as
+  // "probably more" so infinite-scroll keeps working.
+  function normalizeFeed(data) {
+    if (Array.isArray(data)) {
+      const last = data[data.length - 1]
+      const tailCursor = last?.createdAt ?? last?.publishedAt ?? null
+      return {
+        items: data,
+        hasMore: data.length >= PAGE_SIZE,
+        nextCursor: tailCursor,
+      }
+    }
+    const items = data?.items ?? data?.content ?? []
+    const hasMore = data?.hasMore ?? (data?.last != null ? !data.last : items.length >= PAGE_SIZE)
+    const nextCursor =
+      data?.nextCursor ?? (hasMore ? items[items.length - 1]?.createdAt ?? null : null)
+    return { items, hasMore, nextCursor }
+  }
+
   const loadFirst = useCallback(
     async (filterValue) => {
       const chosenFilter = filterValue ?? filter
@@ -67,11 +88,11 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
       const fetcher = useFollowing ? getFollowingFeedCursor : getFeedCursor
       setLoading(true)
       try {
-        const data = await fetcher({ limit: PAGE_SIZE })
-        const items = data?.items ?? []
+        const data = await fetcher({ userId, limit: PAGE_SIZE })
+        const { items, hasMore: more, nextCursor } = normalizeFeed(data)
         setPosts(items)
-        setHasMore(Boolean(data?.hasMore))
-        setCursor(data?.nextCursor ?? null)
+        setHasMore(more)
+        setCursor(nextCursor)
       } catch (error) {
         toast.error(extractApiMessage(error, 'Could not load the feed.'))
       } finally {
@@ -79,7 +100,7 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
         setInitializing(false)
       }
     },
-    [filter, isAuthenticated, toast],
+    [filter, isAuthenticated, userId, toast],
   )
 
   const loadMore = useCallback(async () => {
@@ -91,22 +112,22 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
     const fetcher = useFollowing ? getFollowingFeedCursor : getFeedCursor
     setLoading(true)
     try {
-      const data = await fetcher({ cursor, limit: PAGE_SIZE })
-      const items = data?.items ?? []
+      const data = await fetcher({ userId, cursor, limit: PAGE_SIZE })
+      const { items, hasMore: more, nextCursor } = normalizeFeed(data)
       setPosts((current) => [...current, ...items])
-      setHasMore(Boolean(data?.hasMore))
-      setCursor(data?.nextCursor ?? null)
+      setHasMore(more)
+      setCursor(nextCursor)
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not load more posts.'))
     } finally {
       setLoading(false)
     }
-  }, [filter, isAuthenticated, cursor, toast])
+  }, [filter, isAuthenticated, userId, cursor, toast])
 
   useEffect(() => {
     setInitializing(true)
     loadFirst(filter)
-  }, [filter, isAuthenticated])
+  }, [filter, isAuthenticated, userId])
 
   function handlePostChange(updated) {
     setPosts((current) =>
@@ -146,7 +167,7 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
         </h2>
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
-            <div className="flex items-center gap-0.5 rounded-full border border-border bg-secondary/60 p-1">
+            <div className="flex items-center gap-0.5 rounded-full border border-line bg-bg-soft p-1">
               {FILTERS.map((option) => {
                 const active = filter === option.value
                 return (
@@ -156,13 +177,13 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
                     onClick={() => setFilter(option.value)}
                     className={cn(
                       'relative rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition-colors',
-                      active ? 'text-brand' : 'text-ink-3 hover:text-ink',
+                      active ? 'text-accent-indigo' : 'text-fg-muted hover:text-ink',
                     )}
                   >
                     {active ? (
                       <motion.span
                         layoutId="postsFilterPill"
-                        className="absolute inset-0 rounded-full bg-paper"
+                        className="absolute inset-0 rounded-full bg-background"
                         style={{ boxShadow: 'var(--shadow-xs)' }}
                         transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                       />
@@ -175,7 +196,7 @@ export const PostsFeed = forwardRef(function PostsFeed(_props, ref) {
           ) : null}
           <button
             type="button"
-            className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink disabled:opacity-50"
+            className="grid size-8 place-items-center rounded-full text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink disabled:opacity-50"
             onClick={() => loadFirst(filter)}
             disabled={loading}
             aria-label="Refresh"

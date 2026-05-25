@@ -76,9 +76,11 @@ export function applyCounterEvent(kind, entityId, payload) {
         if (kind === 'post') {
           if (payload.isSaved !== undefined) setSaved('post', id, Boolean(payload.isSaved))
           else if (payload.saved !== undefined) setSaved('post', id, Boolean(payload.saved))
+          else if (payload.savedByMe !== undefined) setSaved('post', id, Boolean(payload.savedByMe))
         } else if (kind === 'research') {
           if (payload.saved !== undefined) setSaved('research', id, Boolean(payload.saved))
           else if (payload.isSaved !== undefined) setSaved('research', id, Boolean(payload.isSaved))
+          else if (payload.savedByMe !== undefined) setSaved('research', id, Boolean(payload.savedByMe))
         }
         break
       default:

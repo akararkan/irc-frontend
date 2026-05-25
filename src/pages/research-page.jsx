@@ -135,14 +135,14 @@ export function ResearchPage() {
 
       {/* Search bar */}
       <form onSubmit={handleSearch} className="relative">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[15px] -translate-y-1/2 text-ink-4" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[15px] -translate-y-1/2 text-fg-faint" />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search papers, authors, topics…"
           className={cn(
-            'h-11 w-full rounded-lg border border-border bg-paper pl-10 pr-24 text-[13.5px] text-ink outline-none',
-            'placeholder:text-ink-4 transition-colors',
+            'h-11 w-full rounded-lg border border-line bg-background pl-10 pr-24 text-[13.5px] text-ink outline-none',
+            'placeholder:text-fg-faint transition-colors',
             'focus:border-[#0891B2]/50 focus:ring-[3px] focus:ring-[#0891B2]/15',
           )}
         />
@@ -173,14 +173,14 @@ export function ResearchPage() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border bg-paper px-3 py-1.5 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-[#0891B2]/40 hover:text-[#0891B2]"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-line bg-background px-3 py-1.5 text-[12.5px] font-medium text-fg-soft transition-colors hover:border-[#0891B2]/40 hover:text-[#0891B2]"
             >
               <SlidersHorizontal className="size-[13px]" />
               {sort.label}
-              <ChevronDown className="size-3 text-ink-3" />
+              <ChevronDown className="size-3 text-fg-muted" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={6} className="w-44 rounded-xl p-1">
+          <DropdownMenuContent align="end" sideOffset={6} className="w-44 rounded-md p-1">
             {SORTS.map((opt) => (
               <DropdownMenuItem
                 key={opt.value}
@@ -201,7 +201,7 @@ export function ResearchPage() {
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2">
           {[0, 1, 2, 3].map((key) => (
-            <Skeleton key={key} className="h-72 w-full rounded-2xl" />
+            <Skeleton key={key} className="h-72 w-full rounded-lg" />
           ))}
         </div>
       ) : items.length === 0 ? (
@@ -237,7 +237,7 @@ function FilterPill({ active, onClick, children }) {
         'inline-flex items-center rounded-lg border px-3 py-1.5 text-[12.5px] font-medium transition-colors',
         active
           ? 'border-[#0891B2] bg-[#0891B2] text-white'
-          : 'border-border bg-paper text-ink-2 hover:border-[#0891B2]/40 hover:text-[#0891B2]',
+          : 'border-line bg-background text-fg-soft hover:border-[#0891B2]/40 hover:text-[#0891B2]',
       )}
     >
       {children}

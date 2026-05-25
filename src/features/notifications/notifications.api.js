@@ -84,3 +84,11 @@ export function notificationStreamUrl(token) {
   if (token) url.searchParams.set('token', token)
   return url.toString()
 }
+
+// Notifications are JWT-derived — the canonical endpoints above
+// (`getNotifications`, `getUnreadCount`, `markRead`, etc.) cover every
+// shape the backend ships. Earlier in the migration we had a parallel
+// userId-passing set (`getNotificationsForUser`, `getUnreadCountForUser`,
+// `markNotificationRead` POST, `deliverNotification`); the backend
+// audit confirmed none of those paths exist server-side, so they were
+// removed to stop the unread badge from occasionally 404-ing.

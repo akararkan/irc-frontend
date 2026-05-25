@@ -232,7 +232,7 @@ export function NotificationBell() {
         {unreadCount > 0 ? (
           <span
             aria-hidden
-            className="absolute -right-0.5 -top-0.5 inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-brand-foreground shadow-sm ring-2 ring-background"
+            className="absolute -right-0.5 -top-0.5 inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-accent-indigo-foreground shadow-sm ring-2 ring-background"
           >
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
@@ -250,9 +250,9 @@ export function NotificationBell() {
             transition={{ type: 'spring', stiffness: 360, damping: 28 }}
             role="dialog"
             aria-label="Notifications"
-            className="absolute right-0 top-full z-30 mt-2 w-[360px] origin-top-right overflow-hidden rounded-2xl border border-border bg-popover/95 shadow-soft-lg backdrop-blur-md"
+            className="absolute right-0 top-full z-30 mt-2 w-[360px] origin-top-right overflow-hidden rounded-lg border border-line bg-popover/95 shadow-soft-lg backdrop-blur-md"
           >
-            <header className="flex items-center justify-between gap-2 border-b border-border px-3.5 py-2.5">
+            <header className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2.5">
               <div className="flex items-center gap-2">
                 <p className="text-[13px] font-semibold tracking-tight">
                   Notifications
@@ -334,7 +334,7 @@ export function NotificationBell() {
               )}
             </div>
 
-            <footer className="border-t border-border bg-muted/40 px-1.5 py-1.5">
+            <footer className="border-t border-line bg-muted/40 px-1.5 py-1.5">
               <Link
                 to="/notifications"
                 onClick={() => setOpen(false)}

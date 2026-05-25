@@ -52,6 +52,7 @@ import { EditPostDialog } from '@/components/app/edit-post-dialog'
 import { MediaLightbox } from '@/components/app/media-lightbox'
 import { PostComments } from '@/components/app/post-comments'
 import { RoleBadge } from '@/components/app/role-badge'
+import { SaveCollectionSheet } from '@/components/app/save-collection-sheet'
 import { UserAvatar } from '@/components/app/user-avatar'
 import {
   copyPostShareLink,
@@ -217,18 +218,18 @@ function ActionButton({
   active,
   className,
 }) {
-  const activeColor = tone === 'rose' ? 'text-rose-600' : tone === 'blue' ? 'text-brand' : 'text-ink'
+  const activeColor = tone === 'rose' ? 'text-neg' : 'text-fg'
   return (
     <motion.button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      whileTap={{ scale: 0.91 }}
+      whileTap={{ scale: 0.93 }}
       transition={{ type: 'spring', stiffness: 500, damping: 28 }}
       aria-label={label}
       className={cn(
-        'inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[12.5px] font-medium tabular-nums transition-colors disabled:opacity-50',
-        active ? activeColor : 'text-ink-3 hover:bg-secondary hover:text-ink',
+        'inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-[12.5px] font-medium tabular-nums transition-colors disabled:opacity-40',
+        active ? activeColor : 'text-fg-muted hover:bg-bg-soft hover:text-fg',
         className,
       )}
     >
@@ -286,7 +287,7 @@ function MediaItem({ item, className, onOpen }) {
   }
   if (type === 'AUDIO_TRACK' || type === 'AUDIO') {
     return (
-      <div className={cn('flex items-center bg-secondary p-3', className)}>
+      <div className={cn('flex items-center bg-bg-soft p-3', className)}>
         <AudioPlayer
           src={url}
           variant="compact"
@@ -309,24 +310,24 @@ function MediaItem({ item, className, onOpen }) {
         target="_blank"
         rel="noreferrer"
         className={cn(
-          'group flex items-center gap-3.5 rounded-xl border border-border bg-secondary/50 px-3.5 py-3 transition-colors hover:bg-secondary',
+          'group flex items-center gap-3.5 rounded-md border border-line bg-bg-soft px-3.5 py-3 transition-colors hover:bg-bg-soft',
           className,
         )}
       >
-        <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-border bg-paper text-ink-2">
+        <span className="grid size-11 shrink-0 place-items-center rounded-md border border-line bg-background text-fg-soft">
           <FileText className="size-5" strokeWidth={1.5} />
         </span>
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-[14.5px] font-medium text-ink">
             {filename}
           </span>
-          <span className="mt-1 block font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
+          <span className="mt-1 block font-mono text-[10.5px] uppercase tracking-wider text-fg-muted">
             {ext ? `${ext} document` : 'document'}
             {sizeLabel ? ` · ${sizeLabel}` : ''}
           </span>
         </span>
         <ArrowUpRight
-          className="size-4 shrink-0 text-ink-3 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ink"
+          className="size-4 shrink-0 text-fg-muted transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ink"
           strokeWidth={1.6}
         />
       </a>
@@ -384,7 +385,7 @@ function MediaGrid({ media, author, caption }) {
     if (isVideo) {
       return (
         <>
-          <div className="mx-auto max-w-[480px] overflow-hidden rounded-xl border border-border bg-black">
+          <div className="mx-auto max-w-[480px] overflow-hidden rounded-md border border-line bg-black">
             <MediaItem
               item={sole}
               className="max-h-[420px] w-full object-contain sm:max-h-[480px]"
@@ -397,7 +398,7 @@ function MediaGrid({ media, author, caption }) {
     }
     return (
       <>
-        <div className="overflow-hidden rounded-xl border border-border">
+        <div className="overflow-hidden rounded-md border border-line">
           <MediaItem
             item={sole}
             className="max-h-[560px] w-full object-cover"
@@ -417,11 +418,11 @@ function MediaGrid({ media, author, caption }) {
   }[sliced.length]
   return (
     <>
-      <div className={cn('overflow-hidden rounded-xl border border-border', layout)}>
+      <div className={cn('overflow-hidden rounded-md border border-line', layout)}>
         {sliced.map((item, index) => (
           <div
             key={item.id ?? index}
-            className="relative aspect-square cursor-zoom-in overflow-hidden bg-secondary"
+            className="relative aspect-square cursor-zoom-in overflow-hidden bg-bg-soft"
           >
             <MediaItem item={item} onOpen={() => openLightboxAt(index)} />
             {index === 3 && media.length > 4 ? (
@@ -493,7 +494,7 @@ function ReelPlayer({ media, audioTrackName, postId }) {
                   key={i}
                   className="h-[2px] flex-1 overflow-hidden rounded-full bg-white/30"
                 >
-                  <span className="block h-full bg-brand" style={{ width: `${seg * 100}%` }} />
+                  <span className="block h-full bg-background" style={{ width: `${seg * 100}%` }} />
                 </span>
               )
             })}
@@ -553,7 +554,7 @@ function ReelPlayer({ media, audioTrackName, postId }) {
         </AnimatePresence>
 
         {/* Reel pill */}
-        <span className="absolute right-3 top-9 inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-2 py-0.5 font-mono text-[9.5px] font-medium uppercase tracking-wider text-white">
+        <span className="absolute right-3 top-9 inline-flex items-center gap-1.5 rounded-full bg-[#0A4A3C] px-2 py-0.5 font-mono text-[9.5px] font-medium uppercase tracking-wider text-white">
           <Clapperboard className="size-2.5" strokeWidth={1.6} />
           Reel
         </span>
@@ -604,7 +605,7 @@ function PostText({ text, postType }) {
           <blockquote
             key={index}
             dir="auto"
-            className="border-l-2 border-brand pl-4 font-display text-[15px] italic leading-[1.55] text-ink-2"
+            className="border-l-2 border-line-strong pl-4 text-[14.5px] italic leading-[1.55] text-fg-soft"
           >
             <MentionText text={block.text} />
           </blockquote>
@@ -618,7 +619,7 @@ function PostText({ text, postType }) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="text-[12.5px] font-medium text-brand transition-colors hover:underline"
+          className="text-[12.5px] font-medium text-fg-muted transition-colors hover:text-fg hover:underline"
         >
           {expanded ? 'Show less' : 'Show more'}
         </button>
@@ -692,10 +693,10 @@ function FollowButton({ authorId, inView }) {
       disabled={busy || !known}
       aria-pressed={isFollowing}
       className={cn(
-        'inline-flex h-8 shrink-0 items-center gap-1 rounded-full border px-3 text-[12px] font-medium transition-colors',
+        'inline-flex h-8 shrink-0 items-center gap-1 rounded-md border px-3 text-[12px] font-medium transition-colors',
         isFollowing
-          ? 'border-border bg-secondary text-ink-3 hover:text-ink'
-          : 'border-brand bg-paper text-brand hover:bg-brand-soft/50',
+          ? 'border-line bg-bg-soft text-fg-muted hover:text-fg'
+          : 'border-fg bg-fg text-background hover:bg-fg-soft',
         (!known || busy) && 'opacity-70',
       )}
     >
@@ -800,12 +801,12 @@ function ShareMenu({ post, onShared, onRepostCreated }) {
             type="button"
             disabled={busy}
             aria-label="Share post"
-            className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[12.5px] font-medium text-ink-3 transition-colors hover:bg-secondary hover:text-ink disabled:opacity-50"
+            className="inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-[12.5px] font-medium text-fg-muted transition-colors hover:bg-bg-soft hover:text-fg disabled:opacity-40"
           >
             <Share2 className="size-[15px]" strokeWidth={1.8} />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44 rounded-xl">
+        <DropdownMenuContent align="end" className="w-44 rounded-md border-line shadow-sm">
           <DropdownMenuItem onSelect={openDialog} disabled={busy}>
             <Repeat2 className="mr-2 size-4" />
             Share post
@@ -826,9 +827,9 @@ function ShareMenu({ post, onShared, onRepostCreated }) {
       </DropdownMenu>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md rounded-2xl">
+        <DialogContent className="max-w-md rounded-lg border-line">
           <DialogHeader>
-            <DialogTitle className="font-display text-[16px] font-semibold tracking-[-0.01em]">
+            <DialogTitle className="text-[15px] font-semibold tracking-[-0.01em]">
               Share post
             </DialogTitle>
             <DialogDescription className="text-[12.5px]">
@@ -842,23 +843,23 @@ function ShareMenu({ post, onShared, onRepostCreated }) {
               placeholder="Say something about this post…"
               rows={3}
               autoFocus
-              className="resize-none rounded-xl"
+              className="resize-none rounded-md border-line"
             />
-            <p className="text-right font-mono text-[11px] tabular-nums text-ink-3">
+            <p className="text-right font-mono text-[11px] tabular-nums text-fg-faint">
               {note.length} / 500
             </p>
-            <div className="flex items-start gap-2.5 rounded-xl border border-border bg-secondary/40 p-3">
+            <div className="flex items-start gap-2.5 rounded-md border border-line bg-bg-soft p-3">
               <UserAvatar user={author} className="size-7 shrink-0 rounded-full" />
               <div className="min-w-0 leading-tight">
-                <p className="truncate text-[12.5px] font-medium text-ink">
+                <p className="truncate text-[12.5px] font-medium text-fg">
                   {previewName}
                 </p>
                 {post.textContent ? (
-                  <p className="mt-0.5 line-clamp-2 text-[12px] text-ink-3">
+                  <p className="mt-0.5 line-clamp-2 text-[12px] text-fg-muted">
                     {post.textContent}
                   </p>
                 ) : (
-                  <p className="mt-0.5 text-[12px] italic text-ink-4">Media post</p>
+                  <p className="mt-0.5 text-[12px] italic text-fg-faint">Media post</p>
                 )}
               </div>
             </div>
@@ -877,7 +878,7 @@ function ShareMenu({ post, onShared, onRepostCreated }) {
               type="button"
               onClick={handleShare}
               disabled={busy}
-              className="rounded-lg bg-brand text-brand-foreground hover:bg-brand/90"
+              className="rounded-md bg-fg text-background hover:bg-fg-soft"
             >
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}
               {busy ? 'Sharing…' : 'Share post'}
@@ -898,7 +899,7 @@ function QuotedPost({ post }) {
   return (
     <Link
       to={profileHref}
-      className="block overflow-hidden rounded-xl border border-border bg-paper transition-colors hover:border-brand/30"
+      className="block overflow-hidden rounded-md border border-line bg-bg-soft transition-colors hover:border-line-strong"
     >
       <div className="flex items-center gap-2 px-3.5 pt-3">
         <UserAvatar user={author} className="size-7 rounded-full" />
@@ -906,14 +907,14 @@ function QuotedPost({ post }) {
           <p className="truncate text-[12.5px] font-medium text-ink">
             {getFullName(author) || handle}
           </p>
-          <p className="truncate text-[11px] text-ink-3">
+          <p className="truncate text-[11px] text-fg-muted">
             {handle ? `@${handle} · ` : ''}
             <RelativeTime entity={post} />
           </p>
         </div>
       </div>
       {post.textContent ? (
-        <p dir="auto" className="line-clamp-3 px-3.5 py-2 text-[13.5px] text-ink-2">
+        <p dir="auto" className="line-clamp-3 px-3.5 py-2 text-[13.5px] text-fg-soft">
           {post.textContent}
         </p>
       ) : null}
@@ -1160,15 +1161,12 @@ export function PostCard({
   }
 
   const [savingBookmark, setSavingBookmark] = useState(false)
+  const [saveSheetOpen, setSaveSheetOpen] = useState(false)
   const storeSaysSaved = useDidISave('post', post.id, false)
   const isSaved = post.isSaved ?? storeSaysSaved
 
-  async function handleToggleSave() {
+  async function executeSave(collection) {
     if (savingBookmark) return
-    if (!isAuthenticated) {
-      toast.info('Sign in to save this post.')
-      return
-    }
     const previous = post
     const previousSaved = isSaved
     const previousSaveCount = storedSaveCount
@@ -1177,17 +1175,13 @@ export function PostCard({
     bumpCounter('post', post.id, 'sv', storedSaveCount, isSaved ? -1 : +1)
     setSavingBookmark(true)
     try {
-      const updated = isSaved ? await unsavePost(post.id) : await savePost(post.id)
+      const updated = isSaved ? await unsavePost(post.id) : await savePost(post.id, null, collection)
       if (updated?.id) {
         onChange?.(updated)
-        if (updated.saveCount != null) {
-          setCounter('post', post.id, 'sv', updated.saveCount)
-        }
-        if (updated.isSaved != null) {
-          setSaved('post', post.id, Boolean(updated.isSaved))
-        }
+        if (updated.saveCount != null) setCounter('post', post.id, 'sv', updated.saveCount)
+        if (updated.isSaved != null)   setSaved('post', post.id, Boolean(updated.isSaved))
       }
-      if (!isSaved) toast.success('Saved to your library.')
+      if (!isSaved) toast.success(collection && collection !== 'Default' ? `Saved to "${collection}".` : 'Saved to your library.')
     } catch (error) {
       onChange?.(previous)
       setSaved('post', post.id, previousSaved)
@@ -1198,21 +1192,34 @@ export function PostCard({
     }
   }
 
+  async function handleToggleSave() {
+    if (savingBookmark) return
+    if (!isAuthenticated) {
+      toast.info('Sign in to save this post.')
+      return
+    }
+    if (!isSaved) {
+      // Open collection picker on first save
+      setSaveSheetOpen(true)
+      return
+    }
+    await executeSave()
+  }
+
   const displayName = getFullName(author) || authorHandle || 'Unknown'
 
   return (
     <article
       ref={composedRef}
-      className="group/post overflow-hidden rounded-2xl border border-border bg-paper transition-colors"
-      style={{ boxShadow: 'var(--shadow-xs)' }}
+      className="group/post overflow-hidden rounded-lg border border-line bg-background transition-colors"
     >
       {/* ── Repost banner ─────────────────────────────────── */}
       {(post.isRepost || postType === 'REPOST') && post.sharedPost ? (
-        <div className="flex items-center gap-1.5 px-5 pb-1.5 pt-3.5 text-[12px] text-ink-3">
-          <Repeat2 className="size-[14px] text-brand" strokeWidth={1.8} />
+        <div className="flex items-center gap-1.5 px-5 pb-1.5 pt-3.5 text-[12px] text-fg-muted">
+          <Repeat2 className="size-[14px] text-fg-muted" strokeWidth={1.8} />
           <Link
             to={`/profile/${authorRoute}`}
-            className="font-medium text-ink-2 hover:underline"
+            className="font-medium text-fg-soft hover:underline"
           >
             {displayName}
           </Link>
@@ -1226,20 +1233,20 @@ export function PostCard({
           to={`/profile/${authorRoute}`}
           className="shrink-0 transition-opacity hover:opacity-90"
         >
-          <UserAvatar user={author} className="size-10 rounded-full" />
+          <UserAvatar user={author} className="size-9 rounded-full" />
         </Link>
 
         <div className="min-w-0 flex-1 leading-tight">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <Link
               to={`/profile/${authorRoute}`}
-              className="truncate font-display text-[15px] font-semibold tracking-[-0.005em] text-ink hover:underline"
+              className="truncate text-[13.5px] font-semibold text-fg hover:underline"
             >
               {displayName}
             </Link>
             {author.role ? <RoleBadge role={author.role} size="sm" /> : null}
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-[10.5px] text-ink-3">
+          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-[10.5px] text-fg-muted">
             {authorHandle ? (
               <Link
                 to={`/profile/${authorRoute}`}
@@ -1289,12 +1296,7 @@ export function PostCard({
         <div className="flex shrink-0 items-center gap-1.5">
           {typeMeta ? (
             <span
-              className={cn(
-                'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium',
-                postType === 'VOICE_POST'
-                  ? 'bg-[#FFFBEB] text-[#B45309]'
-                  : 'bg-[#F5F3FF] text-[#7C3AED]',
-              )}
+              className="inline-flex items-center gap-1 rounded-[4px] border border-line bg-bg-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.04em] text-fg-muted"
             >
               {TypeIcon ? <TypeIcon className="size-3" strokeWidth={1.8} /> : null}
               {typeMeta.label}
@@ -1309,7 +1311,7 @@ export function PostCard({
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="rounded-full text-ink-3 opacity-60 transition-opacity hover:opacity-100 group-hover/post:opacity-100"
+                  className="rounded-md text-fg-muted opacity-60 transition-opacity hover:opacity-100 group-hover/post:opacity-100"
                 >
                   <MoreHorizontal className="size-4" />
                 </Button>
@@ -1371,7 +1373,7 @@ export function PostCard({
       </div>
 
       {/* ── Action bar ────────────────────────────────────── */}
-      <div className="mt-3 flex items-center gap-0.5 border-t border-border px-4 py-2.5">
+      <div className="mt-3 flex items-center gap-0.5 border-t border-line px-3 py-2">
         <ActionButton
           icon={Heart}
           filled={Boolean(effectiveReaction)}
@@ -1407,7 +1409,7 @@ export function PostCard({
         />
 
         {storedShareCount > 0 ? (
-          <span className="inline-flex h-8 items-center gap-1 px-2 text-[12.5px] font-medium text-ink-3">
+          <span className="inline-flex h-8 items-center gap-1 px-2.5 text-[12.5px] font-medium text-fg-muted">
             <Repeat2 className="size-[15px]" strokeWidth={1.8} />
             <span className="tabular-nums">{formatNumber(storedShareCount)}</span>
           </span>
@@ -1444,7 +1446,7 @@ export function PostCard({
 
         {storedViewCount > 0 ? (
           <span
-            className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-wider text-ink-3"
+            className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.04em] text-fg-faint"
             title={`${storedViewCount.toLocaleString()} ${storedViewCount === 1 ? 'view' : 'views'}`}
           >
             <Eye className="size-3.5" strokeWidth={1.6} />
@@ -1476,7 +1478,7 @@ export function PostCard({
             transition={{ type: 'spring', stiffness: 260, damping: 30 }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border bg-secondary/30 px-5 pb-5 pt-4">
+            <div className="border-t border-line bg-bg-soft px-5 pb-5 pt-4">
               <PostComments
                 ref={commentsRef}
                 postId={post.id}
@@ -1492,6 +1494,12 @@ export function PostCard({
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      <SaveCollectionSheet
+        open={saveSheetOpen}
+        onOpenChange={setSaveSheetOpen}
+        onSave={(collection) => executeSave(collection)}
+      />
     </article>
   )
 }

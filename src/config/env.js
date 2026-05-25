@@ -9,18 +9,20 @@ const API_PORT = 8080
  * Resolve the API base URL.
  *
  * Priority:
- *   1. `VITE_API_URL` env var, if set (production / explicit override).
- *   2. Same hostname the page was loaded from, on `API_PORT`. This makes the
- *      app "just work" whether you open it from `localhost:5173`, your LAN
- *      IP `http://192.168.x.x:5173`, or a tunnel — no env rebuild needed.
+ *   1. `VITE_API_URL` env var — use in production (e.g. https://api.irc.example.com).
+ *   2. Same origin the page is loaded from — works in local dev because
+ *      Vite proxies all `/api/*` paths to `localhost:8080`, so every
+ *      Axios + EventSource request hits the same origin and CORS never fires.
  *   3. `http://localhost:8080` as a server-side / SSR fallback.
  */
 function resolveApiUrl() {
   const fromEnv = import.meta.env.VITE_API_URL
   if (fromEnv) return fromEnv.replace(/\/+$/, '')
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    const { protocol, hostname } = window.location
-    return `${protocol}//${hostname}:${API_PORT}`
+  // Return the window origin (e.g. http://localhost:5173) so all /api
+  // requests are served by Vite's dev-server proxy instead of going
+  // directly to :8080 cross-origin.
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin
   }
   return `http://localhost:${API_PORT}`
 }

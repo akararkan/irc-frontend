@@ -102,7 +102,7 @@ export function QuestionFeedCard({ question: incoming }) {
     <Link
       ref={setLiveRef}
       to={`/questions/${question.id}`}
-      className="group block overflow-hidden rounded-2xl border border-border bg-paper p-5 transition-colors hover:border-brand/40 sm:p-6"
+      className="group block overflow-hidden rounded-lg border border-line bg-background p-5 transition-colors hover:border-fg/40 sm:p-6"
       style={{ boxShadow: 'var(--shadow-xs)' }}
     >
       {/* Author + meta */}
@@ -112,12 +112,12 @@ export function QuestionFeedCard({ question: incoming }) {
           <span className="text-[14px] font-medium text-ink">
             {getFullName(author) || getHandle(author) || 'Unknown'}
           </span>
-          <span className="font-display text-[13px] italic text-ink-3">asked</span>
-          <span className="font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
+          <span className="font-semibold text-[13px] italic text-fg-muted">asked</span>
+          <span className="font-mono text-[10.5px] uppercase tracking-wider text-fg-muted">
             <RelativeTime entity={question} />
           </span>
           {question.answersLocked ? (
-            <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-ink-3">
+            <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted">
               <Lock className="size-3" strokeWidth={1.6} />
               Locked
             </span>
@@ -126,7 +126,7 @@ export function QuestionFeedCard({ question: incoming }) {
         <span
           className={cn(
             'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium leading-none',
-            answeredLook ? 'bg-[#ECFDF5] text-[#065F46]' : 'bg-brand-soft text-brand',
+            answeredLook ? 'bg-[#ECFDF5] text-[#065F46]' : 'bg-brand-soft text-accent-indigo',
           )}
         >
           {answeredLook ? (
@@ -141,20 +141,20 @@ export function QuestionFeedCard({ question: incoming }) {
       {/* Title */}
       <h3
         dir="auto"
-        className="text-balance font-display text-[19px] font-semibold leading-[1.25] tracking-[-0.014em] text-ink transition-colors group-hover:text-brand sm:text-[21px]"
+        className="text-balance font-semibold text-[19px] font-semibold leading-[1.25] tracking-[-0.014em] text-ink transition-colors group-hover:text-accent-indigo sm:text-[21px]"
       >
         {question.title}
       </h3>
 
       {/* Excerpt */}
       {question.body ? (
-        <p dir="auto" className="mt-2.5 line-clamp-2 text-[13.5px] leading-[1.6] text-ink-2">
+        <p dir="auto" className="mt-2.5 line-clamp-2 text-[13.5px] leading-[1.6] text-fg-soft">
           {question.body}
         </p>
       ) : null}
 
       {/* Stat footer */}
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-3 font-mono text-[11px] uppercase tracking-wider text-fg-muted">
         <span className="inline-flex items-center gap-1.5">
           <MessageCircle className="size-3.5" strokeWidth={1.6} />
           {formatNumber(answers)} {answers === 1 ? 'answer' : 'answers'}

@@ -63,7 +63,7 @@ function FeedSkeleton() {
   return (
     <div className="space-y-px">
       {[0, 1, 2].map((key) => (
-        <div key={key} className="overflow-hidden rounded-2xl border-[0.5px] border-border bg-paper p-5">
+        <div key={key} className="overflow-hidden rounded-lg border-[0.5px] border-line bg-background p-5">
           <div className="flex items-start gap-3.5">
             <div className="size-10 shrink-0 rounded-full shimmer" />
             <div className="flex-1 space-y-2.5">
@@ -89,56 +89,122 @@ function FeedSkeleton() {
 }
 
 // ─── Data fetcher per tab ───────────────────────────────────────────
-async function fetchTabPage(tab, cursors, append) {
-  const results = { posts: null, research: null, questions: null }
+//
+// Each of the three streams normalises to:
+//   { items: Array, hasMore: boolean, nextCursor: string|null, error: Error|null }
+//
+// Pagination shape can be EITHER a plain array (Cassandra-era returns
+// `[FeedByUserEntity]`) OR a wrapped object (Spring `Page` for the
+// research / QnA-following feeds, or cursor envelope for posts/QnA
+// cursor). The normalisers below cover both so the merge loop only
+// ever deals with one canonical shape.
+
+function pickCursorFromTail(items) {
+  const last = items?.[items.length - 1]
+  return last?.createdAt ?? last?.publishedAt ?? last?.updatedAt ?? null
+}
+
+function normalizeCursorPage(data, pageSize) {
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      // Cassandra rows arrive in clustering order — if we got a full
+      // page back, assume there's more and use the last row's
+      // timestamp as the next cursor.
+      hasMore: data.length >= pageSize,
+      nextCursor: pickCursorFromTail(data),
+    }
+  }
+  const items = data?.items ?? data?.content ?? []
+  const hasMore = data?.hasMore ?? (data?.last != null ? !data.last : items.length >= pageSize)
+  const nextCursor = data?.nextCursor ?? (hasMore ? pickCursorFromTail(items) : null)
+  return { items, hasMore, nextCursor }
+}
+
+function normalizeSpringPage(data) {
+  if (Array.isArray(data)) {
+    return { items: data, hasMore: false }
+  }
+  const items = data?.content ?? data?.items ?? []
+  return { items, hasMore: data?.last != null ? !data.last : false }
+}
+
+async function fetchTabPage(tab, cursors, append, userId) {
+  const results = {
+    posts: null,
+    research: null,
+    questions: null,
+    errors: { posts: null, research: null, questions: null },
+  }
 
   const promises = []
 
   if (tab.posts === 'for-you') {
     promises.push(
-      getForYouFeed({ limit: FOR_YOU_LIMIT })
-        .then((data) => { results.posts = { items: data?.items ?? [], hasMore: data?.hasMore ?? false, nextCursor: null } })
-        .catch(() => { results.posts = { items: [], hasMore: false, nextCursor: null } }),
+      getForYouFeed({ userId, limit: FOR_YOU_LIMIT })
+        .then((data) => { results.posts = normalizeCursorPage(data, FOR_YOU_LIMIT) })
+        .catch((error) => {
+          results.posts = { items: [], hasMore: false, nextCursor: null }
+          results.errors.posts = error
+        }),
     )
   } else if (tab.posts === 'following') {
     promises.push(
-      getFollowingFeedCursor({ cursor: append ? cursors.posts : null, limit: PAGE_SIZE })
-        .then((data) => { results.posts = { items: data?.items ?? data?.content ?? [], hasMore: data?.hasMore ?? false, nextCursor: data?.nextCursor ?? null } })
-        .catch(() => { results.posts = { items: [], hasMore: false, nextCursor: null } }),
+      getFollowingFeedCursor({ userId, cursor: append ? cursors.posts : null, limit: PAGE_SIZE })
+        .then((data) => { results.posts = normalizeCursorPage(data, PAGE_SIZE) })
+        .catch((error) => {
+          results.posts = { items: [], hasMore: false, nextCursor: null }
+          results.errors.posts = error
+        }),
     )
   } else if (tab.posts === 'public') {
     promises.push(
-      getFeedCursor({ cursor: append ? cursors.posts : null, limit: PAGE_SIZE })
-        .then((data) => { results.posts = { items: data?.items ?? data?.content ?? [], hasMore: data?.hasMore ?? false, nextCursor: data?.nextCursor ?? null } })
-        .catch(() => { results.posts = { items: [], hasMore: false, nextCursor: null } }),
+      getFeedCursor({ userId, cursor: append ? cursors.posts : null, limit: PAGE_SIZE })
+        .then((data) => { results.posts = normalizeCursorPage(data, PAGE_SIZE) })
+        .catch((error) => {
+          results.posts = { items: [], hasMore: false, nextCursor: null }
+          results.errors.posts = error
+        }),
     )
   }
 
   if (tab.res === 'following') {
     promises.push(
       getResearchFollowingFeed({ page: append ? cursors.resPage : 0, size: PAGE_SIZE })
-        .then((data) => { results.research = { items: data?.content ?? [], hasMore: !data?.last } })
-        .catch(() => { results.research = { items: [], hasMore: false } }),
+        .then((data) => { results.research = normalizeSpringPage(data) })
+        .catch((error) => {
+          results.research = { items: [], hasMore: false }
+          results.errors.research = error
+        }),
     )
   } else if (tab.res === 'public') {
     promises.push(
       getResearchFeed({ page: append ? cursors.resPage : 0, size: PAGE_SIZE })
-        .then((data) => { results.research = { items: data?.content ?? [], hasMore: !data?.last } })
-        .catch(() => { results.research = { items: [], hasMore: false } }),
+        .then((data) => { results.research = normalizeSpringPage(data) })
+        .catch((error) => {
+          results.research = { items: [], hasMore: false }
+          results.errors.research = error
+        }),
     )
   }
 
   if (tab.qna === 'following') {
     promises.push(
       getQuestionsFollowing({ page: append ? cursors.qnaPage : 0, size: PAGE_SIZE })
-        .then((data) => { results.questions = { items: data?.content ?? [], hasMore: !data?.last } })
-        .catch(() => { results.questions = { items: [], hasMore: false } }),
+        .then((data) => { results.questions = normalizeSpringPage(data) })
+        .catch((error) => {
+          results.questions = { items: [], hasMore: false }
+          results.errors.questions = error
+        }),
     )
   } else if (tab.qna === 'public') {
     promises.push(
       getQuestionsCursor({ cursor: append ? cursors.questions : null, limit: PAGE_SIZE })
-        .then((data) => { results.questions = { items: data?.items ?? data?.content ?? [], hasMore: data?.hasMore ?? false, nextCursor: data?.nextCursor ?? null } })
-        .catch(() => { results.questions = { items: [], hasMore: false, nextCursor: null } }),
+        .then((data) => { results.questions = normalizeCursorPage(data, PAGE_SIZE) })
+        .catch((error) => {
+          results.questions = { items: [], hasMore: false, nextCursor: null }
+          results.errors.questions = error
+        }),
     )
   }
 
@@ -147,7 +213,8 @@ async function fetchTabPage(tab, cursors, append) {
 }
 
 export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
-  const { isAuthenticated } = useAuth()
+  const { user, isAuthenticated } = useAuth()
+  const userId = user?.id ?? null
   const toast = useToast()
 
   const defaultTab = 'FOR_YOU'
@@ -158,6 +225,9 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
   // Cursors — posts/questions use ISO cursors, research uses page index
   const cursors = useRef({ posts: null, questions: null, resPage: 0, qnaPage: 0 })
   const [hasMore, setHasMore] = useState({ posts: true, research: true, questions: true })
+  // Per-stream failure flags so we can show "Posts couldn't load" without
+  // blanking the whole feed when only one of three streams is down.
+  const [streamErrors, setStreamErrors] = useState({ posts: false, research: false, questions: false })
 
   const currentTab = TABS.find((t) => t.value === activeTab) ?? TABS[0]
 
@@ -166,7 +236,7 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
       setLoading(true)
       try {
         const tab = TABS.find((t) => t.value === activeTab) ?? TABS[0]
-        const result = await fetchTabPage(tab, cursors.current, append)
+        const result = await fetchTabPage(tab, cursors.current, append, userId)
 
         const postEntries = []
         const otherEntries = []
@@ -212,11 +282,25 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
           : [...postEntries, ...otherEntries].sort((a, b) => timestampOf(b) - timestampOf(a))
 
         setHasMore(nextHasMore)
+        setStreamErrors({
+          posts: Boolean(result.errors?.posts),
+          research: Boolean(result.errors?.research),
+          questions: Boolean(result.errors?.questions),
+        })
         setEntries((current) => {
           if (!append) return merged
           const seen = new Set(current.map((e) => e.id))
           return [...current, ...merged.filter((e) => !seen.has(e.id))]
         })
+        // Only surface a toast if EVERY requested stream failed — a
+        // partial outage stays silent in the toast layer and is shown
+        // inline by the banner below instead.
+        const requested = [tab.posts, tab.res, tab.qna].filter(Boolean)
+        const failed = [result.errors?.posts, result.errors?.research, result.errors?.questions]
+          .filter(Boolean)
+        if (requested.length > 0 && failed.length === requested.length) {
+          toast.error(extractApiMessage(failed[0], 'Could not load the feed.'))
+        }
       } catch (error) {
         toast.error(extractApiMessage(error, 'Could not load the feed.'))
       } finally {
@@ -224,7 +308,7 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
         setInitializing(false)
       }
     },
-    [activeTab, toast],
+    [activeTab, userId, toast],
   )
 
   // Reset + reload whenever tab or auth state changes
@@ -232,9 +316,10 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
     cursors.current = { posts: null, questions: null, resPage: 0, qnaPage: 0 }
     setEntries([])
     setHasMore({ posts: true, research: true, questions: true })
+    setStreamErrors({ posts: false, research: false, questions: false })
     setInitializing(true)
     load({ append: false })
-  }, [activeTab, isAuthenticated])
+  }, [activeTab, isAuthenticated, userId])
 
   useImperativeHandle(ref, () => ({
     insertPost: (post) => {
@@ -288,7 +373,7 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Left: label */}
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
             Your Feed
           </span>
         </div>
@@ -311,13 +396,13 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
                   onClick={() => setActiveTab(tab.value)}
                   className={cn(
                     'relative shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors',
-                    active ? 'text-ink' : 'text-ink-3 hover:text-ink',
+                    active ? 'text-ink' : 'text-fg-muted hover:text-ink',
                   )}
                 >
                   {active ? (
                     <motion.span
                       layoutId="feedTabPill"
-                      className="absolute inset-0 rounded-full bg-paper"
+                      className="absolute inset-0 rounded-full bg-background"
                       style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08), 0 0 0 0.5px var(--border)' }}
                       transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                     />
@@ -332,13 +417,36 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
             type="button"
             onClick={() => load({ append: false })}
             disabled={loading}
-            className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink disabled:opacity-50"
+            className="grid size-8 place-items-center rounded-full text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink disabled:opacity-50"
             title="Refresh feed"
           >
             <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} strokeWidth={1.6} />
           </button>
         </div>
       </div>
+
+      {/* ── Partial-failure banner ─────────────────────────────── */}
+      {!initializing && (streamErrors.posts || streamErrors.research || streamErrors.questions) ? (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-line bg-bg-soft px-3 py-2 text-[12.5px] text-fg-soft">
+          <span>
+            {[
+              streamErrors.posts && 'posts',
+              streamErrors.research && 'research',
+              streamErrors.questions && 'questions',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+            {' '}couldn't load — showing what's available.
+          </span>
+          <button
+            type="button"
+            onClick={() => load({ append: false })}
+            className="rounded-full px-2.5 py-1 text-[12px] font-medium text-ink underline-offset-2 hover:underline"
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
 
       {/* ── Feed content ───────────────────────────────────────── */}
       {initializing ? (
@@ -400,7 +508,7 @@ export const UnifiedFeed = forwardRef(function UnifiedFeed(_props, ref) {
                 disabled={loading}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                className="inline-flex items-center gap-2 rounded-full border-[0.5px] border-border bg-paper px-6 py-2.5 text-[13px] font-medium text-ink-2 transition-colors hover:bg-secondary hover:text-ink disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-full border-[0.5px] border-line bg-background px-6 py-2.5 text-[13px] font-medium text-fg-soft transition-colors hover:bg-bg-soft hover:text-ink disabled:opacity-50"
                 style={{ boxShadow: 'var(--shadow-xs)' }}
               >
                 {loading

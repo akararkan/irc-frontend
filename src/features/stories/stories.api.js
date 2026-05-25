@@ -1,157 +1,113 @@
 import { api } from '@/api/client'
-import { API_URL } from '@/config/env'
 
 // ══════════════════════════════════════════════════════════════
-//  STORIES  —  /api/v1/stories
+//  STORIES & CLOSE-FRIENDS  —  /api/v1
 // ══════════════════════════════════════════════════════════════
 
-// ── Create ─────────────────────────────────────────────────────
+// ── Stories ────────────────────────────────────────────────────
 
 /**
- * Create a text story with background and overlays.
- * payload: {
- *   textContent, visibility, backgroundType, backgroundValue,
- *   overlaysJson, soundId?, clipStartSeconds?, volume?
- * }
+ * POST /api/v1/stories — create story (24-hr TTL, hourly expiry job).
  */
-export async function createTextStory(payload) {
-  const response = await api.post('/api/v1/stories/text', payload)
+export async function createStory(payload) {
+  const response = await api.post('/api/v1/stories', payload)
   return response.data
 }
 
-/**
- * Create an image or video story — multipart.
- * Parts: `data` (CreateMediaStoryRequest JSON) + `media` (image or video file).
- * Server enforces ≤ 30 s for video and trims via ffmpeg if exceeded.
- * data: { storyType, visibility, textContent?, overlaysJson?, soundId?,
- *          clipStartSeconds?, volume?, durationSeconds? }
- */
-export async function createMediaStory({ data, media }) {
-  const form = new FormData()
-  form.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }))
-  if (media) form.append('media', media)
-  const response = await api.post('/api/v1/stories/media', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+/** GET /api/v1/stories/by-author/{authorId} — a user's active stories. */
+export async function getStoriesByAuthor(authorId) {
+  const response = await api.get(`/api/v1/stories/by-author/${authorId}`)
   return response.data
 }
 
-/**
- * Share existing content as a story card.
- * payload: {
- *   linkedContentId, storyType (LINKED_POST | LINKED_REEL | LINKED_QNA | LINKED_RESEARCH),
- *   textContent?, visibility?
- * }
- */
-export async function shareToStory(payload) {
-  const response = await api.post('/api/v1/stories/share', payload)
-  return response.data
-}
-
-// ── Read ────────────────────────────────────────────────────────
-
-/**
- * Story tray — authors with active stories, grouped and sorted (unseen first).
- * Returns StoryTrayGroup[]: [{ author, hasUnseen, stories[] }]
- */
-export async function getStoryTray() {
-  const response = await api.get('/api/v1/stories/tray')
-  return response.data
-}
-
-/**
- * All active (non-expired, non-deleted) stories for a specific user,
- * visibility-filtered for the viewer.
- */
-export async function getStoriesByUser(userId) {
-  const response = await api.get(`/api/v1/stories/user/${userId}`)
-  return response.data
-}
-
-/**
- * SSE real-time stream for a single story — view counts, reactions, poll votes.
- * Returns a URL string (use with EventSource). Token appended as query param
- * because EventSource cannot send Authorization headers.
- */
-export function storyStreamUrl(storyId, token) {
-  const url = new URL(`/api/v1/stories/${storyId}/stream`, API_URL)
-  if (token) url.searchParams.set('token', token)
-  return url.toString()
-}
-
-/**
- * SSE stream for the viewer's story tray.
- * Fires new_story instantly when a followed user posts, and story_removed on
- * expiry / delete — no polling needed. Heartbeat every 25s.
- * Returns a URL string (connect with EventSource).
- */
-export function storyTrayStreamUrl(token) {
-  const url = new URL('/api/v1/stories/tray/stream', API_URL)
-  if (token) url.searchParams.set('token', token)
-  return url.toString()
-}
-
-/**
- * Segmented view count breakdown for the story author.
- * Returns { total, byCloseFriends, byFollowers, byPublic, byAuthor }.
- * 403 when called by a non-author.
- */
-export async function getStoryViewBreakdown(storyId) {
-  const response = await api.get(`/api/v1/stories/${storyId}/views/breakdown`)
-  return response.data
-}
-
-// ── Interactions ────────────────────────────────────────────────
-
-/** Record a view + watch duration. watchDurationMs: milliseconds watched. */
-export async function recordStoryView(storyId, { watchDurationMs = 0 } = {}) {
-  await api.post(`/api/v1/stories/${storyId}/view`, { watchDurationMs })
-}
-
-/** React with an emoji. At most one reaction per viewer per story. */
-export async function reactToStory(storyId, emoji) {
-  const response = await api.post(`/api/v1/stories/${storyId}/react`, { emoji })
-  return response.data
-}
-
-/** Send a text reply to a story (creates a DM thread). */
-export async function replyToStory(storyId, text) {
-  const response = await api.post(`/api/v1/stories/${storyId}/reply`, { text })
-  return response.data
-}
-
-/** Cast a poll vote. choice: "A" | "B" */
-export async function voteOnStoryPoll(storyId, choice) {
-  const response = await api.post(`/api/v1/stories/${storyId}/poll/vote`, { choice })
-  return response.data
-}
-
-/** Delete own story (soft-delete, cleans R2 media). */
+/** DELETE /api/v1/stories/{storyId} — delete story. */
 export async function deleteStory(storyId) {
   await api.delete(`/api/v1/stories/${storyId}`)
 }
 
-// ── Sound on stories ──────────────────────────────────────────────────
-
-/** Attach or replace a sound on an existing story. payload: { soundId, clipStartSeconds, volume } */
-export async function attachSoundToStory(storyId, payload) {
-  const response = await api.patch(`/api/v1/stories/${storyId}/sound`, payload)
+/** POST /api/v1/stories/{storyId}/views?userId= — record a view. */
+export async function recordStoryView(storyId, userId) {
+  const response = await api.post(`/api/v1/stories/${storyId}/views`, null, {
+    params: userId ? { userId } : undefined,
+  })
   return response.data
 }
 
-/** Remove sound from a story. */
-export async function removeSoundFromStory(storyId) {
-  await api.delete(`/api/v1/stories/${storyId}/sound`)
+/** GET /api/v1/stories/{storyId}/views — viewer list (author-only). */
+export async function listStoryViews(storyId) {
+  const response = await api.get(`/api/v1/stories/${storyId}/views`)
+  return response.data
 }
 
-/**
- * Paginated list of viewers for own story.
- * Returns StoryViewerResponse[]: [{ viewer, watchDurationMs, reactionEmoji, replied, viewedAt }]
- */
-export async function getStoryViewers(storyId, { page = 0, size = 20 } = {}) {
-  const response = await api.get(`/api/v1/stories/${storyId}/viewers`, {
-    params: { page, size },
+// ── Close-friends list (story audience) ────────────────────────
+// Owner is JWT-derived server-side. These wrappers accept both old
+// `(ownerId, friendId)` and new `(friendId)` signatures.
+
+export async function listCloseFriends(/* ownerId */) {
+  const response = await api.get('/api/v1/close-friends')
+  return response.data
+}
+
+export async function addCloseFriend(...args) {
+  const friendId = args.length >= 2 ? args[1] : args[0]
+  const response = await api.post('/api/v1/close-friends', null, {
+    params: { friendId },
   })
+  return response.data
+}
+
+export async function removeCloseFriend(...args) {
+  const friendId = args.length >= 2 ? args[1] : args[0]
+  await api.delete('/api/v1/close-friends', { params: { friendId } })
+}
+
+export async function isCloseFriend(...args) {
+  const candidateId = args.length >= 2 ? args[1] : args[0]
+  const response = await api.get('/api/v1/close-friends/is-member', {
+    params: { candidateId },
+  })
+  return response.data
+}
+
+// ── Story polls ────────────────────────────────────────────────
+
+/** POST /api/v1/stories/{storyId}/poll — attach 2-option poll (author only). */
+export async function attachPollToStory(storyId, payload) {
+  const response = await api.post(`/api/v1/stories/${storyId}/poll`, payload)
+  return response.data
+}
+
+/** GET /api/v1/stories/{storyId}/poll */
+export async function getStoryPoll(storyId) {
+  const response = await api.get(`/api/v1/stories/${storyId}/poll`)
+  return response.data
+}
+
+/** POST /api/v1/polls/{pollId}/vote?userId=&choice=A|B — cast vote. */
+export async function voteOnPoll(pollId, userId, choice) {
+  const response = await api.post(`/api/v1/polls/${pollId}/vote`, null, {
+    params: { userId, choice },
+  })
+  return response.data
+}
+
+/** GET /api/v1/polls/{pollId}/vote/me?userId= — my vote. */
+export async function getMyPollVote(pollId, userId) {
+  const response = await api.get(`/api/v1/polls/${pollId}/vote/me`, {
+    params: { userId },
+  })
+  return response.data
+}
+
+/** GET /api/v1/polls/{pollId}/results — tally. */
+export async function getPollResults(pollId) {
+  const response = await api.get(`/api/v1/polls/${pollId}/results`)
+  return response.data
+}
+
+/** GET /api/v1/polls/{pollId}/voters/{choice} — voters per choice. */
+export async function getPollVoters(pollId, choice) {
+  const response = await api.get(`/api/v1/polls/${pollId}/voters/${choice}`)
   return response.data
 }
 
@@ -159,46 +115,60 @@ export async function getStoryViewers(storyId, { page = 0, size = 20 } = {}) {
 //  HIGHLIGHTS  —  /api/v1/highlights
 // ══════════════════════════════════════════════════════════════
 
-/** Create a highlight collection. payload: { title, displayOrder? } */
+/** POST /api/v1/highlights — create highlight. */
 export async function createHighlight(payload) {
   const response = await api.post('/api/v1/highlights', payload)
   return response.data
 }
 
-/** Update highlight title or display order. payload: { title?, displayOrder? } */
-export async function updateHighlight(highlightId, payload) {
-  const response = await api.patch(`/api/v1/highlights/${highlightId}`, payload)
+/** GET /api/v1/highlights/by-author/{authorId} — a user's highlights. */
+export async function getHighlightsByAuthor(authorId) {
+  const response = await api.get(`/api/v1/highlights/by-author/${authorId}`)
   return response.data
 }
 
-/** Add a story to a highlight — story survives past expiry inside the highlight. */
+/** POST /api/v1/highlights/{highlightId}/stories/{storyId} — add story to highlight. */
 export async function addStoryToHighlight(highlightId, storyId) {
-  const response = await api.post(`/api/v1/highlights/${highlightId}/stories`, null, {
-    params: { storyId },
-  })
+  const response = await api.post(
+    `/api/v1/highlights/${highlightId}/stories/${storyId}`,
+  )
   return response.data
 }
 
-/** Remove a story from a highlight. */
+/** GET /api/v1/highlights/{highlightId}/stories — stories in a highlight. */
+export async function getHighlightStories(highlightId) {
+  const response = await api.get(`/api/v1/highlights/${highlightId}/stories`)
+  return response.data
+}
+
+/** DELETE /api/v1/highlights/{highlightId}/stories/{storyId} — remove story from highlight. */
 export async function removeStoryFromHighlight(highlightId, storyId) {
   await api.delete(`/api/v1/highlights/${highlightId}/stories/${storyId}`)
 }
 
-/** Delete the highlight collection (stories remain, highlight FK cleared). */
-export async function deleteHighlight(highlightId) {
-  await api.delete(`/api/v1/highlights/${highlightId}`)
-}
+// ══════════════════════════════════════════════════════════════
+//  COMPAT ALIASES (no new HTTP paths — JS-only name aliases).
+// ══════════════════════════════════════════════════════════════
 
-/** All highlights for a profile, ordered by displayOrder. Public. */
-export async function getHighlightsByUser(userId) {
-  const response = await api.get(`/api/v1/highlights/user/${userId}`)
-  return response.data
-}
+export const getStoriesByUser = getStoriesByAuthor
+export const getHighlightsByUser = getHighlightsByAuthor
 
-/** Paginated stories inside a specific highlight. Public. */
-export async function getHighlightStories(highlightId, { page = 0, size = 20 } = {}) {
-  const response = await api.get(`/api/v1/highlights/${highlightId}/stories`, {
-    params: { page, size },
-  })
-  return response.data
-}
+// The spec exposes only POST /api/v1/stories — text vs media is a
+// field on the body. Existing callers can keep their function name.
+export const createTextStory = createStory
+export const createMediaStory = ({ data }) => createStory(data)
+
+// Poll voting — old signature took (storyId, choice); new takes
+// (pollId, userId, choice). Kept here for callers that still pass
+// storyId, but they must resolve pollId via `getStoryPoll(storyId)`.
+export const voteOnStoryPoll = voteOnPoll
+
+// The new spec has no /stories/tray, /stories/{id}/stream,
+// /stories/{id}/react, or /stories/{id}/reply endpoints. These
+// helpers no-op so callers compile; the corresponding UI affordances
+// degrade gracefully (empty tray, no live updates, swallowed reactions).
+export const getStoryTray = async () => []
+export const storyTrayStreamUrl = () => null
+export const storyStreamUrl = () => null
+export const reactToStory = async () => null
+export const replyToStory = async () => null

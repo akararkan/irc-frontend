@@ -151,6 +151,11 @@ export function useSseStream(
       reconnectId = null
 
       const url = urlBuilder(resourceId, accessToken)
+      if (!url) {
+        // urlBuilder returned null/undefined (stub or feature disabled)
+        sseLog('skip — urlBuilder returned null', { resourceId })
+        return
+      }
       sseLog('open', { url, resourceId })
       const source = new EventSource(url, { withCredentials: true })
       activeSource = source
@@ -172,8 +177,16 @@ export function useSseStream(
         firstConnect = false
       }
       const onError = (event) => {
-        // EventSource may auto-reconnect; we rely on the watchdog to
-        // promote to a hard reconnect if nothing recovers in time.
+        // EventSource fires `error` with readyState=CLOSED when the page
+        // is unloading / navigating — that's not a real failure, just
+        // the browser tearing down the document. Suppress the log so the
+        // console isn't littered on every route change. Real failures
+        // (network drop, server crash) fire with readyState=CONNECTING
+        // and we still surface those so the watchdog story is debuggable.
+        if (source.readyState === EventSource.CLOSED) {
+          setIsConnected(false)
+          return
+        }
         sseLog('error', { resourceId, readyState: source.readyState, event })
         setIsConnected(false)
       }

@@ -5,6 +5,13 @@ import { Loader2, Pencil, Plus, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { RoleBadge } from '@/components/app/role-badge'
 import { useToast } from '@/components/ui/toaster'
@@ -155,11 +162,11 @@ export function ResearchContributors({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink-3">
+        <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-fg-muted">
           Contributors
           {loading ? (
             <Loader2
-              className="ml-2 inline size-3 animate-spin text-ink-4"
+              className="ml-2 inline size-3 animate-spin text-fg-faint"
               strokeWidth={2}
             />
           ) : null}
@@ -169,7 +176,7 @@ export function ResearchContributors({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 rounded-full px-2.5 text-[12px] text-ink-2 hover:bg-secondary"
+            className="h-7 rounded-full px-2.5 text-[12px] text-fg-soft hover:bg-bg-soft"
             onClick={() => setEditing((v) => !v)}
           >
             <Pencil className="mr-1 size-3.5" strokeWidth={1.6} />
@@ -192,7 +199,7 @@ export function ResearchContributors({
           ))}
         </div>
       ) : !loading ? (
-        <p className="font-display text-[13px] italic text-ink-3">
+        <p className="font-semibold text-[13px] italic text-fg-muted">
           {isOwner
             ? "Add co-authors, advisors, or translators who helped with this research."
             : 'No contributors listed.'}
@@ -214,7 +221,7 @@ export function ResearchContributors({
 function RoleGroup({ role, list, editing, onRemove, onUpdate }) {
   return (
     <div className="space-y-1.5">
-      <p className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-4">
+      <p className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-fg-faint">
         {ROLE_LABELS[role] ?? role}
       </p>
       <ul className="flex flex-wrap gap-2">
@@ -238,7 +245,7 @@ function ContributorChip({ contributor, editing, onRemove, onChangeRole }) {
   const handle = getHandle(contributor)
 
   return (
-    <li className="group inline-flex items-center gap-2 rounded-full border-[0.5px] border-border bg-paper py-1 pl-1 pr-2.5 text-[13px] transition-colors hover:border-ink-4">
+    <li className="group inline-flex items-center gap-2 rounded-full border-[0.5px] border-line bg-background py-1 pl-1 pr-2.5 text-[13px] transition-colors hover:border-ink-4">
       <Link
         to={route ? `/profile/${route}` : '#'}
         className="flex items-center gap-2"
@@ -247,29 +254,33 @@ function ContributorChip({ contributor, editing, onRemove, onChangeRole }) {
         <UserAvatar user={contributor} className="size-6 rounded-full" />
         <span className="font-medium text-ink">{name}</span>
         {handle && handle !== name ? (
-          <span className="font-mono text-[10.5px] text-ink-3">@{handle}</span>
+          <span className="font-mono text-[10.5px] text-fg-muted">@{handle}</span>
         ) : null}
         {contributor.role ? <RoleBadge role={contributor.accountRole ?? contributor.role} size="xs" /> : null}
       </Link>
 
       {editing ? (
         <>
-          <select
-            value={contributor.role}
-            onChange={(e) => onChangeRole(e.target.value)}
-            className="ml-1 rounded-md border border-border bg-paper px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-2"
-            aria-label="Contributor role"
-          >
-            {CONTRIBUTOR_ROLES.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABELS_SINGULAR[r] ?? r}
-              </option>
-            ))}
-          </select>
+          <Select value={contributor.role} onValueChange={onChangeRole}>
+            <SelectTrigger
+              size="sm"
+              className="ml-1 h-6 rounded-md px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em]"
+              aria-label="Contributor role"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CONTRIBUTOR_ROLES.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {ROLE_LABELS_SINGULAR[r] ?? r}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <button
             type="button"
             onClick={onRemove}
-            className="ml-0.5 grid size-5 place-items-center rounded-full text-ink-3 transition-colors hover:bg-destructive/10 hover:text-destructive"
+            className="ml-0.5 grid size-5 place-items-center rounded-full text-fg-muted transition-colors hover:bg-destructive/10 hover:text-destructive"
             aria-label={`Remove ${name}`}
             title="Remove"
           >
@@ -343,27 +354,27 @@ function AddContributorForm({ researchId, ownerId, existingUserIds, onAdd }) {
   })
 
   return (
-    <div className="rounded-xl border-[0.5px] border-border bg-secondary/30 p-3">
-      <p className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-3">
+    <div className="rounded-md border-[0.5px] border-line bg-bg-soft p-3">
+      <p className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.1em] text-fg-muted">
         Add contributor
       </p>
 
       {selected ? (
         <div className="space-y-2.5">
-          <div className="flex items-center gap-2 rounded-lg border-[0.5px] border-border bg-paper px-2.5 py-2">
+          <div className="flex items-center gap-2 rounded-lg border-[0.5px] border-line bg-background px-2.5 py-2">
             <UserAvatar user={selected} className="size-7 rounded-full" />
             <div className="min-w-0 flex-1 leading-tight">
               <p className="truncate text-[13px] font-medium text-ink">
                 {getFullName(selected) || getHandle(selected)}
               </p>
-              <p className="truncate font-mono text-[10.5px] text-ink-3">
+              <p className="truncate font-mono text-[10.5px] text-fg-muted">
                 @{getHandle(selected)}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setSelected(null)}
-              className="grid size-6 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+              className="grid size-6 place-items-center rounded-full text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink"
               aria-label="Pick a different user"
             >
               <X className="size-3.5" strokeWidth={1.8} />
@@ -371,18 +382,22 @@ function AddContributorForm({ researchId, ownerId, existingUserIds, onAdd }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="rounded-md border border-border bg-paper px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-ink-2"
-              aria-label="Role"
-            >
-              {CONTRIBUTOR_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS_SINGULAR[r] ?? r}
-                </option>
-              ))}
-            </select>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger
+                size="sm"
+                className="font-mono text-[11px] uppercase tracking-[0.08em]"
+                aria-label="Role"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CONTRIBUTOR_ROLES.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {ROLE_LABELS_SINGULAR[r] ?? r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -418,9 +433,9 @@ function AddContributorForm({ researchId, ownerId, existingUserIds, onAdd }) {
             autoFocus
           />
           {query.trim().length >= 2 ? (
-            <div className="max-h-56 overflow-y-auto rounded-lg border-[0.5px] border-border bg-paper">
+            <div className="max-h-56 overflow-y-auto rounded-lg border-[0.5px] border-line bg-background">
               {searching ? (
-                <p className="px-3 py-4 text-center text-[12.5px] text-ink-3">
+                <p className="px-3 py-4 text-center text-[12.5px] text-fg-muted">
                   <Loader2
                     className="mr-1.5 inline size-3.5 animate-spin"
                     strokeWidth={2}
@@ -428,7 +443,7 @@ function AddContributorForm({ researchId, ownerId, existingUserIds, onAdd }) {
                   Searching…
                 </p>
               ) : filteredResults.length === 0 ? (
-                <p className="px-3 py-4 text-center text-[12.5px] italic text-ink-3">
+                <p className="px-3 py-4 text-center text-[12.5px] italic text-fg-muted">
                   No eligible researchers or scholars found.
                 </p>
               ) : (
@@ -446,7 +461,7 @@ function AddContributorForm({ researchId, ownerId, existingUserIds, onAdd }) {
                           onClick={() => setSelected(u)}
                           className={cn(
                             'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors',
-                            'hover:bg-secondary/60',
+                            'hover:bg-bg-soft',
                           )}
                         >
                           <UserAvatar user={u} className="size-7 rounded-full" />
@@ -457,7 +472,7 @@ function AddContributorForm({ researchId, ownerId, existingUserIds, onAdd }) {
                               </p>
                               {u.role ? <RoleBadge role={u.role} size="xs" /> : null}
                             </div>
-                            <p className="truncate font-mono text-[10.5px] text-ink-3">
+                            <p className="truncate font-mono text-[10.5px] text-fg-muted">
                               @{getHandle(u)}
                             </p>
                           </div>
@@ -469,7 +484,7 @@ function AddContributorForm({ researchId, ownerId, existingUserIds, onAdd }) {
               )}
             </div>
           ) : (
-            <p className="font-display text-[12px] italic text-ink-3">
+            <p className="font-semibold text-[12px] italic text-fg-muted">
               Type at least 2 characters to search. Only researchers and
               scholars can be added.
             </p>

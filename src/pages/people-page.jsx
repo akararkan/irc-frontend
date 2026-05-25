@@ -49,7 +49,7 @@ function PersonCard({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUse
   const followerCount = getFollowerCount(user)
 
   return (
-    <div className="flex items-start gap-3.5 rounded-2xl border border-border bg-paper p-4 transition-colors hover:border-brand/30 sm:gap-4">
+    <div className="flex items-start gap-3.5 rounded-lg border border-line bg-background p-4 transition-colors hover:border-fg/30 sm:gap-4">
       <Link to={`/profile/${route}`} className="shrink-0 transition-opacity hover:opacity-90">
         <UserAvatar user={user} className="size-11 rounded-full sm:size-12" />
       </Link>
@@ -58,20 +58,20 @@ function PersonCard({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUse
         <div className="flex flex-wrap items-center gap-1.5">
           <Link
             to={`/profile/${route}`}
-            className="font-display text-[15px] font-semibold tracking-[-0.005em] text-ink hover:underline"
+            className="font-semibold text-[15px] font-semibold tracking-[-0.005em] text-ink hover:underline"
           >
             {getFullName(user) || handle || 'Unknown'}
           </Link>
           {user.role ? <RoleBadge role={user.role} size="xs" /> : null}
         </div>
         {handle ? (
-          <p className="mt-0.5 font-mono text-[11.5px] text-ink-3">@{handle}</p>
+          <p className="mt-0.5 font-mono text-[11.5px] text-fg-muted">@{handle}</p>
         ) : null}
         {bio ? (
-          <p className="mt-1.5 line-clamp-2 text-[13px] leading-[1.55] text-ink-2">{bio}</p>
+          <p className="mt-1.5 line-clamp-2 text-[13px] leading-[1.55] text-fg-soft">{bio}</p>
         ) : null}
         {followerCount > 0 ? (
-          <p className="mt-2 font-mono text-[11px] text-ink-3">
+          <p className="mt-2 font-mono text-[11px] text-fg-muted">
             <span className="font-semibold tabular-nums text-ink">
               {formatNumber(followerCount)}
             </span>{' '}
@@ -87,7 +87,7 @@ function PersonCard({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUse
               type="button"
               disabled={working}
               onClick={() => run(onUnblock)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3.5 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-brand/40 hover:text-ink disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line px-3.5 text-[12.5px] font-medium text-fg-soft transition-colors hover:border-fg/40 hover:text-ink disabled:opacity-50"
             >
               Unblock
             </button>
@@ -100,8 +100,8 @@ function PersonCard({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUse
                 className={cn(
                   'inline-flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium transition-colors disabled:opacity-50',
                   following
-                    ? 'border border-border bg-paper text-ink-2 hover:border-brand/40 hover:text-ink'
-                    : 'bg-brand text-brand-foreground hover:bg-brand/90',
+                    ? 'border border-line bg-background text-fg-soft hover:border-fg/40 hover:text-ink'
+                    : 'bg-brand text-accent-indigo-foreground hover:bg-brand/90',
                 )}
               >
                 {following ? (
@@ -122,7 +122,7 @@ function PersonCard({ user, onFollow, onUnfollow, onBlock, onUnblock, currentUse
                 onClick={() => run(onBlock)}
                 title="Block"
                 aria-label="Block this user"
-                className="grid size-8 place-items-center rounded-lg border border-border text-ink-3 transition-colors hover:border-destructive/40 hover:text-destructive disabled:opacity-50"
+                className="grid size-8 place-items-center rounded-lg border border-line text-fg-muted transition-colors hover:border-destructive/40 hover:text-destructive disabled:opacity-50"
               >
                 <Ban className="size-3.5" strokeWidth={1.7} />
               </button>
@@ -240,16 +240,16 @@ function DirectorySearch() {
     <div className="space-y-4">
       {/* Search field */}
       <form onSubmit={handleSubmit} className="relative">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[15px] -translate-y-1/2 text-ink-4" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[15px] -translate-y-1/2 text-fg-faint" />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search people by name, username, or interest…"
-          className="h-11 w-full rounded-lg border border-border bg-paper pl-10 pr-24 text-[13.5px] text-ink outline-none placeholder:text-ink-4 transition-colors focus:border-brand/50 focus:ring-[3px] focus:ring-brand/15"
+          className="h-11 w-full rounded-lg border border-line bg-background pl-10 pr-24 text-[13.5px] text-ink outline-none placeholder:text-fg-faint transition-colors focus:border-fg/50 focus:ring-[3px] focus:ring-brand/15"
         />
         <button
           type="submit"
-          className="absolute right-1.5 top-1/2 inline-flex h-8 -translate-y-1/2 items-center rounded-md bg-brand px-3.5 text-[12.5px] font-medium text-brand-foreground transition-colors hover:bg-brand/90"
+          className="absolute right-1.5 top-1/2 inline-flex h-8 -translate-y-1/2 items-center rounded-md bg-brand px-3.5 text-[12.5px] font-medium text-accent-indigo-foreground transition-colors hover:bg-brand/90"
         >
           Search
         </button>
@@ -259,7 +259,7 @@ function DirectorySearch() {
       {loading ? (
         <div className="space-y-3">
           {[0, 1, 2].map((key) => (
-            <Skeleton key={key} className="h-24 w-full rounded-2xl" />
+            <Skeleton key={key} className="h-24 w-full rounded-lg" />
           ))}
         </div>
       ) : !hasSearched ? (
@@ -324,7 +324,7 @@ function BlockedList() {
     return (
       <div className="space-y-3">
         {[0, 1].map((key) => (
-          <Skeleton key={key} className="h-24 w-full rounded-2xl" />
+          <Skeleton key={key} className="h-24 w-full rounded-lg" />
         ))}
       </div>
     )
@@ -332,12 +332,12 @@ function BlockedList() {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-border bg-paper px-6 py-10 text-center">
-        <span className="mx-auto grid size-12 place-items-center rounded-full bg-secondary text-ink-3">
+      <div className="rounded-lg border border-dashed border-line bg-background px-6 py-10 text-center">
+        <span className="mx-auto grid size-12 place-items-center rounded-full bg-bg-soft text-fg-muted">
           <ShieldAlert className="size-5" strokeWidth={1.6} />
         </span>
-        <p className="mt-4 font-display text-[17px] font-semibold text-ink">No blocked users</p>
-        <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] leading-[1.6] text-ink-3">
+        <p className="mt-4 font-semibold text-[17px] font-semibold text-ink">No blocked users</p>
+        <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] leading-[1.6] text-fg-muted">
           Blocking someone prevents them from seeing your posts or reaching your inbox.
         </p>
       </div>
@@ -366,14 +366,14 @@ function SearchEmptyState({
   description = 'Type a name, username, or interest to discover scholars and researchers across the platform.',
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-paper px-6 py-10 text-center">
-      <span className="mx-auto grid size-12 place-items-center rounded-full bg-brand-soft text-brand">
+    <div className="rounded-lg border border-line bg-background px-6 py-10 text-center">
+      <span className="mx-auto grid size-12 place-items-center rounded-full bg-brand-soft text-accent-indigo">
         <Users className="size-5" strokeWidth={1.6} />
       </span>
-      <p className="mt-4 font-display text-[17px] font-semibold tracking-[-0.01em] text-ink">
+      <p className="mt-4 font-semibold text-[17px] font-semibold tracking-[-0.01em] text-ink">
         {title}
       </p>
-      <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] leading-[1.6] text-ink-3">
+      <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] leading-[1.6] text-fg-muted">
         {description}
       </p>
     </div>
@@ -388,14 +388,14 @@ export function PeoplePage() {
   return (
     <div className="space-y-5">
       {/* Editorial header card */}
-      <div className="rounded-2xl border border-border bg-paper p-5 sm:p-6">
-        <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-brand">
+      <div className="rounded-lg border border-line bg-background p-5 sm:p-6">
+        <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-accent-indigo">
           Community
         </p>
-        <h1 className="mt-1 font-display text-[30px] font-semibold leading-[1.1] tracking-[-0.018em] text-ink sm:text-[36px]">
+        <h1 className="mt-1 font-semibold text-[30px] font-semibold leading-[1.1] tracking-[-0.018em] text-ink sm:text-[36px]">
           People
         </h1>
-        <p className="mt-2 max-w-[56ch] text-[13.5px] leading-[1.6] text-ink-2">
+        <p className="mt-2 max-w-[56ch] text-[13.5px] leading-[1.6] text-fg-soft">
           Find scholars and researchers across the community, follow them, and manage your social
           graph.
         </p>
@@ -405,7 +405,7 @@ export function PeoplePage() {
       {isAuthenticated ? (
         <div className="space-y-4">
           {/* Segmented tab control */}
-          <div className="flex items-center gap-1 rounded-xl border border-border bg-secondary/60 p-1 w-fit">
+          <div className="flex items-center gap-1 rounded-md border border-line bg-bg-soft p-1 w-fit">
             {['search', 'blocked'].map((value) => {
               const active = tab === value
               const label = value === 'search' ? 'Search' : 'Blocked'
@@ -416,12 +416,12 @@ export function PeoplePage() {
                   onClick={() => setTab(value)}
                   className={cn(
                     'relative rounded-lg px-4 py-1.5 text-[13px] font-medium transition-colors',
-                    active ? 'text-brand' : 'text-ink-3 hover:text-ink',
+                    active ? 'text-accent-indigo' : 'text-fg-muted hover:text-ink',
                   )}
                 >
                   {active ? (
                     <span
-                      className="absolute inset-0 rounded-lg bg-paper"
+                      className="absolute inset-0 rounded-lg bg-background"
                       style={{ boxShadow: 'var(--shadow-xs)' }}
                     />
                   ) : null}

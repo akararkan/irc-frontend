@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Plus } from 'lucide-react'
 
 import { StoryViewer } from '@/components/app/story-viewer'
 import {
   getHighlightsByUser,
   getHighlightStories,
 } from '@/features/stories/stories.api'
-import { cn } from '@/lib/utils'
 import { resolveMediaUrl } from '@/lib/format'
 
 // ── Skeleton tile ─────────────────────────────────────────────────────
@@ -30,12 +28,12 @@ function HighlightCircle({ highlight, index, onClick }) {
   const cover = resolveMediaUrl(highlight.coverUrl)
   // Pick a gradient based on the highlight title's first character
   const GRADIENTS = [
-    'linear-gradient(135deg,#0F6E56,#1B7A7F)',
-    'linear-gradient(135deg,#6B3B07,#C9A227)',
-    'linear-gradient(135deg,#3D2A72,#7B68EE)',
-    'linear-gradient(135deg,#7F1D1D,#DB2777)',
-    'linear-gradient(135deg,#052E16,#16A34A)',
-    'linear-gradient(135deg,#0F172A,#334155)',
+    '#D4D4D4',
+    '#A3A3A3',
+    '#737373',
+    '#525252',
+    '#404040',
+    '#262626',
   ]
   const fallbackGradient = GRADIENTS[highlight.title?.charCodeAt(0) % GRADIENTS.length] ?? GRADIENTS[0]
 
@@ -87,29 +85,11 @@ function HighlightCircle({ highlight, index, onClick }) {
   )
 }
 
-// ── "New highlight" tile — own profile only ───────────────────────────
-function NewHighlightTile() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex shrink-0 flex-col items-center gap-2"
-    >
-      <motion.button
-        type="button"
-        whileHover={{ y: -4, scale: 1.06 }}
-        whileTap={{ scale: 0.93 }}
-        className="flex size-[60px] items-center justify-center rounded-full border-2 border-dashed border-border text-ink-3 transition-colors hover:border-brand/60 hover:text-brand outline-none"
-      >
-        <Plus className="size-5" strokeWidth={1.7} />
-      </motion.button>
-      <span className="text-[11px] text-ink-3">New</span>
-    </motion.div>
-  )
-}
-
 // ── Main highlight bar ────────────────────────────────────────────────
-export function StoryHighlightBar({ userId, isMe = false }) {
+// `isMe` is accepted but unused — the bar now renders the same way for
+// the owner and for visitors, since the "+ New" creation affordance
+// has been removed pending a real highlight-creation flow.
+export function StoryHighlightBar({ userId /* , isMe */ }) {
   const [highlights,   setHighlights]   = useState([])
   const [loading,      setLoading]      = useState(true)
   const [viewerGroups, setViewerGroups] = useState(null)
@@ -133,13 +113,14 @@ export function StoryHighlightBar({ userId, isMe = false }) {
     } catch { /* ignore */ }
   }
 
-  if (!loading && highlights.length === 0 && !isMe) return null
+  // Hide the bar entirely when there are no real highlights to show
+  // (regardless of whose profile this is) — previously we kept it open
+  // for the owner just to render a non-functional "+ New" tile.
+  if (!loading && highlights.length === 0) return null
 
   return (
     <>
       <div className="scrollbar-none flex items-end gap-4 overflow-x-auto pb-1">
-        {isMe ? <NewHighlightTile /> : null}
-
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <HighlightSkeleton key={i} index={i} />)
         ) : (

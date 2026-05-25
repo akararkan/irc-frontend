@@ -53,7 +53,7 @@ function ReelThumb({ post, index }) {
     >
       <Link
         to={`/reels?id=${post.id}`}
-        className="group relative flex h-56 w-[148px] overflow-hidden rounded-2xl bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        className="group relative flex h-56 w-[148px] overflow-hidden rounded-lg bg-bg-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.12)' }}
       >
         {/* Media */}
@@ -118,7 +118,7 @@ function ReelThumb({ post, index }) {
           {/* Bottom meta */}
           <div className="space-y-0.5">
             <p
-              className="truncate font-display text-[12.5px] font-semibold leading-tight tracking-[-0.01em] drop-shadow"
+              className="truncate font-semibold text-[12.5px] font-semibold leading-tight tracking-[-0.01em] drop-shadow"
             >
               {getFullName(author) || getHandle(author) || 'Unknown'}
             </p>
@@ -135,7 +135,7 @@ function ReelThumb({ post, index }) {
 
 function ReelSkeletonThumb() {
   return (
-    <div className="h-56 w-[148px] shrink-0 overflow-hidden rounded-2xl">
+    <div className="h-56 w-[148px] shrink-0 overflow-hidden rounded-lg">
       <div className="h-full w-full shimmer" />
     </div>
   )
@@ -179,13 +179,13 @@ export function ReelStrip({ onCreateReel }) {
             className="h-[1.5px] w-5 rounded-full"
             style={{ background: 'var(--gold)' }}
           />
-          <h2 className="font-display text-[14.5px] font-semibold tracking-[-0.008em] text-ink">
+          <h2 className="font-semibold text-[14.5px] font-semibold tracking-[-0.008em] text-ink">
             Featured reels
           </h2>
         </div>
         <Link
           to="/reels"
-          className="font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-brand transition-colors hover:text-brand/80"
+          className="font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-accent-indigo transition-colors hover:text-accent-indigo/80"
         >
           See all →
         </Link>
@@ -206,22 +206,22 @@ export function ReelStrip({ onCreateReel }) {
             <button
               type="button"
               onClick={() => onCreateReel?.()}
-              className="group flex h-56 w-[148px] flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border-2 border-dashed border-border bg-paper/60 transition-colors hover:border-brand/40 hover:bg-brand-soft/20 focus:outline-none"
+              className="group flex h-56 w-[148px] flex-col items-center justify-center gap-3 overflow-hidden rounded-lg border-2 border-dashed border-line bg-background/60 transition-colors hover:border-fg/40 hover:bg-brand-soft/20 focus:outline-none"
               style={{ boxShadow: 'var(--shadow-xs)' }}
             >
               <motion.span
                 whileHover={{ scale: 1.12, rotate: 8 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 18 }}
-                className="grid size-12 place-items-center rounded-full text-brand-foreground"
+                className="grid size-12 place-items-center rounded-full text-accent-indigo-foreground"
                 style={{ background: 'linear-gradient(135deg, var(--brand), color-mix(in oklch, var(--brand) 75%, var(--gold)))' }}
               >
                 <Plus className="size-6" strokeWidth={2.5} />
               </motion.span>
               <div className="space-y-0.5 text-center">
-                <p className="font-display text-[13px] font-semibold tracking-[-0.01em] text-ink">
+                <p className="font-semibold text-[13px] font-semibold tracking-[-0.01em] text-ink">
                   Create reel
                 </p>
-                <p className="text-[11px] text-ink-3">Short video</p>
+                <p className="text-[11px] text-fg-muted">Short video</p>
               </div>
             </button>
           </motion.div>

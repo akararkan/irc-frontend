@@ -72,7 +72,7 @@ function FeedSkeleton() {
   return (
     <div className="space-y-3">
       {[0, 1, 2].map((key) => (
-        <Card key={key} className="rounded-2xl border border-border bg-paper">
+        <Card key={key} className="rounded-lg border border-line bg-background">
           <CardContent className="flex gap-4 p-5">
             <div className="flex-1 space-y-2">
               <div className="flex items-center gap-2">
@@ -153,17 +153,17 @@ function AskQuestionDialog({ onCreated, trigger }) {
       }}
     >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="flex max-h-[90vh] max-w-xl flex-col gap-0 overflow-hidden rounded-2xl border border-border bg-paper p-0">
-        <DialogHeader className="shrink-0 border-b border-border px-6 pb-3 pt-5 text-left">
-          <div className="inline-flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.16em] text-brand">
+      <DialogContent className="flex max-h-[90vh] max-w-xl flex-col gap-0 overflow-hidden rounded-lg border border-line bg-background p-0">
+        <DialogHeader className="shrink-0 border-b border-line px-6 pb-3 pt-5 text-left">
+          <div className="inline-flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.16em] text-accent-indigo">
             <span className="size-[5px] rounded-full bg-brand" />
             New question
           </div>
-          <DialogTitle className="mt-1.5 flex flex-wrap items-center gap-2 font-display text-[20px] font-semibold leading-[1.15] tracking-[-0.018em] text-ink">
+          <DialogTitle className="mt-1.5 flex flex-wrap items-center gap-2 font-semibold text-[20px] font-semibold leading-[1.15] tracking-[-0.018em] text-ink">
             <span>Ask a question</span>
             {user?.role ? <RoleBadge role={user.role} size="sm" /> : null}
           </DialogTitle>
-          <DialogDescription className="text-[13px] text-ink-3">
+          <DialogDescription className="text-[13px] text-fg-muted">
             Be specific. Add the context, what you tried, and what you expect — answers come faster.
           </DialogDescription>
         </DialogHeader>
@@ -173,7 +173,7 @@ function AskQuestionDialog({ onCreated, trigger }) {
             <div className="space-y-1.5">
               <Label
                 htmlFor="ask-title"
-                className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-ink-3"
+                className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-fg-muted"
               >
                 Title
               </Label>
@@ -184,14 +184,14 @@ function AskQuestionDialog({ onCreated, trigger }) {
                 placeholder="What would you like to know?"
                 maxLength={TITLE_MAX}
                 required
-                className="h-10 rounded-lg border-border bg-paper text-[14px] text-ink placeholder:text-ink-4 focus-visible:border-brand/50 focus-visible:ring-[3px] focus-visible:ring-brand/15"
+                className="h-10 rounded-lg border-line bg-background text-[14px] text-ink placeholder:text-fg-faint focus-visible:border-fg/50 focus-visible:ring-[3px] focus-visible:ring-brand/15"
               />
             </div>
 
             <div className="space-y-1.5">
               <Label
                 htmlFor="ask-body"
-                className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-ink-3"
+                className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-fg-muted"
               >
                 Details
               </Label>
@@ -204,9 +204,9 @@ function AskQuestionDialog({ onCreated, trigger }) {
                 maxLength={BODY_MAX}
                 required
                 allowFollowersToken
-                className="resize-y rounded-lg border-border bg-paper text-[14px] leading-[1.55] text-ink placeholder:text-ink-4 focus-visible:border-brand/50 focus-visible:ring-[3px] focus-visible:ring-brand/15"
+                className="resize-y rounded-lg border-line bg-background text-[14px] leading-[1.55] text-ink placeholder:text-fg-faint focus-visible:border-fg/50 focus-visible:ring-[3px] focus-visible:ring-brand/15"
               />
-              <p className="text-right font-mono text-[11px] tabular-nums text-ink-4">
+              <p className="text-right font-mono text-[11px] tabular-nums text-fg-faint">
                 {body.length} / {BODY_MAX}
               </p>
             </div>
@@ -216,25 +216,25 @@ function AskQuestionDialog({ onCreated, trigger }) {
                 type="button"
                 onClick={() => setAnswersLocked((v) => !v)}
                 className={cn(
-                  'flex items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors',
+                  'flex items-start gap-3 rounded-md border px-3 py-3 text-left transition-colors',
                   answersLocked
-                    ? 'border-brand/40 bg-brand-soft/50'
-                    : 'border-border bg-paper hover:bg-secondary',
+                    ? 'border-fg/40 bg-brand-soft/50'
+                    : 'border-line bg-background hover:bg-bg-soft',
                 )}
               >
                 <span
                   className={cn(
                     'grid size-9 shrink-0 place-items-center rounded-full',
-                    answersLocked ? 'bg-brand text-brand-foreground' : 'bg-secondary text-ink-3',
+                    answersLocked ? 'bg-brand text-accent-indigo-foreground' : 'bg-secondary text-fg-muted',
                   )}
                 >
                   {answersLocked ? <Lock className="size-4" /> : <Unlock className="size-4" />}
                 </span>
                 <div>
-                  <p className="font-display text-[14px] font-semibold tracking-[-0.005em] text-ink">
+                  <p className="font-semibold text-[14px] font-semibold tracking-[-0.005em] text-ink">
                     {answersLocked ? 'Lock answers' : 'Answers open'}
                   </p>
-                  <p className="text-[11.5px] text-ink-3">
+                  <p className="text-[11.5px] text-fg-muted">
                     {answersLocked
                       ? 'Posted but no replies allowed.'
                       : 'Anyone qualified can answer.'}
@@ -242,14 +242,14 @@ function AskQuestionDialog({ onCreated, trigger }) {
                 </div>
               </button>
 
-              <div className="flex items-start gap-3 rounded-xl border border-border bg-paper px-3 py-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-secondary text-ink-3">
+              <div className="flex items-start gap-3 rounded-md border border-line bg-background px-3 py-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-bg-soft text-fg-muted">
                   <Hash className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1 space-y-1">
                   <Label
                     htmlFor="ask-limit"
-                    className="font-display text-[14px] font-semibold tracking-[-0.005em] text-ink"
+                    className="font-semibold text-[14px] font-semibold tracking-[-0.005em] text-ink"
                   >
                     Answer limit
                   </Label>
@@ -261,21 +261,21 @@ function AskQuestionDialog({ onCreated, trigger }) {
                     }
                     inputMode="numeric"
                     placeholder="Unlimited"
-                    className="h-8 rounded-md border-border bg-paper px-2 text-[13px] placeholder:text-ink-4"
+                    className="h-8 rounded-md border-line bg-background px-2 text-[13px] placeholder:text-fg-faint"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          <DialogFooter className="shrink-0 border-t border-border bg-paper px-6 py-3">
+          <DialogFooter className="shrink-0 border-t border-line bg-background px-6 py-3">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)} className="rounded-lg">
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={submitting || !title.trim() || !body.trim()}
-              className="gap-1.5 rounded-lg bg-brand px-4 text-brand-foreground transition-colors hover:bg-brand/90 disabled:opacity-60"
+              className="gap-1.5 rounded-lg bg-brand px-4 text-accent-indigo-foreground transition-colors hover:bg-brand/90 disabled:opacity-60"
             >
               {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               {submitting ? 'Posting…' : 'Post question'}
@@ -354,7 +354,7 @@ export function QuestionsPage() {
       />
 
       {isAuthenticated && !allowedToAsk ? (
-        <div className="rounded-xl border border-dashed border-border bg-secondary/40 px-4 py-3 text-[13px] text-ink-3">
+        <div className="rounded-md border border-dashed border-line bg-bg-soft px-4 py-3 text-[13px] text-fg-muted">
           {user?.role === 'RESEARCHER' ? (
             <>
               Browse, read, and <span className="font-medium text-ink">post answers</span> on any
@@ -379,7 +379,7 @@ export function QuestionsPage() {
             trigger={
               <Button
                 size="lg"
-                className="h-11 gap-2 rounded-xl bg-brand px-5 text-[13.5px] font-semibold text-brand-foreground transition-colors hover:bg-brand/90"
+                className="h-11 gap-2 rounded-md bg-brand px-5 text-[13.5px] font-semibold text-accent-indigo-foreground transition-colors hover:bg-brand/90"
               >
                 <Plus className="size-[15px]" />
                 Ask a question
@@ -392,14 +392,14 @@ export function QuestionsPage() {
           type="button"
           variant="outline"
           size="lg"
-          className="h-11 gap-2 rounded-xl border-border bg-paper px-4 text-[13.5px] font-semibold text-ink-2 hover:border-brand/40 hover:text-brand"
+          className="h-11 gap-2 rounded-md border-line bg-background px-4 text-[13.5px] font-semibold text-fg-soft hover:border-fg/40 hover:text-accent-indigo"
         >
           <Tags className="size-[15px]" />
           Browse by tag
         </Button>
 
         {/* Segmented tab control */}
-        <div className="ml-auto flex items-center gap-1 rounded-xl border border-border bg-secondary/60 p-1">
+        <div className="ml-auto flex items-center gap-1 rounded-md border border-line bg-bg-soft p-1">
           {visibleTabs.map((option) => {
             const active = tab === option.value
             return (
@@ -409,13 +409,13 @@ export function QuestionsPage() {
                 onClick={() => setTab(option.value)}
                 className={cn(
                   'relative rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors',
-                  active ? 'text-brand' : 'text-ink-3 hover:text-ink',
+                  active ? 'text-accent-indigo' : 'text-fg-muted hover:text-ink',
                 )}
               >
                 {active ? (
                   <motion.span
                     layoutId="questionsTab"
-                    className="absolute inset-0 rounded-lg bg-paper"
+                    className="absolute inset-0 rounded-lg bg-background"
                     style={{ boxShadow: 'var(--shadow-xs)' }}
                     transition={{ type: 'spring', stiffness: 360, damping: 30 }}
                   />
@@ -438,7 +438,7 @@ export function QuestionsPage() {
           type="button"
           variant="ghost"
           size="sm"
-          className="ml-1 gap-1.5 rounded-lg text-ink-3 hover:bg-secondary hover:text-ink"
+          className="ml-1 gap-1.5 rounded-lg text-fg-muted hover:bg-bg-soft hover:text-ink"
           onClick={() => load(tab, { silent: true })}
           disabled={refreshing || loading}
           title="Refresh"
@@ -451,21 +451,21 @@ export function QuestionsPage() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border bg-paper px-3 py-1.5 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-brand/40 hover:text-brand"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-line bg-background px-3 py-1.5 text-[12.5px] font-medium text-fg-soft transition-colors hover:border-fg/40 hover:text-accent-indigo"
             >
               <SlidersHorizontal className="size-[13px]" />
               {sort.label}
-              <ChevronDown className="size-3 text-ink-3" />
+              <ChevronDown className="size-3 text-fg-muted" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={6} className="w-48 rounded-xl p-1">
+          <DropdownMenuContent align="end" sideOffset={6} className="w-48 rounded-md p-1">
             {SORTS.map((opt) => (
               <DropdownMenuItem
                 key={opt.value}
                 onSelect={() => setSortKey(opt.value)}
                 className={cn(
                   'rounded-lg px-2.5 py-1.5 text-[13px]',
-                  sortKey === opt.value && 'bg-brand-soft/60 text-brand',
+                  sortKey === opt.value && 'bg-brand-soft/60 text-accent-indigo',
                 )}
               >
                 {opt.label}
@@ -519,8 +519,8 @@ function FilterPill({ active = false, onClick, children }) {
       className={cn(
         'inline-flex items-center rounded-lg border px-3 py-1.5 text-[12.5px] font-medium transition-colors',
         active
-          ? 'border-brand bg-brand text-brand-foreground'
-          : 'border-border bg-paper text-ink-2 hover:border-brand/40 hover:text-brand',
+          ? 'border-fg bg-brand text-accent-indigo-foreground'
+          : 'border-line bg-background text-fg-soft hover:border-fg/40 hover:text-accent-indigo',
       )}
     >
       {children}

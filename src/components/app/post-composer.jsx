@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
+  AtSign,
+  ChevronDown,
   Mic,
   Image as ImageIcon,
   Video,
@@ -8,8 +10,11 @@ import {
   Globe,
   Lock,
   Loader2,
+  Link2,
   MapPin,
   Music,
+  Plus,
+  Repeat2,
   Send,
   Square,
   Trash2,
@@ -29,6 +34,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { AudioPlayer } from '@/components/app/audio-player'
 import { MentionTextarea } from '@/components/app/mention-textarea'
+import { SoundChip, SoundPicker } from '@/components/app/sound-picker'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { useAuth } from '@/features/auth/auth-context'
 import { createPost, createPostWithFiles } from '@/features/posts/posts.api'
@@ -56,27 +62,39 @@ const VISIBILITY_OPTIONS = [
 const POST_TYPES = [
   {
     value: 'TEXT',
-    label: 'Note',
+    label: 'Text',
     icon: PenLine,
     placeholder: "What's on your mind? Share a thought, citation, or finding…",
   },
   {
     value: 'EMBEDDED',
-    label: 'Photo',
+    label: 'Embedded',
     icon: ImageIcon,
     placeholder: 'Add a caption for your photos or videos…',
-  },
-  {
-    value: 'REEL',
-    label: 'Video',
-    icon: Video,
-    placeholder: 'Describe your short video…',
   },
   {
     value: 'VOICE_POST',
     label: 'Voice',
     icon: Mic,
     placeholder: 'Add a note for your voice message…',
+  },
+  {
+    value: 'REEL',
+    label: 'Reel',
+    icon: Video,
+    placeholder: 'Describe your short video…',
+  },
+  {
+    value: 'REPOST',
+    label: 'Repost',
+    icon: Repeat2,
+    placeholder: 'Add your thoughts on this repost…',
+  },
+  {
+    value: 'LINK',
+    label: 'Link',
+    icon: Link2,
+    placeholder: 'Share a link with a caption…',
   },
 ]
 
@@ -241,13 +259,14 @@ function VisibilityMenu({ value, onChange }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-paper px-3 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-brand/40 hover:text-ink"
+          className="inline-flex h-7 items-center gap-1 rounded-sm border border-line bg-bg-soft px-2 text-[12px] font-medium text-fg-soft transition-colors hover:border-line-strong hover:text-fg"
         >
-          <Icon className="size-3.5" strokeWidth={1.7} />
+          <Icon className="size-3" strokeWidth={1.7} />
           {option.label}
+          <ChevronDown className="size-3 opacity-60" strokeWidth={1.7} />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64 rounded-xl p-1">
+      <DropdownMenuContent align="start" className="w-64 rounded-md p-1">
         {VISIBILITY_OPTIONS.map((item) => {
           const ItemIcon = item.icon
           const active = item.value === value
@@ -257,13 +276,13 @@ function VisibilityMenu({ value, onChange }) {
               onSelect={() => onChange(item.value)}
               className={cn(
                 'gap-3 rounded-lg py-2',
-                active ? 'bg-brand-soft/60 text-brand' : 'text-ink-2',
+                active ? 'bg-bg-soft text-fg' : 'text-ink-2',
               )}
             >
               <ItemIcon className="size-4" />
               <div className="leading-tight">
                 <p className="text-[13px] font-medium">{item.label}</p>
-                <p className="text-[11.5px] text-ink-3">{item.hint}</p>
+                <p className="text-[11.5px] text-fg-muted">{item.hint}</p>
               </div>
             </DropdownMenuItem>
           )
@@ -303,9 +322,9 @@ function DropZone({ onFiles, accept, multiple = true, hint, tone = 'cyan', child
       }}
       onClick={() => inputRef.current?.click()}
       className={cn(
-        'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-border bg-secondary/50 px-6 py-7 text-center transition-colors',
-        'hover:border-brand/45 hover:bg-brand-soft/30',
-        drag && 'border-brand/60 bg-brand-soft/50',
+        'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-[1.5px] border-dashed border-line bg-bg-soft px-6 py-7 text-center transition-colors',
+        'hover:border-line-strong',
+        drag && 'border-fg bg-bg-soft',
       )}
     >
       <input
@@ -332,74 +351,84 @@ function DropZone({ onFiles, accept, multiple = true, hint, tone = 'cyan', child
           <p className="text-[13.5px] font-medium text-ink">
             {drag ? 'Drop to attach' : 'Drag & drop, or click to browse'}
           </p>
-          {hint ? <p className="text-[11.5px] text-ink-3">{hint}</p> : null}
+          {hint ? <p className="text-[11.5px] text-fg-muted">{hint}</p> : null}
         </>
       )}
     </div>
   )
 }
 
-/* ── File previews (EMBEDDED) ────────────────────────────────── */
-function FilePreview({ file, onRemove, single = false }) {
+/* ── Carousel thumbnail (HTML spec §2.1 style) ───────────────── */
+function CarouselThumb({ file, index, onRemove }) {
   const url = useMemo(() => URL.createObjectURL(file), [file])
   useEffect(() => () => URL.revokeObjectURL(url), [url])
   const video = fileIsVideo(file)
   const audio = fileIsAudio(file)
+  const label = audio ? 'AUD' : video ? 'VID' : 'IMG'
+
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-border bg-secondary">
+    <div className="relative size-[88px] shrink-0 overflow-hidden rounded-md border border-line bg-bg-muted">
       {audio ? (
-        <div className="px-2 py-2">
-          <AudioPlayer src={url} variant="compact" trackKind="music" title={file.name} />
+        <div className="flex h-full w-full items-center justify-center">
+          <Music className="size-6 text-fg-faint" strokeWidth={1.5} />
         </div>
       ) : video ? (
-        <video
-          src={url}
-          controls
-          playsInline
-          preload="metadata"
-          className={cn(
-            'w-full bg-black object-contain',
-            single ? 'max-h-[320px]' : 'aspect-square',
-          )}
-        />
+        <video src={url} className="h-full w-full object-cover" preload="metadata" muted />
       ) : (
-        <img
-          src={url}
-          alt=""
-          className={cn(
-            'w-full bg-secondary',
-            single ? 'max-h-[320px] object-contain' : 'aspect-square object-cover',
-          )}
-        />
+        <img src={url} alt="" className="h-full w-full object-cover" />
       )}
+      {/* Number badge */}
+      <span className="absolute left-1.5 top-1.5 rounded-[3px] bg-fg/70 px-1 font-mono text-[9.5px] font-medium text-background">
+        {index + 1}
+      </span>
+      {/* Remove */}
       <button
         type="button"
-        onClick={(event) => {
-          event.stopPropagation()
-          onRemove()
-        }}
-        className="absolute right-2 top-2 grid size-7 place-items-center rounded-full bg-paper/95 text-ink-3 ring-1 ring-border transition-colors hover:text-ink"
+        onClick={(e) => { e.stopPropagation(); onRemove() }}
+        className="absolute right-1.5 top-1.5 grid size-[18px] place-items-center rounded-[3px] bg-fg/70 text-background transition-colors hover:bg-fg"
         aria-label="Remove"
       >
-        <X className="size-3.5" />
+        <X className="size-2.5" strokeWidth={2.5} />
       </button>
+      {/* Type label */}
+      <span className="absolute bottom-1.5 left-1.5 rounded-[3px] bg-fg/70 px-1 font-mono text-[8.5px] uppercase tracking-wide text-background">
+        {label}
+      </span>
     </div>
   )
 }
 
-function FilePreviewGrid({ files, onRemove }) {
-  if (!files.length) return null
-  const single = files.length === 1
+function CarouselPreview({ files, onRemove, onAdd, maxFiles }) {
+  const inputRef = useRef(null)
   return (
-    <div className={cn('grid gap-2', single ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-4')}>
-      {files.map((file, index) => (
-        <FilePreview
-          key={`${file.name}-${file.size}-${index}`}
+    <div className="flex flex-wrap gap-1.5">
+      {files.map((file, i) => (
+        <CarouselThumb
+          key={`${file.name}-${file.size}-${i}`}
           file={file}
-          single={single}
-          onRemove={() => onRemove(index)}
+          index={i}
+          onRemove={() => onRemove(i)}
         />
       ))}
+      {files.length < maxFiles ? (
+        <>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept="image/*,video/*"
+            className="hidden"
+            onChange={(e) => { if (e.target.files?.length) { onAdd(Array.from(e.target.files)); e.target.value = '' } }}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="flex size-[88px] items-center justify-center rounded-md border border-dashed border-line-strong bg-bg-soft transition-colors hover:border-fg hover:bg-bg-muted"
+          >
+            <Plus className="size-5 text-fg-faint" strokeWidth={1.5} />
+          </button>
+        </>
+      ) : null}
     </div>
   )
 }
@@ -425,7 +454,7 @@ function ReelPreview({ file, onClear }) {
     <div className="space-y-2">
       <div
         className={cn(
-          'relative mx-auto w-full overflow-hidden rounded-xl border border-border bg-black',
+          'relative mx-auto w-full overflow-hidden rounded-md border border-line bg-black',
           widthClass,
         )}
       >
@@ -481,7 +510,7 @@ function ReelPreview({ file, onClear }) {
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 px-2 text-[11px] text-ink-3">
+      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 px-2 text-[11px] text-fg-muted">
         <span className="max-w-[180px] truncate font-medium text-ink">{file.name}</span>
         {duration ? (
           <>
@@ -625,7 +654,7 @@ function VoiceRecorder({ value, previewUrl, onCapture, onClear, onError }) {
             variant="ghost"
             size="sm"
             onClick={onClear}
-            className="rounded-lg text-ink-3 hover:bg-destructive/10 hover:text-destructive"
+            className="rounded-lg text-fg-muted hover:bg-destructive/10 hover:text-destructive"
           >
             <Trash2 className="size-3.5" />
             Discard & retake
@@ -636,7 +665,7 @@ function VoiceRecorder({ value, previewUrl, onCapture, onClear, onError }) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-secondary/50 p-5">
+    <div className="rounded-md border border-line bg-bg-soft p-5">
       <div className="flex flex-col items-center gap-4">
         <motion.button
           type="button"
@@ -667,7 +696,7 @@ function VoiceRecorder({ value, previewUrl, onCapture, onClear, onError }) {
           <p className="font-mono text-[26px] font-semibold tabular-nums leading-none text-ink">
             {formatRecorderTime(elapsed)}
           </p>
-          <p className="mt-1 text-[10.5px] font-medium uppercase tracking-[0.16em] text-ink-3">
+          <p className="mt-1 text-[10.5px] font-medium uppercase tracking-[0.16em] text-fg-muted">
             {recording ? 'Recording…' : 'Tap to record'}
           </p>
         </div>
@@ -679,7 +708,7 @@ function VoiceRecorder({ value, previewUrl, onCapture, onClear, onError }) {
               aria-hidden
               className={cn(
                 'flex-1 rounded-full transition-[height] duration-75',
-                recording ? 'bg-brand' : 'bg-ink/10',
+                recording ? 'bg-neg' : 'bg-bg-muted',
               )}
               style={{
                 height: `${Math.max(
@@ -721,6 +750,9 @@ export function PostComposer({
   const [showAudioTrack, setShowAudioTrack] = useState(false)
   const [audioTrackName, setAudioTrackName] = useState('')
   const [audioTrackUrl, setAudioTrackUrl] = useState('')
+
+  const [selectedSound, setSelectedSound] = useState(null)
+  const [soundPickerOpen, setSoundPickerOpen] = useState(false)
 
   const [submitting, setSubmitting] = useState(false)
 
@@ -832,6 +864,7 @@ export function PostComposer({
         data.audioTrackUrl = audioTrackUrl.trim() || undefined
         data.audioTrackName = audioTrackName.trim() || undefined
       }
+      if (selectedSound?.soundId) data.soundId = selectedSound.soundId
 
       const uploads = collectUploadFiles()
       const created = uploads.length
@@ -850,10 +883,30 @@ export function PostComposer({
     }
   }
 
+  // ── Icon-only tool button (footer) ───────────────────────────
+  function ToolBtn({ icon: Icon, on, onClick, title }) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title={title}
+        className={cn(
+          'grid size-8 place-items-center rounded-md transition-colors',
+          on ? 'text-fg' : 'text-fg-muted hover:bg-bg-soft hover:text-fg',
+        )}
+      >
+        <Icon className="size-[15px]" strokeWidth={1.8} />
+      </button>
+    )
+  }
+
+  // File input ref for the image/video toolbar button
+  const mediaInputRef = useRef(null)
+
   const formNode = (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-      {/* Segmented type switcher */}
-      <div className="flex gap-1 rounded-xl bg-secondary p-1">
+    <form onSubmit={handleSubmit} className="flex flex-col">
+      {/* ── Type tabs bar ─────────────────────────────────────── */}
+      <div className="scrollbar-none flex gap-0 overflow-x-auto border-b border-line bg-bg-soft px-3 py-2">
         {POST_TYPES.map((item) => {
           const Icon = item.icon
           const active = item.value === postType
@@ -863,292 +916,240 @@ export function PostComposer({
               type="button"
               onClick={() => changeType(item.value)}
               className={cn(
-                'relative flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors',
-                active ? 'text-brand' : 'text-ink-3 hover:text-ink',
+                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-[7px] text-[12.5px] font-medium transition-colors',
+                active
+                  ? 'bg-fg text-background'
+                  : 'text-fg-muted hover:bg-background hover:text-fg',
               )}
             >
-              {active ? (
-                <motion.span
-                  layoutId="composerTypePill"
-                  className="absolute inset-0 rounded-lg border border-border bg-paper"
-                  style={{ boxShadow: 'var(--shadow-xs)' }}
-                  transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-                />
-              ) : null}
-              <span className="relative z-10 inline-flex items-center gap-1.5">
-                <Icon className="size-[15px]" strokeWidth={active ? 2.1 : 1.8} />
-                <span className="hidden sm:inline">{item.label}</span>
-              </span>
+              <Icon className="size-[13px]" strokeWidth={1.8} />
+              {item.label}
             </button>
           )
         })}
       </div>
 
-      {/* Author + writing surface */}
-      <div className="flex gap-3">
-        <UserAvatar user={user} className="hidden size-10 shrink-0 rounded-full sm:block" />
-        <div
-          className={cn(
-            'min-w-0 flex-1 rounded-xl border border-border bg-paper px-3.5 pb-2 pt-3 transition',
-            'focus-within:border-brand/45 focus-within:ring-[3px] focus-within:ring-brand/10',
-          )}
-        >
-          <MentionTextarea
-            value={text}
-            onChange={(next) => setText(next.slice(0, MAX_TEXT))}
-            placeholder={activeType.placeholder}
-            rows={postType === 'TEXT' ? 4 : 3}
-            allowFollowersToken
-            className={cn(
-              'resize-none border-0 bg-transparent p-0 text-ink shadow-none placeholder:text-ink-4 focus-visible:ring-0 focus-visible:ring-offset-0',
-              postType === 'TEXT'
-                ? 'min-h-[104px] text-[15.5px] leading-[1.6]'
-                : 'min-h-[64px] text-[14.5px] leading-[1.55]',
-            )}
-          />
-          <div className="mt-1 flex justify-end">
-            <span
-              className={cn(
-                'font-mono text-[11px] tabular-nums transition-colors',
-                charactersLeft < 0
-                  ? 'text-destructive'
-                  : charactersLeft < 200
-                    ? 'text-[#B45309]'
-                    : 'text-ink-4',
-              )}
-            >
-              {charactersLeft}
-            </span>
+      {/* ── Body ─────────────────────────────────────────────── */}
+      <div className="px-4 py-4 space-y-3">
+        {/* Author row + visibility */}
+        <div className="flex items-center gap-3">
+          <UserAvatar user={user} className="size-8 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] font-semibold text-fg leading-none">
+              {[user.fname, user.lname].filter(Boolean).join(' ') || user.username || 'You'}
+            </p>
           </div>
-        </div>
-      </div>
-
-      {/* Type-specific panel */}
-      <AnimatePresence mode="popLayout">
-        <motion.div
-          key={postType}
-          layout
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.2 }}
-          className="space-y-3"
-        >
-          {postType === 'EMBEDDED' ? (
-            <>
-              {files.length > 0 ? (
-                <FilePreviewGrid
-                  files={files}
-                  onRemove={(i) =>
-                    setFiles((current) => current.filter((_, j) => j !== i))
-                  }
-                />
-              ) : null}
-              {files.length < MAX_FILES ? (
-                <DropZone
-                  onFiles={handleEmbeddedFiles}
-                  accept="image/*,video/*"
-                  multiple
-                  tone="cyan"
-                  hint={`Up to ${MAX_FILES} files · images and videos`}
-                />
-              ) : null}
-            </>
-          ) : null}
-
-          {postType === 'REEL' ? (
-            reelFile ? (
-              <ReelPreview file={reelFile} onClear={() => setReelFile(null)} />
-            ) : (
-              <DropZone
-                onFiles={handleReelFile}
-                accept="video/*"
-                multiple={false}
-                tone="violet"
-              >
-                <span className="grid size-11 place-items-center rounded-full bg-[#F5F3FF] text-[#7C3AED]">
-                  <Video className="size-[17px]" strokeWidth={1.8} />
-                </span>
-                <p className="text-[13.5px] font-medium text-ink">
-                  Drop a video, or click to browse
-                </p>
-                <p className="text-[11.5px] text-ink-3">
-                  Vertical 9:16 works best · 1:30 maximum
-                </p>
-              </DropZone>
-            )
-          ) : null}
-
-          {postType === 'VOICE_POST' ? (
-            <div className="space-y-3">
-              <VoiceRecorder
-                value={voiceFile}
-                previewUrl={voicePreviewUrl}
-                onCapture={captureVoice}
-                onClear={clearVoice}
-                onError={(message) => toast.error(message)}
-              />
-              {!voiceFile ? (
-                <DropZone
-                  onFiles={handleVoiceUpload}
-                  accept="audio/*"
-                  multiple={false}
-                  tone="amber"
-                >
-                  <span className="grid size-11 place-items-center rounded-full bg-[#FFFBEB] text-[#B45309]">
-                    <Music className="size-[17px]" strokeWidth={1.8} />
-                  </span>
-                  <p className="text-[13.5px] font-medium text-ink">
-                    …or upload an existing audio file
-                  </p>
-                  <p className="font-mono text-[11px] text-ink-3">
-                    mp3 · m4a · ogg · wav · webm
-                  </p>
-                </DropZone>
-              ) : null}
-            </div>
-          ) : null}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Detail panels */}
-      <AnimatePresence initial={false}>
-        {showLocation ? (
-          <motion.div
-            key="loc"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-secondary/50 px-3 py-2">
-              <MapPin className="size-4 shrink-0 text-ink-3" />
-              <Input
-                value={locationName}
-                onChange={(event) => setLocationName(event.target.value)}
-                placeholder="Where is this from?"
-                className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none placeholder:text-ink-4 focus-visible:ring-0"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setShowLocation(false)
-                  setLocationName('')
-                }}
-                className="text-ink-3 transition-colors hover:text-ink"
-                aria-label="Close"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-          </motion.div>
-        ) : null}
-
-        {showAudioTrack && supportsAudioTrack ? (
-          <motion.div
-            key="track"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="space-y-2 rounded-xl border border-dashed border-border bg-secondary/50 px-3 py-2.5">
-              <div className="flex items-center gap-2">
-                <Music className="size-4 shrink-0 text-ink-3" />
-                <Input
-                  value={audioTrackName}
-                  onChange={(event) => setAudioTrackName(event.target.value)}
-                  placeholder="Track name"
-                  className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none placeholder:text-ink-4 focus-visible:ring-0"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAudioTrack(false)
-                    setAudioTrackName('')
-                    setAudioTrackUrl('')
-                  }}
-                  className="text-ink-3 transition-colors hover:text-ink"
-                  aria-label="Close"
-                >
-                  <X className="size-4" />
-                </button>
-              </div>
-              <Input
-                value={audioTrackUrl}
-                onChange={(event) => setAudioTrackUrl(event.target.value)}
-                placeholder="Track URL (https://…)"
-                className="h-8 rounded-lg border-border bg-paper text-[13px] placeholder:text-ink-4"
-              />
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      {/* Publish bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setShowLocation((v) => !v)}
-            className={cn(
-              'inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-medium transition-colors',
-              showLocation && locationName
-                ? 'border-brand/40 text-brand'
-                : 'text-ink-3 hover:border-brand/40 hover:text-ink',
-            )}
-          >
-            <MapPin className="size-[15px]" strokeWidth={1.7} />
-            <span className="hidden sm:inline">
-              {locationName ? locationName : 'Location'}
-            </span>
-          </button>
-
-          {supportsAudioTrack ? (
-            <button
-              type="button"
-              onClick={() => setShowAudioTrack((v) => !v)}
-              className={cn(
-                'inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-medium transition-colors',
-                showAudioTrack && (audioTrackName || audioTrackUrl)
-                  ? 'border-brand/40 text-brand'
-                  : 'text-ink-3 hover:border-brand/40 hover:text-ink',
-              )}
-            >
-              <Music className="size-[15px]" strokeWidth={1.7} />
-              <span className="hidden sm:inline">
-                {audioTrackName || audioTrackUrl ? 'Track set' : 'Audio'}
-              </span>
-            </button>
-          ) : null}
-
           <VisibilityMenu value={visibility} onChange={setVisibility} />
         </div>
 
+        {/* Textarea */}
+        <MentionTextarea
+          value={text}
+          onChange={(next) => setText(next.slice(0, MAX_TEXT))}
+          placeholder={activeType.placeholder}
+          rows={postType === 'TEXT' ? 5 : 3}
+          allowFollowersToken
+          className={cn(
+            'w-full resize-none border-0 bg-transparent p-0 text-[14.5px] leading-[1.6] text-fg shadow-none placeholder:text-fg-faint focus-visible:ring-0 focus-visible:ring-offset-0',
+            'min-h-[80px]',
+          )}
+        />
+
+        {/* EMBEDDED carousel */}
+        {postType === 'EMBEDDED' && files.length > 0 ? (
+          <CarouselPreview
+            files={files}
+            onRemove={(i) => setFiles((curr) => curr.filter((_, j) => j !== i))}
+            onAdd={handleEmbeddedFiles}
+            maxFiles={MAX_FILES}
+          />
+        ) : null}
+
+        {/* EMBEDDED empty drop zone */}
+        {postType === 'EMBEDDED' && files.length === 0 ? (
+          <DropZone
+            onFiles={handleEmbeddedFiles}
+            accept="image/*,video/*"
+            multiple
+            hint={`Up to ${MAX_FILES} files · images and videos`}
+          />
+        ) : null}
+
+        {/* REEL */}
+        {postType === 'REEL' ? (
+          reelFile ? (
+            <ReelPreview file={reelFile} onClear={() => setReelFile(null)} />
+          ) : (
+            <DropZone onFiles={handleReelFile} accept="video/*" multiple={false}>
+              <span className="grid size-10 place-items-center rounded-full bg-bg-muted text-fg-muted">
+                <Video className="size-5" strokeWidth={1.8} />
+              </span>
+              <p className="text-[13.5px] font-medium text-fg">
+                Drop a video, or click to browse
+              </p>
+              <p className="text-[11.5px] text-fg-muted">Vertical 9:16 · max 1:30</p>
+            </DropZone>
+          )
+        ) : null}
+
+        {/* VOICE */}
+        {postType === 'VOICE_POST' ? (
+          <div className="space-y-3">
+            <VoiceRecorder
+              value={voiceFile}
+              previewUrl={voicePreviewUrl}
+              onCapture={captureVoice}
+              onClear={clearVoice}
+              onError={(msg) => toast.error(msg)}
+            />
+            {!voiceFile ? (
+              <DropZone onFiles={handleVoiceUpload} accept="audio/*" multiple={false}>
+                <span className="grid size-10 place-items-center rounded-full bg-bg-muted text-fg-muted">
+                  <Mic className="size-5" strokeWidth={1.8} />
+                </span>
+                <p className="text-[13.5px] font-medium text-fg">Upload an audio file</p>
+                <p className="font-mono text-[11px] text-fg-muted">mp3 · m4a · ogg · wav</p>
+              </DropZone>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Audio track (EMBEDDED with bg music) */}
+        {showAudioTrack && supportsAudioTrack && postType !== 'REEL' ? (
+          <div className="flex items-center gap-2 rounded-md border border-line bg-bg-soft px-3 py-2.5">
+            <Music className="size-4 shrink-0 text-fg-muted" />
+            <Input
+              value={audioTrackName}
+              onChange={(e) => setAudioTrackName(e.target.value)}
+              placeholder="Track name…"
+              className="h-7 flex-1 border-0 bg-transparent px-0 text-[13px] shadow-none placeholder:text-fg-faint focus-visible:ring-0"
+            />
+            <button type="button" onClick={() => { setShowAudioTrack(false); setAudioTrackName(''); setAudioTrackUrl('') }} className="text-fg-muted hover:text-fg">
+              <X className="size-3.5" />
+            </button>
+          </div>
+        ) : null}
+
+        {/* Location chip */}
+        {showLocation ? (
+          <div className="flex items-center gap-2 rounded-md border border-line bg-bg-soft px-3 py-2">
+            <MapPin className="size-[13px] shrink-0 text-fg-muted" />
+            <Input
+              value={locationName}
+              onChange={(e) => setLocationName(e.target.value)}
+              placeholder="Location name…"
+              className="h-7 flex-1 border-0 bg-transparent px-0 text-[12.5px] shadow-none placeholder:text-fg-faint focus-visible:ring-0"
+            />
+            <button type="button" onClick={() => { setShowLocation(false); setLocationName('') }} className="text-fg-muted hover:text-fg">
+              <X className="size-3.5" />
+            </button>
+          </div>
+        ) : null}
+
+        {/* Sound chip for REEL */}
+        {postType === 'REEL' && (
+          <SoundChip
+            sound={selectedSound}
+            onClick={() => setSoundPickerOpen(true)}
+            onRemove={() => setSelectedSound(null)}
+          />
+        )}
+      </div>
+
+      {/* ── Footer toolbar ────────────────────────────────────── */}
+      <div className="flex items-center gap-0.5 border-t border-line bg-bg-soft px-4 py-2.5">
+        {/* Image/video button */}
+        {postType === 'EMBEDDED' ? (
+          <>
+            <input
+              ref={mediaInputRef}
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={(e) => { if (e.target.files?.length) { handleEmbeddedFiles(Array.from(e.target.files)); e.target.value = '' } }}
+            />
+            <ToolBtn
+              icon={ImageIcon}
+              on={files.length > 0}
+              onClick={() => mediaInputRef.current?.click()}
+              title="Attach photos or videos"
+            />
+          </>
+        ) : postType === 'REEL' ? (
+          <ToolBtn icon={Video} on={!!reelFile} title="Video file" />
+        ) : postType === 'VOICE_POST' ? (
+          <ToolBtn icon={Mic} on={!!voiceFile} title="Voice recording" />
+        ) : (
+          <ToolBtn icon={ImageIcon} title="Attach media" />
+        )}
+
+        <ToolBtn
+          icon={MapPin}
+          on={showLocation && !!locationName}
+          onClick={() => setShowLocation((v) => !v)}
+          title="Add location"
+        />
+
+        {supportsAudioTrack && postType !== 'REEL' ? (
+          <ToolBtn
+            icon={Music}
+            on={showAudioTrack}
+            onClick={() => setShowAudioTrack((v) => !v)}
+            title="Add audio track"
+          />
+        ) : null}
+
+        <ToolBtn icon={AtSign} title="Mention someone" />
+
+        {/* Counter */}
+        <span
+          className={cn(
+            'ml-auto mr-3 font-mono text-[11.5px] tabular-nums',
+            charactersLeft < 0 ? 'text-neg' : charactersLeft < 200 ? 'text-warn' : 'text-fg-faint',
+          )}
+        >
+          {text.length.toLocaleString()} / {MAX_TEXT.toLocaleString()}
+        </span>
+
+        {/* Save draft */}
+        <button
+          type="button"
+          className="mr-1.5 inline-flex h-8 items-center rounded-md border border-line bg-background px-3 text-[12.5px] font-medium text-fg-soft transition-colors hover:border-line-strong hover:text-fg"
+        >
+          Save draft
+        </button>
+
+        {/* Publish */}
         <button
           type="submit"
           disabled={!canSubmit()}
-          className={cn(
-            'inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand px-5 text-[12.5px] font-medium text-brand-foreground transition-colors',
-            'hover:bg-brand/90 disabled:opacity-50',
-          )}
+          className="inline-flex h-8 items-center rounded-md bg-fg px-4 text-[12.5px] font-medium text-background transition-colors hover:bg-fg-soft disabled:opacity-40"
         >
-          {submitting ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Send className="size-[14px]" strokeWidth={2} />
-          )}
+          {submitting ? <Loader2 className="size-3.5 animate-spin" /> : null}
           {submitting ? 'Publishing…' : 'Publish'}
         </button>
       </div>
     </form>
   )
 
-  if (bare) return formNode
+  const soundPickerEl = (
+    <SoundPicker
+      open={soundPickerOpen}
+      onOpenChange={setSoundPickerOpen}
+      value={selectedSound}
+      onChange={(s) => { setSelectedSound(s); setSoundPickerOpen(false) }}
+    />
+  )
+
+  if (bare) return <>{formNode}{soundPickerEl}</>
 
   return (
-    <Card className="overflow-hidden rounded-2xl border-border bg-paper">
-      <CardContent className="px-4 py-4 sm:px-5">{formNode}</CardContent>
-    </Card>
+    <>
+      <div className="overflow-hidden rounded-lg border border-line bg-background">
+        {formNode}
+      </div>
+      {soundPickerEl}
+    </>
   )
 }

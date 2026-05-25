@@ -38,7 +38,7 @@ function NotificationBadge() {
   return (
     <span
       aria-hidden
-      className="absolute -right-1 -top-1 inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[9.5px] font-bold text-brand-foreground ring-2 ring-background"
+      className="absolute -right-1 -top-1 inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-fg px-1 text-[9.5px] font-bold text-background ring-2 ring-background"
     >
       {unreadCount > 99 ? '99+' : unreadCount}
     </span>
@@ -60,7 +60,7 @@ function MeTab() {
         cn(
           'group relative flex flex-1 flex-col items-center justify-center gap-1 px-2 py-1.5 transition-colors',
           isActive
-            ? 'text-brand'
+            ? 'text-accent-indigo'
             : 'text-muted-foreground hover:text-foreground',
         )
       }
@@ -113,7 +113,7 @@ function NavTab({ to, end, Icon, label, badge }) {
         cn(
           'group relative flex flex-1 flex-col items-center justify-center gap-1 px-2 py-1.5 transition-colors',
           isActive
-            ? 'text-brand'
+            ? 'text-accent-indigo'
             : 'text-muted-foreground hover:text-foreground',
         )
       }
@@ -162,7 +162,7 @@ export function MobileBottomTabs() {
       aria-label="Primary"
       className={cn(
         'fixed inset-x-0 bottom-0 z-30 lg:hidden',
-        'border-t border-border bg-background/95 backdrop-blur-md',
+        'border-t border-line bg-background/95 backdrop-blur-md',
         'pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_12px_rgba(0,0,0,0.04)]',
       )}
     >

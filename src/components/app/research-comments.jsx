@@ -122,7 +122,7 @@ function CommentComposer({
         className={cn('shrink-0 rounded-full', compact ? 'size-7' : 'size-8')}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex items-center gap-1 rounded-full border border-border bg-paper py-1 pl-3.5 pr-1 transition-colors focus-within:border-[#0891B2]/45">
+        <div className="flex items-center gap-1 rounded-full border border-line bg-background py-1 pl-3.5 pr-1 transition-colors focus-within:border-[#0891B2]/45">
           <MentionTextarea
             ref={textareaRef}
             value={text}
@@ -135,7 +135,7 @@ function CommentComposer({
           />
           <label
             className={cn(
-              'grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink',
+              'grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink',
               file && 'bg-secondary text-ink',
             )}
             title="Attach image or video"
@@ -155,7 +155,7 @@ function CommentComposer({
           <button
             type="button"
             onClick={insertMention}
-            className="grid size-8 shrink-0 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+            className="grid size-8 shrink-0 place-items-center rounded-full text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink"
             title="Mention someone"
           >
             <AtSign className="size-4" strokeWidth={1.7} />
@@ -173,12 +173,12 @@ function CommentComposer({
           </Button>
         </div>
         {file ? (
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/50 px-2.5 py-1.5 text-[12px]">
+          <div className="flex items-center gap-2 rounded-md border border-line bg-bg-soft px-2.5 py-1.5 text-[12px]">
             <span className="truncate">{file.name}</span>
             <button
               type="button"
               onClick={() => setFile(null)}
-              className="text-ink-3 hover:text-ink"
+              className="text-fg-muted hover:text-ink"
             >
               <X className="size-3.5" />
             </button>
@@ -199,7 +199,7 @@ function CommentMedia({ comment }) {
         src={url}
         controls
         playsInline
-        className="mt-2 max-h-80 w-full overflow-hidden rounded-xl bg-black"
+        className="mt-2 max-h-80 w-full overflow-hidden rounded-md bg-black"
       />
     )
   }
@@ -208,7 +208,7 @@ function CommentMedia({ comment }) {
       src={url}
       alt=""
       loading="lazy"
-      className="mt-2 max-h-80 w-full overflow-hidden rounded-xl object-cover"
+      className="mt-2 max-h-80 w-full overflow-hidden rounded-md object-cover"
     />
   )
 }
@@ -372,7 +372,7 @@ function CommentItem({
       </Link>
       <div className="min-w-0 flex-1">
         {/* Bubble */}
-        <div className="rounded-2xl rounded-tl-md bg-secondary/70 px-3.5 py-2">
+        <div className="rounded-lg rounded-tl-md bg-bg-soft px-3.5 py-2">
           <div className="flex items-start justify-between gap-2">
             <Link
               to={author.username ? `/profile/${author.username}` : '#'}
@@ -389,7 +389,7 @@ function CommentItem({
                   Author
                 </span>
               ) : null}
-              <span className="font-mono text-[9.5px] text-ink-4">
+              <span className="font-mono text-[9.5px] text-fg-faint">
                 <RelativeTime entity={comment} title={comment.formattedDate || undefined} />
                 {comment.isEdited ? ' · edited' : ''}
               </span>
@@ -399,13 +399,13 @@ function CommentItem({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="-mr-1 -mt-0.5 rounded-full p-1 text-ink-3 transition-colors hover:bg-paper hover:text-ink"
+                    className="-mr-1 -mt-0.5 rounded-full p-1 text-fg-muted transition-colors hover:bg-paper hover:text-ink"
                     aria-label="More"
                   >
                     <MoreHorizontal className="size-3.5" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="rounded-xl">
+                <DropdownMenuContent align="end" className="rounded-md">
                   {isMine ? (
                     <DropdownMenuItem
                       onSelect={() => {
@@ -436,7 +436,7 @@ function CommentItem({
                 onChange={setEditText}
                 rows={2}
                 maxLength={5000}
-                className="resize-none rounded-xl border border-border bg-paper px-2.5 py-1.5 text-[13px]"
+                className="resize-none rounded-md border border-line bg-background px-2.5 py-1.5 text-[13px]"
                 autoFocus
               />
               <div className="flex items-center justify-end gap-2">
@@ -468,7 +468,7 @@ function CommentItem({
               {comment.content ? (
                 <p
                   dir="auto"
-                  className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-[1.55] text-ink-2"
+                  className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-[1.55] text-fg-soft"
                 >
                   <MentionText text={comment.content} />
                 </p>
@@ -489,7 +489,7 @@ function CommentItem({
               aria-label={myReaction ? 'Unlike' : 'Like'}
               className={cn(
                 'inline-flex items-center gap-1 font-medium transition-colors active:scale-95',
-                myReaction ? 'text-rose-600' : 'text-ink-3 hover:text-ink',
+                myReaction ? 'text-rose-600' : 'text-fg-muted hover:text-ink',
               )}
             >
               <Heart
@@ -506,7 +506,7 @@ function CommentItem({
             <button
               type="button"
               onClick={() => setShowReplyBox((v) => !v)}
-              className="inline-flex items-center gap-1 font-medium text-ink-3 transition-colors hover:text-ink"
+              className="inline-flex items-center gap-1 font-medium text-fg-muted transition-colors hover:text-ink"
             >
               <MessageCircle className="size-[14px]" strokeWidth={1.7} />
               Reply
@@ -552,7 +552,7 @@ function CommentItem({
               transition={{ type: 'spring', stiffness: 260, damping: 30 }}
               className="overflow-hidden"
             >
-              <div className="ml-1 mt-3 space-y-3.5 border-l-2 border-border pl-4">
+              <div className="ml-1 mt-3 space-y-3.5 border-l-2 border-line pl-4">
                 <AnimatePresence initial={false}>
                   {(comment.replies ?? []).map((reply) => (
                     <CommentItem
@@ -777,11 +777,11 @@ export const ResearchComments = forwardRef(function ResearchComments(
   return (
     <div className="space-y-4">
       {loading ? (
-        <div className="flex items-center justify-center py-4 text-ink-3">
+        <div className="flex items-center justify-center py-4 text-fg-muted">
           <Loader2 className="size-4 animate-spin" />
         </div>
       ) : comments.length === 0 ? (
-        <p className="py-2 text-center text-[13px] text-ink-3">
+        <p className="py-2 text-center text-[13px] text-fg-muted">
           No comments yet. Be the first to share your thoughts.
         </p>
       ) : (
@@ -804,7 +804,7 @@ export const ResearchComments = forwardRef(function ResearchComments(
       {isAuthenticated ? (
         <CommentComposer researchId={researchId} onAdded={handleAdded} />
       ) : (
-        <p className="text-center text-[12px] text-ink-3">
+        <p className="text-center text-[12px] text-fg-muted">
           <Link to="/login" className="font-medium text-[#0891B2] hover:underline">
             Sign in
           </Link>{' '}

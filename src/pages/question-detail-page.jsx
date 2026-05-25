@@ -148,7 +148,7 @@ function QuestionHeader({ question, onToggleSave, onShare }) {
     <section className="relative space-y-6 pb-2">
       {/* Meta strip */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[12px] font-medium leading-none text-ink-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-[12px] font-medium leading-none text-fg-soft">
           {sealed ? (
             <CheckCircle2 className="size-3.5 text-emerald-600" strokeWidth={2} />
           ) : (
@@ -156,7 +156,7 @@ function QuestionHeader({ question, onToggleSave, onShare }) {
           )}
           {status.label}
         </span>
-        <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-fg-muted">
           Asked <RelativeTime entity={question} />
           {question.viewCount != null ? (
             <>
@@ -184,7 +184,7 @@ function QuestionHeader({ question, onToggleSave, onShare }) {
       {/* Title */}
       <h1
         dir="auto"
-        className="text-balance font-display text-[32px] font-semibold leading-[1.1] tracking-[-0.022em] text-ink sm:text-[42px]"
+        className="text-balance font-semibold text-[32px] font-semibold leading-[1.1] tracking-[-0.022em] text-ink sm:text-[42px]"
       >
         {question.title}
       </h1>
@@ -193,14 +193,14 @@ function QuestionHeader({ question, onToggleSave, onShare }) {
       {question.body ? (
         <p
           dir="auto"
-          className="max-w-[68ch] whitespace-pre-wrap text-[15.5px] leading-[1.7] text-ink-2"
+          className="max-w-[68ch] whitespace-pre-wrap text-[15.5px] leading-[1.7] text-fg-soft"
         >
           <MentionText text={question.body} />
         </p>
       ) : null}
 
       {/* Author row + actions */}
-      <div className="flex flex-wrap items-center gap-3.5 border-t border-border pt-5">
+      <div className="flex flex-wrap items-center gap-3.5 border-t border-line pt-5">
         <Link to={`/profile/${authorRoute}`} className="shrink-0">
           <UserAvatar user={author} className="size-10 rounded-full" />
         </Link>
@@ -208,14 +208,14 @@ function QuestionHeader({ question, onToggleSave, onShare }) {
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
             <Link
               to={`/profile/${authorRoute}`}
-              className="font-display text-[15px] font-semibold text-ink hover:underline"
+              className="font-semibold text-[15px] font-semibold text-ink hover:underline"
             >
               {authorName}
             </Link>
             {author.role ? <RoleBadge role={author.role} size="xs" /> : null}
           </div>
           {authorHandle ? (
-            <p className="mt-0.5 font-mono text-[11px] text-ink-3">@{authorHandle}</p>
+            <p className="mt-0.5 font-mono text-[11px] text-fg-muted">@{authorHandle}</p>
           ) : null}
         </div>
         <div className="flex items-center gap-1.5">
@@ -223,7 +223,7 @@ function QuestionHeader({ question, onToggleSave, onShare }) {
             type="button"
             onClick={onShare}
             title="Share this question"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-brand/40 hover:bg-secondary hover:text-ink"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-[12.5px] font-medium text-fg-soft transition-colors hover:border-fg/40 hover:bg-bg-soft hover:text-ink"
           >
             <Share2 className="size-[15px]" strokeWidth={1.8} />
             {(question.shareCount ?? 0) > 0 ? formatNumber(question.shareCount) : 'Share'}
@@ -236,8 +236,8 @@ function QuestionHeader({ question, onToggleSave, onShare }) {
             className={cn(
               'inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[12.5px] font-medium transition-colors',
               isSaved
-                ? 'border-[#93C5FD] bg-[#EFF6FF] text-brand'
-                : 'border-border text-ink-2 hover:border-brand/40 hover:bg-secondary hover:text-ink',
+                ? 'border-[#93C5FD] bg-[#EFF6FF] text-accent-indigo'
+                : 'border-line text-fg-soft hover:border-fg/40 hover:bg-bg-soft hover:text-ink',
             )}
           >
             <Bookmark
@@ -266,7 +266,7 @@ function AnswerMedia({ url, type, thumbnailUrl }) {
         controls
         playsInline
         preload="metadata"
-        className="aspect-video w-full rounded-xl border border-border bg-black object-contain"
+        className="aspect-video w-full rounded-md border border-line bg-black object-contain"
       />
     )
   }
@@ -275,7 +275,7 @@ function AnswerMedia({ url, type, thumbnailUrl }) {
       href={resolved}
       target="_blank"
       rel="noreferrer"
-      className="block overflow-hidden rounded-xl border border-border bg-secondary"
+      className="block overflow-hidden rounded-md border border-line bg-bg-soft"
     >
       <img
         src={resolved}
@@ -349,7 +349,7 @@ function AnswerReactionRow({ questionId, answer, isAuthenticated, onPatch, trail
           'inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium transition-colors active:scale-95 disabled:opacity-50',
           liked
             ? 'border-rose-300 bg-rose-50 text-rose-600'
-            : 'border-border text-ink-2 hover:border-brand/40 hover:text-ink',
+            : 'border-line text-fg-soft hover:border-fg/40 hover:text-ink',
         )}
         aria-pressed={liked}
         aria-label={reactionCooldown > 0 ? `Try again in ${reactionCooldown}s` : liked ? 'Unlike' : 'Like'}
@@ -431,10 +431,10 @@ function AnswerCard({
       exit={{ opacity: 0, y: -6, scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 320, damping: 28 }}
       className={cn(
-        'group/answer relative isolate overflow-hidden rounded-2xl bg-paper transition-colors',
+        'group/answer relative isolate overflow-hidden rounded-lg bg-background transition-colors',
         isAccepted
           ? 'border-[1.5px] border-emerald-500 shadow-[0_0_0_4px_#ECFDF5]'
-          : 'border border-border hover:border-brand/30',
+          : 'border border-line hover:border-fg/30',
       )}
     >
       {/* Top status row */}
@@ -460,18 +460,18 @@ function AnswerCard({
               </>
             ) : null}
           </span>
-          <span className="ml-auto font-mono text-[11px] uppercase tracking-wider text-ink-3">
+          <span className="ml-auto font-mono text-[11px] uppercase tracking-wider text-fg-muted">
             <RelativeTime entity={answer} />
             {answer.edited ? ' · edited' : ''}
           </span>
         </div>
       ) : expert ? (
         <div className="flex items-center gap-2 px-6 pt-5">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-medium leading-none text-brand">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-medium leading-none text-accent-indigo">
             <Star className="size-3" strokeWidth={1.8} />
             {author.role === 'SCHOLAR' ? "Scholar's answer" : 'Expert answer'}
           </span>
-          <span className="ml-auto font-mono text-[11px] uppercase tracking-wider text-ink-3">
+          <span className="ml-auto font-mono text-[11px] uppercase tracking-wider text-fg-muted">
             <RelativeTime entity={answer} />
             {answer.edited ? ' · edited' : ''}
           </span>
@@ -487,13 +487,13 @@ function AnswerCard({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="rounded-lg text-ink-3 hover:text-ink"
+                className="rounded-lg text-fg-muted hover:text-ink"
                 aria-label="More"
               >
                 <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 rounded-xl">
+            <DropdownMenuContent align="end" className="w-48 rounded-md">
               {canManage && !answer.parentAnswerId ? (
                 answer.accepted ? (
                   <DropdownMenuItem onSelect={() => onUnaccept(answer.id)}>
@@ -562,8 +562,8 @@ function AnswerCard({
           ) : null}
 
           {links.length > 0 ? (
-            <div className="space-y-1.5 rounded-xl border border-border bg-secondary/40 p-3">
-              <p className="flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-3">
+            <div className="space-y-1.5 rounded-md border border-line bg-bg-soft p-3">
+              <p className="flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-fg-muted">
                 <Link2 className="size-3" />
                 Linked sources
               </p>
@@ -576,7 +576,7 @@ function AnswerCard({
                       rel="noreferrer"
                       className="inline-flex max-w-full items-center gap-1.5 truncate text-[13px] font-medium text-ink hover:underline"
                     >
-                      <Link2 className="size-3 shrink-0 text-ink-3" />
+                      <Link2 className="size-3 shrink-0 text-fg-muted" />
                       <span className="truncate">{url}</span>
                     </a>
                   </li>
@@ -602,7 +602,7 @@ function AnswerCard({
           />
 
           {/* Author + reaction row */}
-          <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+          <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
             <Link to={`/profile/${getRawUsername(author)}`} className="shrink-0">
               <UserAvatar user={author} className="size-9 rounded-full" />
             </Link>
@@ -610,12 +610,12 @@ function AnswerCard({
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                 <Link
                   to={`/profile/${getRawUsername(author)}`}
-                  className="font-display text-[14px] font-semibold text-ink hover:underline"
+                  className="font-semibold text-[14px] font-semibold text-ink hover:underline"
                 >
                   {getFullName(author) || getHandle(author) || 'Unknown'}
                 </Link>
                 {author.role ? (
-                  <span className="font-display text-[13px] italic text-ink-3">
+                  <span className="font-semibold text-[13px] italic text-fg-muted">
                     · {author.role.toLowerCase()}
                   </span>
                 ) : null}
@@ -628,7 +628,7 @@ function AnswerCard({
                 isAuthenticated={isAuthenticated}
                 onPatch={onAnswerPatch}
               />
-              <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-fg-muted">
                 <RelativeTime entity={answer} />
               </span>
             </div>
@@ -657,7 +657,7 @@ function AnswerCard({
                   'ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-medium transition-colors active:scale-95',
                   answer.votedByMe
                     ? 'bg-[#FEF3C7] text-[#B45309]'
-                    : 'text-ink-3 hover:bg-secondary hover:text-ink',
+                    : 'text-fg-muted hover:bg-bg-soft hover:text-ink',
                 )}
               >
                 <Award
@@ -678,7 +678,7 @@ function AnswerCard({
           </div>
 
           {/* Reanswers */}
-          <div className="border-t border-border pt-4">
+          <div className="border-t border-line pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <button
                 type="button"
@@ -687,7 +687,7 @@ function AnswerCard({
                 aria-expanded={showReplies}
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-[0.1em] transition-colors',
-                  showReplies ? 'bg-secondary text-ink' : 'text-ink-3 hover:bg-secondary hover:text-ink',
+                  showReplies ? 'bg-secondary text-ink' : 'text-fg-muted hover:bg-bg-soft hover:text-ink',
                   replyCount === 0 && !allowedToAnswer && 'cursor-default opacity-60 hover:bg-transparent',
                 )}
               >
@@ -712,8 +712,8 @@ function AnswerCard({
                   className={cn(
                     'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-medium transition-colors',
                     showReanswerComposer
-                      ? 'bg-brand text-brand-foreground'
-                      : 'text-ink-3 hover:bg-secondary hover:text-ink',
+                      ? 'bg-brand text-accent-indigo-foreground'
+                      : 'text-fg-muted hover:bg-bg-soft hover:text-ink',
                   )}
                 >
                   <CornerDownRight className="size-3.5" strokeWidth={1.7} />
@@ -733,7 +733,7 @@ function AnswerCard({
                   transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                   className="overflow-hidden"
                 >
-                  <div className="mt-3 rounded-xl border border-border bg-secondary/40 p-4">
+                  <div className="mt-3 rounded-md border border-line bg-bg-soft p-4">
                     {showReanswerComposer ? (
                       <div className="mb-4">
                         <ReanswerComposer
@@ -779,7 +779,7 @@ function AnswerCard({
                         </AnimatePresence>
                       </div>
                     ) : repliesLoaded && !repliesLoading ? (
-                      <p className="font-display text-[13px] italic text-ink-3">
+                      <p className="font-semibold text-[13px] italic text-fg-muted">
                         {showReanswerComposer
                           ? 'Be the first to reply.'
                           : allowedToAnswer
@@ -787,7 +787,7 @@ function AnswerCard({
                             : 'No replies yet.'}
                       </p>
                     ) : repliesLoading ? (
-                      <p className="font-mono text-[11px] text-ink-3">Loading replies…</p>
+                      <p className="font-mono text-[11px] text-fg-muted">Loading replies…</p>
                     ) : null}
                   </div>
                 </motion.div>
@@ -916,21 +916,21 @@ function ReanswerItem({
             <Link
               to={`/profile/${authorRoute}`}
               onClick={(event) => event.stopPropagation()}
-              className="truncate font-display text-[13.5px] font-semibold tracking-[-0.005em] text-ink hover:underline"
+              className="truncate font-semibold text-[13.5px] font-semibold tracking-[-0.005em] text-ink hover:underline"
             >
               {authorName}
             </Link>
             {authorHandle && authorHandle.toLowerCase() !== authorName.toLowerCase() ? (
-              <span className="truncate font-mono text-[10.5px] text-ink-3">@{authorHandle}</span>
+              <span className="truncate font-mono text-[10.5px] text-fg-muted">@{authorHandle}</span>
             ) : null}
             {author.role ? <RoleBadge role={author.role} size="xs" showIcon={false} /> : null}
             {isQuestionAuthor ? (
-              <span className="inline-flex items-center rounded-full bg-brand-soft px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.1em] text-brand">
+              <span className="inline-flex items-center rounded-full bg-brand-soft px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.1em] text-accent-indigo">
                 Author
               </span>
             ) : null}
-            <span aria-hidden className="text-ink-4">·</span>
-            <span className="text-[11px] text-ink-3">
+            <span aria-hidden className="text-fg-faint">·</span>
+            <span className="text-[11px] text-fg-muted">
               <RelativeTime entity={reply} />
               {reply.edited ? ' · edited' : ''}
             </span>
@@ -939,13 +939,13 @@ function ReanswerItem({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="ml-auto rounded-full p-1 text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+                    className="ml-auto rounded-full p-1 text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink"
                     aria-label="More"
                   >
                     <MoreHorizontal className="size-3.5" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44 rounded-xl">
+                <DropdownMenuContent align="end" className="w-44 rounded-md">
                   {isOwner ? (
                     <DropdownMenuItem onSelect={() => onEdit?.(reply)}>
                       <Pencil className="mr-2 size-4" />
@@ -972,14 +972,14 @@ function ReanswerItem({
           {reply.body ? (
             <p
               dir="auto"
-              className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.6] text-ink-2"
+              className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-[1.6] text-fg-soft"
             >
               <MentionText text={reply.body} />
             </p>
           ) : null}
 
           {reply.mediaUrl ? (
-            <div className="mt-2 max-w-[460px] overflow-hidden rounded-xl border border-border bg-secondary">
+            <div className="mt-2 max-w-[460px] overflow-hidden rounded-md border border-line bg-bg-soft">
               <AnswerMedia url={reply.mediaUrl} type={reply.mediaType} thumbnailUrl={reply.mediaThumbnailUrl} />
             </div>
           ) : null}
@@ -1006,7 +1006,7 @@ function ReanswerItem({
                     rel="noreferrer"
                     className="inline-flex max-w-full items-center gap-1 truncate text-[12px] font-medium text-ink hover:underline"
                   >
-                    <Link2 className="size-3 shrink-0 text-ink-3" />
+                    <Link2 className="size-3 shrink-0 text-fg-muted" />
                     <span className="truncate">{url}</span>
                   </a>
                 </li>
@@ -1015,7 +1015,7 @@ function ReanswerItem({
           ) : null}
 
           {/* Action row */}
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-ink-3">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-fg-muted">
             <AnswerReactionRow
               questionId={questionId}
               answer={reply}
@@ -1030,8 +1030,8 @@ function ReanswerItem({
                 className={cn(
                   'inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium transition-colors',
                   showReplyBox
-                    ? 'bg-brand text-brand-foreground'
-                    : 'hover:bg-secondary hover:text-ink',
+                    ? 'bg-brand text-accent-indigo-foreground'
+                    : 'hover:bg-bg-soft hover:text-ink',
                 )}
               >
                 <CornerDownRight className="size-3" />
@@ -1054,9 +1054,9 @@ function ReanswerItem({
 
           {/* Nested level */}
           {depth === 0 && (nested.length > 0 || loadingNested) ? (
-            <div className="relative mt-4 space-y-4 border-l-2 border-border pl-5">
+            <div className="relative mt-4 space-y-4 border-l-2 border-line pl-5">
               {loadingNested && nested.length === 0 ? (
-                <div className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-ink-3">
+                <div className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-fg-muted">
                   <Loader2 className="size-3 animate-spin" />
                   Loading replies…
                 </div>
@@ -1141,7 +1141,7 @@ function NestedReplyItem({
 
       <div className="min-w-0 flex-1">
         {/* Bubble */}
-        <div className="rounded-2xl rounded-tl-md bg-secondary/70 px-3.5 py-2">
+        <div className="rounded-lg rounded-tl-md bg-bg-soft px-3.5 py-2">
           <div className="flex items-start justify-between gap-2">
             <Link
               to={`/profile/${authorRoute}`}
@@ -1154,13 +1154,13 @@ function NestedReplyItem({
                 </span>
                 {author.role ? <RoleBadge role={author.role} size="xs" showIcon={false} /> : null}
                 {isQuestionAuthor ? (
-                  <span className="inline-flex items-center rounded-full bg-brand-soft px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.1em] text-brand">
+                  <span className="inline-flex items-center rounded-full bg-brand-soft px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.1em] text-accent-indigo">
                     Author
                   </span>
                 ) : null}
               </span>
               {authorHandle && authorHandle.toLowerCase() !== authorName.toLowerCase() ? (
-                <span className="block truncate font-mono text-[10px] text-ink-3">
+                <span className="block truncate font-mono text-[10px] text-fg-muted">
                   @{authorHandle}
                 </span>
               ) : null}
@@ -1171,13 +1171,13 @@ function NestedReplyItem({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="-mr-1 -mt-0.5 rounded-full p-1 text-ink-3 transition-colors hover:bg-paper hover:text-ink"
+                    className="-mr-1 -mt-0.5 rounded-full p-1 text-fg-muted transition-colors hover:bg-paper hover:text-ink"
                     aria-label="More"
                   >
                     <MoreHorizontal className="size-3.5" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44 rounded-xl">
+                <DropdownMenuContent align="end" className="w-44 rounded-md">
                   {isOwner ? (
                     <DropdownMenuItem onSelect={() => onEdit?.(reply)}>
                       <Pencil className="mr-2 size-4" />
@@ -1204,14 +1204,14 @@ function NestedReplyItem({
           {reply.body ? (
             <p
               dir="auto"
-              className="mt-0.5 whitespace-pre-wrap break-words text-[13px] leading-[1.55] text-ink-2"
+              className="mt-0.5 whitespace-pre-wrap break-words text-[13px] leading-[1.55] text-fg-soft"
             >
               <MentionText text={reply.body} />
             </p>
           ) : null}
 
           {reply.mediaUrl ? (
-            <div className="mt-2 max-w-[400px] overflow-hidden rounded-xl border border-border bg-secondary">
+            <div className="mt-2 max-w-[400px] overflow-hidden rounded-md border border-line bg-bg-soft">
               <AnswerMedia url={reply.mediaUrl} type={reply.mediaType} thumbnailUrl={reply.mediaThumbnailUrl} />
             </div>
           ) : null}
@@ -1230,7 +1230,7 @@ function NestedReplyItem({
         </div>
 
         {/* Action row */}
-        <div className="mt-1.5 flex flex-wrap items-center gap-3 pl-1.5 text-[11px] font-medium text-ink-3">
+        <div className="mt-1.5 flex flex-wrap items-center gap-3 pl-1.5 text-[11px] font-medium text-fg-muted">
           <AnswerReactionRow
             questionId={questionId}
             answer={reply}
@@ -1244,8 +1244,8 @@ function NestedReplyItem({
               className={cn(
                 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium transition-colors',
                 showReplyBox
-                  ? 'bg-brand text-brand-foreground'
-                  : 'hover:bg-secondary hover:text-ink',
+                  ? 'bg-brand text-accent-indigo-foreground'
+                  : 'hover:bg-bg-soft hover:text-ink',
               )}
             >
               <CornerDownRight className="size-3" />
@@ -1313,7 +1313,7 @@ function OwnerControls({ question, working, onToggleLock, onSetLimit }) {
         type="button"
         onClick={onToggleLock}
         disabled={working}
-        className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-[11px] font-medium text-ink-3 transition-colors hover:border-brand/40 hover:text-ink disabled:opacity-50"
+        className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-[11px] font-medium text-fg-muted transition-colors hover:border-fg/40 hover:text-ink disabled:opacity-50"
       >
         {question.answersLocked ? (
           <>
@@ -1329,8 +1329,8 @@ function OwnerControls({ question, working, onToggleLock, onSetLimit }) {
       </button>
 
       {editingLimit ? (
-        <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-paper px-2.5 py-1">
-          <Hash className="size-3 text-ink-3" />
+        <span className="inline-flex items-center gap-1 rounded-lg border border-line bg-background px-2.5 py-1">
+          <Hash className="size-3 text-fg-muted" />
           <input
             value={draftLimit}
             onChange={(event) => setDraftLimit(event.target.value.replace(/[^\d]/g, ''))}
@@ -1341,7 +1341,7 @@ function OwnerControls({ question, working, onToggleLock, onSetLimit }) {
           />
           <button
             type="button"
-            className="rounded-full px-1.5 text-[10px] font-medium uppercase tracking-wider text-brand hover:underline"
+            className="rounded-full px-1.5 text-[10px] font-medium uppercase tracking-wider text-accent-indigo hover:underline"
             onClick={commitLimit}
             disabled={working}
           >
@@ -1349,7 +1349,7 @@ function OwnerControls({ question, working, onToggleLock, onSetLimit }) {
           </button>
           <button
             type="button"
-            className="text-ink-3 hover:text-ink"
+            className="text-fg-muted hover:text-ink"
             onClick={() => setEditingLimit(false)}
             aria-label="Cancel"
           >
@@ -1361,7 +1361,7 @@ function OwnerControls({ question, working, onToggleLock, onSetLimit }) {
           type="button"
           onClick={() => setEditingLimit(true)}
           disabled={working}
-          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-[11px] font-medium text-ink-3 transition-colors hover:border-brand/40 hover:text-ink disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-[11px] font-medium text-fg-muted transition-colors hover:border-fg/40 hover:text-ink disabled:opacity-50"
         >
           <Hash className="size-3" />
           {question.maxAnswers != null ? `Limit ${question.maxAnswers}` : 'Set limit'}
@@ -1990,9 +1990,9 @@ export function QuestionDetailPage() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-7 w-32" />
-        <Skeleton className="h-72 w-full rounded-2xl" />
-        <Skeleton className="h-44 w-full rounded-2xl" />
-        <Skeleton className="h-44 w-full rounded-2xl" />
+        <Skeleton className="h-72 w-full rounded-lg" />
+        <Skeleton className="h-44 w-full rounded-lg" />
+        <Skeleton className="h-44 w-full rounded-lg" />
       </div>
     )
   }
@@ -2018,7 +2018,7 @@ export function QuestionDetailPage() {
       <div className="flex items-center justify-between gap-3">
         <Link
           to="/questions"
-          className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-ink-3 transition-colors hover:text-ink"
+          className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-fg-muted transition-colors hover:text-ink"
         >
           <ArrowLeft className="size-3.5" />
           All questions
@@ -2029,7 +2029,7 @@ export function QuestionDetailPage() {
             <button
               type="button"
               onClick={() => setEditQuestionOpen(true)}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink"
             >
               <Pencil className="size-3.5" />
               Edit
@@ -2038,13 +2038,13 @@ export function QuestionDetailPage() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex size-7 items-center justify-center rounded-lg text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+                  className="inline-flex size-7 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink"
                   aria-label="More"
                 >
                   <MoreHorizontal className="size-4" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="rounded-xl">
+              <DropdownMenuContent align="end" className="rounded-md">
                 <DropdownMenuItem onSelect={handleToggleLock}>
                   {question.answersLocked ? (
                     <>
@@ -2091,10 +2091,10 @@ export function QuestionDetailPage() {
       <section className="space-y-5">
         <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
           <div className="flex items-baseline gap-2.5">
-            <h2 className="font-display text-[20px] font-semibold tracking-[-0.015em] text-ink sm:text-[22px]">
+            <h2 className="font-semibold text-[20px] font-semibold tracking-[-0.015em] text-ink sm:text-[22px]">
               Answers
             </h2>
-            <span className="font-mono text-[12px] tabular-nums text-ink-3">
+            <span className="font-mono text-[12px] tabular-nums text-fg-muted">
               {formatNumber(question.answerCount ?? sortedAnswers.length)}
               {question.maxAnswers != null ? ` / ${question.maxAnswers}` : null}
             </span>
@@ -2110,9 +2110,9 @@ export function QuestionDetailPage() {
 
         {/* Composer */}
         {!isAuthenticated ? (
-          <Card className="rounded-2xl border border-border">
-            <CardContent className="p-5 text-[13px] text-ink-3">
-              <Link to="/login" className="font-medium text-brand hover:underline">
+          <Card className="rounded-lg border border-line">
+            <CardContent className="p-5 text-[13px] text-fg-muted">
+              <Link to="/login" className="font-medium text-accent-indigo hover:underline">
                 Sign in
               </Link>{' '}
               to post an answer.
@@ -2125,8 +2125,8 @@ export function QuestionDetailPage() {
             onCreated={handleAnswerCreated}
           />
         ) : (
-          <Card className="rounded-2xl border border-dashed border-border">
-            <CardContent className="p-5 text-[13px] text-ink-3">
+          <Card className="rounded-lg border border-dashed border-line">
+            <CardContent className="p-5 text-[13px] text-fg-muted">
               Posting answers in the Q&A area is reserved for{' '}
               <span className="font-medium text-ink">scholars</span> and{' '}
               <span className="font-medium text-ink">researchers</span>. You can still read every
@@ -2137,18 +2137,18 @@ export function QuestionDetailPage() {
 
         {/* List */}
         {answersLoading ? (
-          <div className="flex justify-center py-6 text-ink-3">
+          <div className="flex justify-center py-6 text-fg-muted">
             <Loader2 className="size-4 animate-spin" />
           </div>
         ) : sortedAnswers.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border bg-paper px-8 py-10 text-center">
-            <span className="mx-auto grid size-12 place-items-center rounded-full bg-secondary text-ink-2">
+          <div className="rounded-lg border border-dashed border-line bg-background px-8 py-10 text-center">
+            <span className="mx-auto grid size-12 place-items-center rounded-full bg-bg-soft text-fg-soft">
               <MessageCircleQuestion className="size-5" strokeWidth={1.6} />
             </span>
-            <h3 className="mt-4 font-display text-[18px] font-semibold tracking-[-0.012em] text-ink">
+            <h3 className="mt-4 font-semibold text-[18px] font-semibold tracking-[-0.012em] text-ink">
               No answers yet
             </h3>
-            <p className="mx-auto mt-1.5 max-w-[42ch] text-[13.5px] leading-[1.6] text-ink-3">
+            <p className="mx-auto mt-1.5 max-w-[42ch] text-[13.5px] leading-[1.6] text-fg-muted">
               Be the first to share a thoughtful answer — citations welcome.
             </p>
           </div>

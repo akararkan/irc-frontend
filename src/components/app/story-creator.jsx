@@ -115,19 +115,22 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[440px] gap-0 overflow-hidden rounded-2xl p-0">
+      <DialogContent
+        aria-describedby={undefined}
+        className="max-w-[440px] gap-0 overflow-hidden rounded-lg p-0"
+      >
         {/* ── Header ──────────────────────────────────────── */}
-        <DialogHeader className="flex flex-row items-center justify-between border-b border-border px-5 py-3.5">
+        <DialogHeader className="flex flex-row items-center justify-between border-b border-line px-5 py-3.5">
           <div className="space-y-0.5 text-left">
-            <DialogTitle className="font-display text-[15px] font-semibold tracking-[-0.01em]">
+            <DialogTitle className="font-semibold text-[15px] font-semibold tracking-[-0.01em]">
               Share a story
             </DialogTitle>
-            <p className="text-[11.5px] text-ink-3">Disappears in 24 hours</p>
+            <p className="text-[11.5px] text-fg-muted">Disappears in 24 hours</p>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+            className="grid size-8 place-items-center rounded-full text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink"
             aria-label="Close"
           >
             <X className="size-4" strokeWidth={1.8} />
@@ -171,7 +174,7 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
                 <div className="flex flex-1 items-center justify-center px-1 py-4">
                   <p
                     className={cn(
-                      'text-center font-display text-[15px] font-semibold leading-snug text-white',
+                      'text-center font-semibold text-[15px] font-semibold leading-snug text-white',
                       !text && 'text-[12px] italic opacity-40',
                     )}
                     style={{ textShadow: '0 2px 8px rgba(0,0,0,0.45)' }}
@@ -207,7 +210,7 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
           {/* ── Editor ────────────────────────────────────── */}
           <div className="flex min-w-0 flex-1 flex-col">
             {/* Tabs */}
-            <div className="flex gap-5 border-b border-border">
+            <div className="flex gap-5 border-b border-line">
               {[
                 { id: 'text', label: 'Text' },
                 { id: 'media', label: 'Photo / Video' },
@@ -218,14 +221,14 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
                   onClick={() => setTab(id)}
                   className={cn(
                     'relative pb-2 text-[12.5px] font-medium transition-colors',
-                    tab === id ? 'text-brand' : 'text-ink-3 hover:text-ink',
+                    tab === id ? 'text-accent-indigo' : 'text-fg-muted hover:text-ink',
                   )}
                 >
                   {label}
                   {tab === id ? (
                     <motion.span
                       layoutId="story-tab"
-                      className="absolute inset-x-0 -bottom-px h-[2px] rounded-full bg-brand"
+                      className="absolute inset-x-0 -bottom-px h-[2px] bg-fg"
                     />
                   ) : null}
                 </button>
@@ -243,7 +246,7 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
                   className="mt-3.5 space-y-3.5"
                 >
                   <div>
-                    <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3">
+                    <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-fg-muted">
                       Background
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -270,7 +273,7 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
                     maxLength={300}
                     rows={3}
                     placeholder="Write something beautiful…"
-                    className="resize-none rounded-xl text-[13.5px]"
+                    className="resize-none rounded-md text-[13.5px]"
                   />
                 </motion.div>
               ) : (
@@ -285,15 +288,15 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
                   <button
                     type="button"
                     onClick={() => fileRef.current?.click()}
-                    className="flex w-full flex-col items-center gap-2.5 rounded-xl border-[1.5px] border-dashed border-border bg-secondary/40 py-7 text-center transition-colors hover:border-brand/45 hover:bg-brand-soft/30"
+                    className="flex w-full flex-col items-center gap-2.5 rounded-md border-[1.5px] border-dashed border-line bg-bg-soft py-7 text-center transition-colors hover:border-fg/45 hover:bg-bg-soft"
                   >
-                    <span className="grid size-12 place-items-center rounded-full bg-brand-soft/60 text-brand">
+                    <span className="grid size-12 place-items-center rounded-full bg-bg-muted text-fg-muted">
                       <ImagePlus className="size-5" strokeWidth={1.6} />
                     </span>
                     <span className="text-[13px] font-medium text-ink">
                       {preview ? 'Replace photo or video' : 'Pick a photo or video'}
                     </span>
-                    <span className="text-[11px] text-ink-3">
+                    <span className="text-[11px] text-fg-muted">
                       Videos are trimmed to 30 seconds
                     </span>
                   </button>
@@ -310,7 +313,7 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
                     maxLength={200}
                     rows={2}
                     placeholder="Add a caption… (optional)"
-                    className="resize-none rounded-xl text-[13.5px]"
+                    className="resize-none rounded-md text-[13.5px]"
                   />
                 </motion.div>
               )}
@@ -318,7 +321,7 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
 
             {/* Audience */}
             <div className="mt-3.5">
-              <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3">
+              <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-fg-muted">
                 Audience
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -330,8 +333,8 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-medium transition-colors',
                       visibility === value
-                        ? 'bg-brand text-brand-foreground'
-                        : 'border border-border text-ink-3 hover:border-brand/40 hover:text-ink',
+                        ? 'bg-fg text-background'
+                        : 'border border-line text-fg-muted hover:border-fg/40 hover:text-ink',
                     )}
                   >
                     {Icon ? <Icon className="size-3" strokeWidth={1.8} /> : null}
@@ -344,12 +347,12 @@ export function StoryCreator({ open, onOpenChange, onCreated }) {
         </div>
 
         {/* ── Submit ──────────────────────────────────────── */}
-        <div className="border-t border-border px-5 py-3.5">
+        <div className="border-t border-line px-5 py-3.5">
           <button
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-brand text-[13.5px] font-medium text-brand-foreground transition-colors hover:bg-brand/90 disabled:opacity-55"
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-brand text-[13.5px] font-medium text-accent-indigo-foreground transition-colors hover:bg-fg-soft disabled:opacity-55"
           >
             {submitting ? (
               <>

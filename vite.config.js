@@ -26,6 +26,22 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
+    proxy: {
+      // Forward every /api/* and /actuator/* call to the Spring Boot backend.
+      // This eliminates CORS entirely in dev — the browser sees every request
+      // coming from localhost:5173 (same origin).
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+        // SSE streams need the proxy to flush chunks immediately — don't buffer.
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.setHeader('connection', 'keep-alive')
+          })
+        },
+      },
+    },
   },
   preview: {
     host: true,

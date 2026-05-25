@@ -276,7 +276,7 @@ export function AudioPlayer({
     return (
       <div
         className={cn(
-          'flex items-center gap-4 rounded-2xl border-[0.5px] border-border bg-muted/40 px-4 py-3.5',
+          'flex items-center gap-4 rounded-lg border-[0.5px] border-line bg-muted/40 px-4 py-3.5',
           className,
         )}
       >
@@ -288,7 +288,7 @@ export function AudioPlayer({
           disabled={!src}
           aria-label={playing ? 'Pause' : 'Play'}
           className={cn(
-            'relative grid size-11 shrink-0 place-items-center rounded-full border-[0.5px] border-ink/20 bg-paper text-ink shadow-sm transition-colors hover:border-ink/40 hover:bg-secondary disabled:opacity-50',
+            'relative grid size-11 shrink-0 place-items-center rounded-full border-[0.5px] border-ink/20 bg-background text-ink shadow-sm transition-colors hover:border-ink/40 hover:bg-bg-soft disabled:opacity-50',
           )}
         >
           {playing ? (
@@ -318,7 +318,7 @@ export function AudioPlayer({
         </div>
 
         {/* Position / duration counter */}
-        <p className="shrink-0 font-mono text-[11.5px] tabular-nums text-ink-3">
+        <p className="shrink-0 font-mono text-[11.5px] tabular-nums text-fg-muted">
           <span className="text-ink">{formatTime(displayedTime)}</span>
           <span className="mx-1 opacity-40">/</span>
           {formatTime(duration)}
@@ -353,7 +353,7 @@ export function AudioPlayer({
         'relative isolate overflow-hidden',
         rich
           ? 'rounded-3xl border border-foreground/10 bg-card p-5 shadow-[0_1px_0_oklch(1_0_0/0.6)_inset,0_22px_60px_-30px_oklch(0_0_0/0.18)]'
-          : 'rounded-2xl border border-border bg-card/80 p-3',
+          : 'rounded-lg border border-line bg-card/80 p-3',
         className,
       )}
     >

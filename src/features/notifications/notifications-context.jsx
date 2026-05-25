@@ -187,6 +187,7 @@ export function NotificationsProvider({ children }) {
       reconnectId = null
 
       const url = notificationStreamUrl(session.accessToken)
+      if (!url) return
       const source = new EventSource(url, { withCredentials: true })
       sourceRef.current = source
 

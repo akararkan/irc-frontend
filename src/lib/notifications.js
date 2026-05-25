@@ -224,6 +224,11 @@ const TYPE_META = {
     accent: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',
     verb: 'published new research',
   },
+  RESEARCH_CONTRIBUTOR_ADDED: {
+    icon: UserPlus,
+    accent: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',
+    verb: 'added you as a contributor',
+  },
 }
 
 const DEFAULT_META = {

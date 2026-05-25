@@ -54,9 +54,9 @@ const REACTIONS = [
 
 const LINKED_META = {
   LINKED_POST:     { label: 'Post',     icon: MessageCircle, color: 'from-brand/80 to-brand/40' },
-  LINKED_REEL:     { label: 'Reel',     icon: Play,          color: 'from-pink-600/80 to-purple-600/40' },
+  LINKED_REEL:     { label: 'Reel',     icon: Play,          color: 'from-[#BD9344]/85 to-[#D8B463]/40' },
   LINKED_QNA:      { label: 'Q&A',      icon: GraduationCap, color: 'from-amber-600/80 to-amber-400/40' },
-  LINKED_RESEARCH: { label: 'Research', icon: BookOpen,       color: 'from-violet-600/80 to-violet-400/40' },
+  LINKED_RESEARCH: { label: 'Research', icon: BookOpen,       color: 'from-[#0E6B54]/85 to-[#1FB98E]/40' },
 }
 
 // ── Progress bars ─────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ function LinkedCard({ story }) {
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 280, damping: 24, delay: 0.1 }}
-      className="pointer-events-auto mx-auto w-full max-w-[300px] overflow-hidden rounded-2xl"
+      className="pointer-events-auto mx-auto w-full max-w-[300px] overflow-hidden rounded-lg"
       style={{
         background: 'rgba(255,255,255,0.08)',
         backdropFilter: 'blur(20px)',
@@ -198,7 +198,7 @@ function PollOverlay({ story, onVote }) {
               onClick={() => handleVote(choice)}
               disabled={!!voted}
               className={cn(
-                'relative w-full overflow-hidden rounded-2xl px-5 py-3.5 text-left transition-all duration-200',
+                'relative w-full overflow-hidden rounded-lg px-5 py-3.5 text-left transition-all duration-200',
                 'border text-sm font-semibold text-white',
                 isMine
                   ? 'border-white/60 bg-white/25 scale-[1.02]'
@@ -209,7 +209,7 @@ function PollOverlay({ story, onVote }) {
             >
               {voted ? (
                 <motion.span
-                  className="absolute inset-y-0 left-0 rounded-2xl bg-white/20"
+                  className="absolute inset-y-0 left-0 rounded-lg bg-white/20"
                   initial={{ width: '0%' }}
                   animate={{ width: `${pct}%` }}
                   transition={{ duration: 0.7, ease: [0.22, 0.61, 0.36, 1] }}
@@ -347,7 +347,7 @@ export function StoryViewer({ groups, initialGroupIndex = 0, onClose }) {
   useEffect(() => {
     if (!story?.id || viewedRef.current.has(story.id)) return
     viewedRef.current.add(story.id)
-    recordStoryView(story.id, { watchDurationMs: 0 }).catch(() => {})
+    recordStoryView(story.id, viewer?.id).catch(() => {})
   }, [story?.id])
 
   // Story stream SSE — connect/disconnect as story changes
@@ -398,7 +398,7 @@ export function StoryViewer({ groups, initialGroupIndex = 0, onClose }) {
     })
 
     return () => { es.close(); storyEsRef.current = null }
-  }, [story?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [story?.id])
 
   // Progress timer — pause when reply is focused
   const tick = useCallback(() => {
@@ -418,7 +418,7 @@ export function StoryViewer({ groups, initialGroupIndex = 0, onClose }) {
   useEffect(() => {
     if (progress < 1) return
     advance()
-  }, [progress]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [progress])
 
   function advance() {
     setDirection(1)
@@ -460,7 +460,7 @@ export function StoryViewer({ groups, initialGroupIndex = 0, onClose }) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [groupIndex, storyIndex, groups]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [groupIndex, storyIndex, groups])
 
   // Video sync
   useEffect(() => {
@@ -474,7 +474,7 @@ export function StoryViewer({ groups, initialGroupIndex = 0, onClose }) {
     if (!deletedStoryId || deletedStoryId !== story?.id) return
     setDeletedStoryId(null)
     advance()
-  }, [deletedStoryId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [deletedStoryId])
 
   // Reset live state when story changes
   useEffect(() => {
@@ -674,7 +674,7 @@ export function StoryViewer({ groups, initialGroupIndex = 0, onClose }) {
                   initial={{ opacity: 0, y: 14, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ delay: 0.12, type: 'spring', stiffness: 280, damping: 24 }}
-                  className="max-w-[88%] text-center font-display text-[26px] font-semibold leading-[1.25] tracking-[-0.01em] text-white"
+                  className="max-w-[88%] text-center font-semibold text-[26px] font-semibold leading-[1.25] tracking-[-0.01em] text-white"
                   style={{ textShadow: '0 2px 20px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.4)' }}
                 >
                   {story.textContent}
@@ -692,7 +692,7 @@ export function StoryViewer({ groups, initialGroupIndex = 0, onClose }) {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.18 }}
-                  className="max-w-[88%] rounded-2xl px-4 py-3 text-center text-[15px] leading-snug text-white"
+                  className="max-w-[88%] rounded-lg px-4 py-3 text-center text-[15px] leading-snug text-white"
                   style={{
                     background: 'rgba(0,0,0,0.42)',
                     backdropFilter: 'blur(8px)',

@@ -52,10 +52,10 @@ export function LoginPage() {
   return (
     <div>
       <header className="mb-6">
-        <h1 className="font-display text-[26px] font-semibold tracking-[-0.018em] text-ink">
+        <h1 className="font-display text-[30px] font-semibold tracking-[-0.02em] text-ink">
           Welcome back
         </h1>
-        <p className="mt-1 text-[13.5px] text-ink-3">
+        <p className="mt-1 text-[13.5px] text-fg-muted">
           Sign in to continue your research journey.
         </p>
       </header>
@@ -102,7 +102,7 @@ export function LoginPage() {
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
-              className="absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+              className="absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink"
             >
               {showPassword ? (
                 <EyeOff className="size-[15px]" strokeWidth={1.7} />
@@ -116,7 +116,7 @@ export function LoginPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="group flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand text-[14px] font-medium text-brand-foreground transition-colors hover:bg-brand/90 disabled:opacity-60"
+          className="group mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[linear-gradient(135deg,var(--accent-indigo),var(--primary))] text-[14.5px] font-bold text-primary-foreground shadow-[0_12px_26px_-10px_rgba(14,107,84,0.7)] transition-all hover:-translate-y-px hover:shadow-[0_16px_32px_-12px_rgba(14,107,84,0.8)] disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {submitting ? (
             <>
@@ -132,11 +132,11 @@ export function LoginPage() {
         </button>
       </form>
 
-      <p className="mt-6 text-center text-[13px] text-ink-3">
+      <p className="mt-6 text-center text-[13px] text-fg-muted">
         New here?{' '}
         <Link
           to="/signup"
-          className="font-medium text-brand underline-offset-2 hover:underline"
+          className="font-bold text-brand underline-offset-2 hover:underline"
         >
           Create an account
         </Link>
@@ -150,7 +150,7 @@ function Field({ label, htmlFor, error, children }) {
     <div className="space-y-1.5">
       <label
         htmlFor={htmlFor}
-        className="block text-[12.5px] font-medium text-ink-2"
+        className="block text-[12.5px] font-medium text-fg-soft"
       >
         {label}
       </label>

@@ -34,15 +34,14 @@ import { RoleBadge } from '@/components/app/role-badge'
 import { UserAvatar } from '@/components/app/user-avatar'
 import { useAuth } from '@/features/auth/auth-context'
 import {
-  createPostComment,
-  createPostCommentWithMedia,
+  addPostComment,
   deletePostComment,
   editPostComment,
   getPostCommentReplies,
   getPostComments,
-  getPostCommentsCursor,
   reactToComment,
   removeCommentReaction,
+  replyToComment,
 } from '@/features/posts/posts.api'
 import { useToast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
@@ -57,7 +56,9 @@ function normalizeAuthor(comment) {
       id: comment.author.id,
       username: comment.author.username,
       fullName: comment.author.fullName,
-      profileImage: comment.author.avatarUrl,
+      // The new CommentResponse / ReplyResponse use `profileImage`;
+      // the SSE synthetic still uses `avatarUrl`. Accept either.
+      profileImage: comment.author.profileImage ?? comment.author.avatarUrl,
       role: comment.author.role,
     }
   }
@@ -114,10 +115,14 @@ function CommentComposer({
     if ((!value && !file) || submitting) return
     setSubmitting(true)
     try {
-      const data = { parentId, textContent: value }
-      const created = file
-        ? await createPostCommentWithMedia(postId, { data, media: file })
-        : await createPostComment(postId, data)
+      // authorId comes from the JWT now — the body only carries content.
+      // File uploads are out of scope for the new endpoint; clients upload
+      // to S3 first and pass `mediaUrl` here. We silently drop `file`.
+      void file
+      const payload = { text: value }
+      const created = parentId
+        ? await replyToComment(parentId, payload)
+        : await addPostComment(postId, payload)
       onAdded?.(created)
       setText('')
       setFile(null)
@@ -140,7 +145,7 @@ function CommentComposer({
         className={cn('shrink-0 rounded-full', compact ? 'size-7' : 'size-8')}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex items-center gap-1 rounded-full border border-border bg-paper py-1 pl-3.5 pr-1 transition-colors focus-within:border-brand/45">
+        <div className="flex items-center gap-1 rounded-full border border-line bg-background py-1 pl-3.5 pr-1 transition-colors focus-within:border-accent-indigo/45">
           <MentionTextarea
             ref={textareaRef}
             value={text}
@@ -153,8 +158,8 @@ function CommentComposer({
           />
           <label
             className={cn(
-              'grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink',
-              file && 'bg-secondary text-ink',
+              'grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink',
+              file && 'bg-bg-soft text-fg',
             )}
             title="Attach image or video"
           >
@@ -173,7 +178,7 @@ function CommentComposer({
           <button
             type="button"
             onClick={insertMention}
-            className="grid size-8 shrink-0 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+            className="grid size-8 shrink-0 place-items-center rounded-full text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink"
             title="Mention someone"
           >
             <AtSign className="size-4" strokeWidth={1.7} />
@@ -184,7 +189,7 @@ function CommentComposer({
             title={
               commentCooldown > 0 ? `Rate limit — try again in ${commentCooldown}s` : undefined
             }
-            className="h-7 rounded-full bg-brand px-3.5 text-[12px] font-medium text-brand-foreground hover:bg-brand/90"
+            className="h-7 rounded-full bg-brand px-3.5 text-[12px] font-medium text-accent-indigo-foreground hover:bg-accent-indigo/90"
           >
             {submitting ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -196,7 +201,7 @@ function CommentComposer({
           </Button>
         </div>
         {file ? (
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/50 px-2.5 py-1.5 text-[12px]">
+          <div className="flex items-center gap-2 rounded-md border border-line bg-bg-soft px-2.5 py-1.5 text-[12px]">
             <span className="truncate">{file.name}</span>
             <button
               type="button"
@@ -222,7 +227,7 @@ function CommentMedia({ comment }) {
         src={url}
         controls
         playsInline
-        className="mt-2 max-h-80 w-full overflow-hidden rounded-xl bg-black"
+        className="mt-2 max-h-80 w-full overflow-hidden rounded-md bg-black"
       />
     )
   }
@@ -231,7 +236,7 @@ function CommentMedia({ comment }) {
       src={url}
       alt=""
       loading="lazy"
-      className="mt-2 max-h-80 w-full overflow-hidden rounded-xl object-cover"
+      className="mt-2 max-h-80 w-full overflow-hidden rounded-md object-cover"
     />
   )
 }
@@ -314,7 +319,7 @@ function CommentItem({
     })
     setWorking(true)
     try {
-      await reactToComment(postId, comment.id, type)
+      await reactToComment(postId, comment.id, currentUserId, type)
     } catch (error) {
       onChange?.(previous)
       toast.error(friendlyApiMessage(error, 'Could not react.'))
@@ -333,7 +338,7 @@ function CommentItem({
     })
     setWorking(true)
     try {
-      await removeCommentReaction(postId, comment.id)
+      await removeCommentReaction(postId, comment.id, currentUserId)
     } catch (error) {
       onChange?.(previous)
       toast.error(friendlyApiMessage(error, 'Could not remove reaction.'))
@@ -351,7 +356,8 @@ function CommentItem({
     }
     setWorking(true)
     try {
-      const updated = await editPostComment(postId, comment.id, { textContent: value })
+      // Authorship is verified from the JWT — body only carries `text`.
+      const updated = await editPostComment(postId, comment.id, { text: value })
       onChange?.(updated ?? { ...comment, textContent: value, edited: true })
       setEditing(false)
     } catch (error) {
@@ -365,6 +371,7 @@ function CommentItem({
     if (!confirm('Delete this comment?')) return
     setWorking(true)
     try {
+      // No authorId param — JWT authorises the delete server-side.
       await deletePostComment(postId, comment.id)
       onRemove?.(comment.id)
     } catch (error) {
@@ -382,8 +389,9 @@ function CommentItem({
     if (!repliesLoaded) {
       setLoadingReplies(true)
       try {
-        const page = await getPostCommentReplies(postId, comment.id, { page: 0, size: 20 })
-        setReplies(page?.content ?? [])
+        const data = await getPostCommentReplies(postId, comment.id, { size: 20 })
+        const list = Array.isArray(data) ? data : (data?.items ?? data?.content ?? [])
+        setReplies(list)
         setRepliesLoaded(true)
       } catch (error) {
         toast.error(extractApiMessage(error, 'Could not load replies.'))
@@ -428,7 +436,7 @@ function CommentItem({
         className="flex items-start gap-2.5"
       >
         <div className={cn('shrink-0', depth === 0 ? 'size-8' : 'size-7')} />
-        <p className="flex-1 rounded-2xl bg-secondary/60 px-3.5 py-2 text-[12px] italic text-ink-3">
+        <p className="flex-1 rounded-lg bg-bg-soft/60 px-3.5 py-2 text-[12px] italic text-fg-muted">
           This comment was deleted.
         </p>
       </motion.div>
@@ -455,7 +463,7 @@ function CommentItem({
       </Link>
       <div className="min-w-0 flex-1">
         {/* Bubble */}
-        <div className="rounded-2xl rounded-tl-md bg-secondary/70 px-3.5 py-2">
+        <div className="rounded-lg rounded-tl-md bg-bg-soft/70 px-3.5 py-2">
           <div className="flex items-start justify-between gap-2">
             <Link
               to={`/profile/${getRawUsername(author)}`}
@@ -468,12 +476,12 @@ function CommentItem({
               {isPostAuthor ? (
                 <span
                   title="Original post author"
-                  className="inline-flex items-center rounded-full bg-brand-soft px-1.5 py-[1px] font-mono text-[9px] font-medium uppercase tracking-[0.06em] text-brand"
+                  className="inline-flex items-center rounded-full bg-brand-soft px-1.5 py-[1px] font-mono text-[9px] font-medium uppercase tracking-[0.06em] text-accent-indigo"
                 >
                   Author
                 </span>
               ) : null}
-              <span className="font-mono text-[9.5px] text-ink-4">
+              <span className="font-mono text-[9.5px] text-fg-faint">
                 <RelativeTime entity={comment} title={comment.formattedDate || undefined} />
                 {comment.edited ? ' · edited' : ''}
               </span>
@@ -483,13 +491,13 @@ function CommentItem({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="-mr-1 -mt-0.5 rounded-full p-1 text-ink-3 transition-colors hover:bg-paper hover:text-ink"
+                    className="-mr-1 -mt-0.5 rounded-full p-1 text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink"
                     aria-label="More"
                   >
                     <MoreHorizontal className="size-3.5" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="rounded-xl">
+                <DropdownMenuContent align="end" className="rounded-md">
                   <DropdownMenuItem
                     onSelect={() => {
                       setEditing(true)
@@ -518,7 +526,7 @@ function CommentItem({
                 onChange={setEditText}
                 rows={2}
                 maxLength={2000}
-                className="resize-none rounded-xl border border-border bg-paper px-2.5 py-1.5 text-[13px]"
+                className="resize-none rounded-md border border-line bg-background px-2.5 py-1.5 text-[13px]"
                 autoFocus
               />
               <div className="flex items-center justify-end gap-2">
@@ -537,7 +545,7 @@ function CommentItem({
                 <Button
                   type="button"
                   size="sm"
-                  className="h-7 rounded-lg bg-brand text-brand-foreground hover:bg-brand/90"
+                  className="h-7 rounded-lg bg-brand text-accent-indigo-foreground hover:bg-accent-indigo/90"
                   onClick={handleSaveEdit}
                   disabled={working || !editText.trim()}
                 >
@@ -550,7 +558,7 @@ function CommentItem({
               {comment.textContent ? (
                 <p
                   dir="auto"
-                  className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-[1.55] text-ink-2"
+                  className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-[1.55] text-fg-soft"
                 >
                   <MentionText text={comment.textContent} />
                 </p>
@@ -590,7 +598,7 @@ function CommentItem({
             <button
               type="button"
               onClick={() => setShowReplyBox((v) => !v)}
-              className="inline-flex items-center gap-1 font-medium text-ink-3 transition-colors hover:text-ink"
+              className="inline-flex items-center gap-1 font-medium text-fg-muted transition-colors hover:text-ink"
             >
               <MessageCircle className="size-[14px]" strokeWidth={1.7} />
               Reply
@@ -616,7 +624,7 @@ function CommentItem({
             type="button"
             onClick={toggleReplies}
             disabled={loadingReplies}
-            className="mt-2 inline-flex items-center gap-1 pl-1.5 text-[12px] font-medium text-brand transition-colors hover:underline"
+            className="mt-2 inline-flex items-center gap-1 pl-1.5 text-[12px] font-medium text-accent-indigo transition-colors hover:underline"
           >
             <ChevronDown
               className={cn('size-3.5 transition-transform', repliesOpen && 'rotate-180')}
@@ -639,7 +647,7 @@ function CommentItem({
               transition={{ type: 'spring', stiffness: 260, damping: 30 }}
               className="overflow-hidden"
             >
-              <div className="ml-1 mt-3 space-y-3.5 border-l-2 border-border pl-4">
+              <div className="ml-1 mt-3 space-y-3.5 border-l-2 border-line pl-4">
                 <AnimatePresence initial={false}>
                   {replies.map((reply) => (
                     <CommentItem
@@ -697,14 +705,8 @@ export const PostComments = forwardRef(function PostComments(
     async function load() {
       setLoading(true)
       try {
-        let items = null
-        try {
-          const data = await getPostCommentsCursor(postId, { limit: 20 })
-          items = data?.items ?? []
-        } catch {
-          const legacy = await getPostComments(postId, { page: 0, size: 20 })
-          items = legacy?.content ?? []
-        }
+        const data = await getPostComments(postId, { pageSize: 20 })
+        const items = Array.isArray(data) ? data : (data?.items ?? data?.content ?? [])
         if (!cancelled) setComments(items)
       } catch (error) {
         if (!cancelled) toast.error(extractApiMessage(error, 'Could not load comments.'))
@@ -883,11 +885,11 @@ export const PostComments = forwardRef(function PostComments(
   return (
     <div className="space-y-4">
       {loading ? (
-        <div className="flex items-center justify-center py-4 text-ink-3">
+        <div className="flex items-center justify-center py-4 text-fg-muted">
           <Loader2 className="size-4 animate-spin" />
         </div>
       ) : comments.length === 0 ? (
-        <p className="py-2 text-center text-[13px] text-ink-3">
+        <p className="py-2 text-center text-[13px] text-fg-muted">
           No comments yet. Be the first to comment.
         </p>
       ) : (
@@ -912,8 +914,8 @@ export const PostComments = forwardRef(function PostComments(
       {isAuthenticated ? (
         <CommentComposer postId={postId} onAdded={handleAdded} />
       ) : (
-        <p className="text-center text-[12px] text-ink-3">
-          <Link to="/login" className="font-medium text-brand hover:underline">
+        <p className="text-center text-[12px] text-fg-muted">
+          <Link to="/login" className="font-medium text-accent-indigo hover:underline">
             Sign in
           </Link>{' '}
           to comment.

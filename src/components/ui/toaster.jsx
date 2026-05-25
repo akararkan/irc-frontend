@@ -1,129 +1,67 @@
-import * as React from 'react'
-import { createContext, useCallback, useContext, useState } from 'react'
-import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react'
+// Thin facade over Sonner.  Keeps the existing `useToast()` and
+// `ToastProvider` API so the 99 call sites compile unchanged while
+// rendering goes through the modern Sonner toaster.
+//
+// Direct Sonner usage is preferred in new code:
+//   import { toast } from 'sonner'
+//   toast.success('...')
+//   toast.error('...')
 
-import { cn } from '@/lib/utils'
+import { useMemo } from 'react'
+import { toast as sonnerToast } from 'sonner'
 
-const ToastContext = createContext(null)
+import { Toaster as SonnerToaster } from '@/components/ui/sonner'
 
-const TONE_ICON = {
-  success: CheckCircle2,
-  error: AlertCircle,
-  info: Info,
-}
-
-const TONE_CLASS = {
-  success: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
-  error: 'border-destructive/40 bg-destructive/10 text-destructive',
-  info: 'border-border bg-background text-foreground',
-}
-
-let idCounter = 0
-
-export function ToastProvider({ children, duration = 4200 }) {
-  const [toasts, setToasts] = useState([])
-
-  const dismiss = useCallback((id) => {
-    setToasts((current) => current.filter((toast) => toast.id !== id))
-  }, [])
-
-  const toast = useCallback(
-    (input) => {
-      const id = ++idCounter
-      const payload =
-        typeof input === 'string'
-          ? { message: input, tone: 'info' }
-          : { tone: 'info', ...input }
-      setToasts((current) => [...current, { id, ...payload }])
-
-      if ((payload.duration ?? duration) > 0) {
-        setTimeout(() => dismiss(id), payload.duration ?? duration)
+function dispatch(input, tone) {
+  const payload = typeof input === 'string' ? { message: input } : input ?? {}
+  const message = payload.title ?? payload.message ?? ''
+  const description = payload.title && payload.message ? payload.message : undefined
+  const action = payload.action?.label
+    ? {
+        label: payload.action.label,
+        onClick: payload.action.onClick ?? (() => {}),
       }
-      return id
-    },
-    [dismiss, duration],
-  )
+    : undefined
+  const options = {
+    description,
+    duration: payload.duration,
+    action,
+  }
+  switch (tone) {
+    case 'success':
+      return sonnerToast.success(message, options)
+    case 'error':
+      return sonnerToast.error(message, options)
+    case 'info':
+    default:
+      return sonnerToast(message, options)
+  }
+}
 
-  const value = React.useMemo(
-    () => ({
-      toast,
-      dismiss,
-      success: (message, options = {}) => toast({ ...options, message, tone: 'success' }),
-      error: (message, options = {}) => toast({ ...options, message, tone: 'error' }),
-      info: (message, options = {}) => toast({ ...options, message, tone: 'info' }),
-    }),
-    [toast, dismiss],
-  )
-
+export function ToastProvider({ children }) {
+  // Sonner renders its own toaster element; we just mount the
+  // visual component once per provider so the visible toasts stay
+  // anchored to the providers' scope (the app root in practice).
   return (
-    <ToastContext.Provider value={value}>
+    <>
       {children}
-      <div
-        aria-live="polite"
-        className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2"
-      >
-        {toasts.map((toast) => {
-          const Icon = TONE_ICON[toast.tone] ?? Info
-          const action = toast.action
-          return (
-            <div
-              key={toast.id}
-              className={cn(
-                'pointer-events-auto flex items-start gap-3 rounded-lg border p-3 shadow-lg backdrop-blur',
-                TONE_CLASS[toast.tone] ?? TONE_CLASS.info,
-              )}
-            >
-              <Icon className="mt-0.5 size-4 shrink-0" />
-              <div className="min-w-0 flex-1 text-sm">
-                {toast.title ? (
-                  <p className="font-medium text-foreground">{toast.title}</p>
-                ) : null}
-                {toast.message ? (
-                  <p
-                    className={cn(
-                      'line-clamp-3',
-                      toast.title ? 'mt-0.5 text-muted-foreground' : '',
-                    )}
-                  >
-                    {toast.message}
-                  </p>
-                ) : null}
-                {action?.label ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      try {
-                        action.onClick?.()
-                      } finally {
-                        dismiss(toast.id)
-                      }
-                    }}
-                    className="mt-1.5 inline-flex items-center text-[12px] font-semibold text-foreground underline-offset-4 transition-colors hover:underline"
-                  >
-                    {action.label}
-                  </button>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                onClick={() => dismiss(toast.id)}
-                className="rounded-md text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <X className="size-4" />
-                <span className="sr-only">Dismiss</span>
-              </button>
-            </div>
-          )
-        })}
-      </div>
-    </ToastContext.Provider>
+      <SonnerToaster />
+    </>
   )
 }
 
 export function useToast() {
-  const context = useContext(ToastContext)
-  if (!context) {
-    throw new Error('useToast must be used within ToastProvider')
-  }
-  return context
+  return useMemo(
+    () => ({
+      toast: (input) => dispatch(input, input?.tone ?? 'info'),
+      dismiss: (id) => sonnerToast.dismiss(id),
+      success: (message, options = {}) =>
+        dispatch({ ...options, message }, 'success'),
+      error: (message, options = {}) =>
+        dispatch({ ...options, message }, 'error'),
+      info: (message, options = {}) =>
+        dispatch({ ...options, message }, 'info'),
+    }),
+    [],
+  )
 }

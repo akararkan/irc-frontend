@@ -274,7 +274,7 @@ const ReelCard = forwardRef(function ReelCard(
   { reel, isMuted, onToggleMuted, onChange, onOpenComments, onOpenShare, onActive, eager },
   ref,
 ) {
-  const { isAuthenticated } = useAuth()
+  const { user: currentUser, isAuthenticated } = useAuth()
   const toast = useToast()
 
   const containerRef = useRef(null)
@@ -432,7 +432,7 @@ const ReelCard = forwardRef(function ReelCard(
     if (!wasReacting) bumpCounter('post', reel.id, 'rx', railReactionCount, +1)
     setWorking(true)
     try {
-      const updated = await reactToPost(reel.id, type)
+      const updated = await reactToPost(reel.id, currentUser?.id, type)
       if (updated?.id) {
         onChange?.(updated)
         if (updated.reactionCount != null) {
@@ -462,7 +462,7 @@ const ReelCard = forwardRef(function ReelCard(
     bumpCounter('post', reel.id, 'rx', railReactionCount, -1)
     setWorking(true)
     try {
-      const updated = await removePostReaction(reel.id)
+      const updated = await removePostReaction(reel.id, currentUser?.id)
       if (updated?.id) {
         onChange?.(updated)
         if (updated.reactionCount != null) {
@@ -639,7 +639,7 @@ const ReelCard = forwardRef(function ReelCard(
               >
                 <span className="flex items-center gap-1.5">
                   <span
-                    className="truncate font-display text-[16px] font-semibold tracking-[-0.008em]"
+                    className="truncate font-semibold text-[16px] font-semibold tracking-[-0.008em]"
                     style={{ textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}
                   >
                     {authorDisplayName}
@@ -757,7 +757,7 @@ const ReelCard = forwardRef(function ReelCard(
                   <MoreHorizontal className="size-[20px]" strokeWidth={1.7} />
                 </motion.button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" sideOffset={6} className="w-44 rounded-xl">
+              <DropdownMenuContent align="end" sideOffset={6} className="w-44 rounded-md">
                 <DropdownMenuItem onSelect={onOpenShare}>
                   <Share2 className="mr-2 size-4" />
                   Share / Repost
@@ -919,7 +919,7 @@ function ShareSheet({ open, onOpenChange, reel, onChange }) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="rounded-t-3xl border-t border-border bg-paper p-0 sm:max-w-none"
+        className="rounded-t-3xl border-t border-line bg-background p-0 sm:max-w-none"
         showClose={false}
       >
         <div className="relative mx-auto w-full max-w-2xl px-5 py-5">
@@ -930,14 +930,14 @@ function ShareSheet({ open, onOpenChange, reel, onChange }) {
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="absolute right-4 top-4 grid size-8 place-items-center rounded-full border border-border bg-paper text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+            className="absolute right-4 top-4 grid size-8 place-items-center rounded-full border border-line bg-background text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink"
             aria-label="Close"
           >
             <X className="size-4" />
           </button>
 
           <SheetHeader className="text-center sm:text-center">
-            <SheetTitle className="font-display text-[19px] font-semibold tracking-[-0.012em]">
+            <SheetTitle className="font-semibold text-[19px] font-semibold tracking-[-0.012em]">
               Share this reel
             </SheetTitle>
             <SheetDescription className="text-[12.5px]">
@@ -947,17 +947,17 @@ function ShareSheet({ open, onOpenChange, reel, onChange }) {
 
           {/* Quick share row */}
           <div className="mt-5 grid grid-cols-4 gap-3 sm:grid-cols-6">
-            <ShareIcon label="Copy link" icon={Copy} onClick={copyLink} tone="bg-brand text-brand-foreground" />
+            <ShareIcon label="Copy link" icon={Copy} onClick={copyLink} tone="bg-brand text-accent-indigo-foreground" />
             <ShareIcon label="Native" icon={Send} onClick={nativeShare} tone="bg-ink text-paper" />
             <ShareIcon label="X / Twitter" emoji="𝕏" onClick={() => externalShare('twitter')} tone="bg-ink text-paper" />
-            <ShareIcon label="Facebook" emoji="f" onClick={() => externalShare('facebook')} tone="bg-[#1877F2] text-white font-display font-bold text-[24px]" />
-            <ShareIcon label="WhatsApp" emoji="W" onClick={() => externalShare('whatsapp')} tone="bg-emerald-500 text-white font-display font-bold text-[20px]" />
-            <ShareIcon label="Telegram" emoji="✈" onClick={() => externalShare('telegram')} tone="bg-sky-400 text-white" />
+            <ShareIcon label="Facebook" emoji="f" onClick={() => externalShare('facebook')} tone="bg-[#1877F2] text-white font-semibold font-bold text-[24px]" />
+            <ShareIcon label="WhatsApp" emoji="W" onClick={() => externalShare('whatsapp')} tone="bg-emerald-500 text-white font-semibold font-bold text-[20px]" />
+            <ShareIcon label="Telegram" emoji="✈" onClick={() => externalShare('telegram')} tone="bg-[#159A76] text-white" />
           </div>
 
           {/* Read-only link box */}
-          <div className="mt-5 flex items-center gap-2 rounded-xl border border-border bg-secondary/50 p-2">
-            <span className="grid size-8 shrink-0 place-items-center rounded-md bg-paper text-ink-3 ring-1 ring-border">
+          <div className="mt-5 flex items-center gap-2 rounded-md border border-line bg-bg-soft p-2">
+            <span className="grid size-8 shrink-0 place-items-center rounded-md bg-background text-fg-muted ring-1 ring-border">
               <LinkIcon className="size-3.5" />
             </span>
             <input
@@ -970,20 +970,20 @@ function ShareSheet({ open, onOpenChange, reel, onChange }) {
               type="button"
               onClick={copyLink}
               disabled={busy}
-              className="rounded-md bg-brand px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="rounded-md bg-brand px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-accent-indigo-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               Copy
             </button>
           </div>
 
           {/* Repost block */}
-          <div className="mt-5 rounded-2xl border border-border bg-paper">
-            <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-              <Repeat2 className="size-3.5 text-brand" />
-              <span className="font-display text-[13px] font-semibold tracking-[-0.005em]">
+          <div className="mt-5 rounded-lg border border-line bg-background">
+            <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
+              <Repeat2 className="size-3.5 text-accent-indigo" />
+              <span className="font-semibold text-[13px] font-semibold tracking-[-0.005em]">
                 Repost to your feed
               </span>
-              <span className="ml-auto rounded-full border border-border bg-secondary px-2 py-[1.5px] font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-ink-3">
+              <span className="ml-auto rounded-full border border-line bg-bg-soft px-2 py-[1.5px] font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-fg-muted">
                 +1 share
               </span>
             </div>
@@ -999,17 +999,17 @@ function ShareSheet({ open, onOpenChange, reel, onChange }) {
                 disabled={!isAuthenticated || busy}
                 rows={3}
                 maxLength={280}
-                className="resize-none rounded-xl"
+                className="resize-none rounded-md"
               />
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[11px] tabular-nums text-ink-3">
+                <span className="font-mono text-[11px] tabular-nums text-fg-muted">
                   {caption.length}/280
                 </span>
                 <button
                   type="button"
                   onClick={repost}
                   disabled={!isAuthenticated || busy}
-                  className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-[13px] font-medium text-brand-foreground transition-colors hover:bg-brand/90 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-[13px] font-medium text-accent-indigo-foreground transition-colors hover:bg-brand/90 disabled:opacity-50"
                 >
                   {busy ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -1034,11 +1034,11 @@ function ShareIcon({ label, icon: Icon, emoji, onClick, tone }) {
       onClick={onClick}
       className="flex flex-col items-center gap-1.5 transition-transform hover:-translate-y-0.5"
     >
-      <span className={cn('grid size-12 place-items-center rounded-2xl', tone)}>
+      <span className={cn('grid size-12 place-items-center rounded-lg', tone)}>
         {Icon ? <Icon className="size-5" strokeWidth={2} /> : null}
         {emoji ? <span className="text-[22px] leading-none">{emoji}</span> : null}
       </span>
-      <span className="text-[11px] font-medium text-ink-2">{label}</span>
+      <span className="text-[11px] font-medium text-fg-soft">{label}</span>
     </button>
   )
 }
@@ -1049,17 +1049,17 @@ function CommentsSheet({ open, onOpenChange, reel, onChange }) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 border-l border-border bg-paper p-0 sm:max-w-md"
+        className="flex w-full flex-col gap-0 border-l border-line bg-background p-0 sm:max-w-md"
         showClose={false}
       >
-        <div className="flex items-center justify-between border-b border-border bg-secondary/40 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-line bg-bg-soft px-4 py-3">
           <div className="flex items-center gap-2">
-            <MessageCircle className="size-4 text-ink-3" />
-            <span className="font-display text-[14px] font-semibold tracking-[-0.005em]">
+            <MessageCircle className="size-4 text-fg-muted" />
+            <span className="font-semibold text-[14px] font-semibold tracking-[-0.005em]">
               Discussion
             </span>
             {reel ? (
-              <span className="rounded-md bg-paper px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-ink-3 ring-1 ring-border">
+              <span className="rounded-md bg-background px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-fg-muted ring-1 ring-border">
                 {formatNumber(reel.commentCount ?? 0)}
               </span>
             ) : null}
@@ -1067,7 +1067,7 @@ function CommentsSheet({ open, onOpenChange, reel, onChange }) {
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-secondary hover:text-ink"
+            className="grid size-8 place-items-center rounded-full text-fg-muted transition-colors hover:bg-bg-soft hover:text-ink"
             aria-label="Close"
           >
             <X className="size-4" />
@@ -1140,7 +1140,7 @@ function ReelsLoadingSkeleton() {
           </div>
         </div>
         <div className="absolute inset-0 grid place-items-center">
-          <div className="flex items-center gap-2 rounded-full border border-white/15 bg-black/45 px-3.5 py-1.5 font-display text-[12px] font-medium text-white/80 backdrop-blur-md">
+          <div className="flex items-center gap-2 rounded-full border border-white/15 bg-black/45 px-3.5 py-1.5 font-semibold text-[12px] font-medium text-white/80 backdrop-blur-md">
             <Loader2 className="size-3.5 animate-spin" />
             Curating reels…
           </div>
@@ -1173,10 +1173,15 @@ export function ReelsPage() {
     async function load() {
       setLoading(true)
       try {
-        const data = await getReels({ page: 0, size: 12 })
+        const today = new Date().toISOString().slice(0, 10)
+        const data = await getReels({ day: today, size: 12 })
         if (!cancelled) {
-          setReels(data?.content ?? [])
-          setPage(data)
+          const items = Array.isArray(data) ? data : (data?.content ?? data?.items ?? [])
+          setReels(items)
+          // Day-bucketed pagination: track the last day we pulled
+          // and how many empty older days we've stepped through in a
+          // row. "last" turns true once we've walked back far enough.
+          setPage({ day: today, emptyStreak: 0, last: false })
           setActiveId(null)
         }
       } catch (error) {
@@ -1198,15 +1203,21 @@ export function ReelsPage() {
     if (idx < reels.length - 3) return
     let cancelled = false
     setLoadingMore(true)
-    getReels({ page: (page.number ?? 0) + 1, size: 12 })
+    // Step one UTC day back from the last day we pulled.
+    const prev = new Date(`${page.day}T00:00:00Z`)
+    prev.setUTCDate(prev.getUTCDate() - 1)
+    const nextDay = prev.toISOString().slice(0, 10)
+    getReels({ day: nextDay, size: 12 })
       .then((data) => {
         if (cancelled) return
-        const next = data?.content ?? []
+        const next = Array.isArray(data) ? data : (data?.content ?? data?.items ?? [])
         setReels((current) => {
           const seen = new Set(current.map((item) => item.id))
           return [...current, ...next.filter((item) => !seen.has(item.id))]
         })
-        setPage(data)
+        // Stop walking back after ~30 consecutive empty days.
+        const emptyStreak = next.length === 0 ? (page.emptyStreak ?? 0) + 1 : 0
+        setPage({ day: nextDay, emptyStreak, last: emptyStreak >= 30 })
       })
       .catch(() => {})
       .finally(() => {
@@ -1507,7 +1518,7 @@ function ReelsShell({ children }) {
       className={cn(
         'overflow-hidden',
         'fixed inset-0 z-30',
-        'lg:static lg:z-0 lg:h-[calc(100dvh-4.5rem)] lg:rounded-2xl',
+        'lg:static lg:z-0 lg:h-[calc(100dvh-4.5rem)] lg:rounded-lg',
       )}
       style={{
         background: '#080A12',

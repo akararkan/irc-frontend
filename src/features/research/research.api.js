@@ -115,6 +115,15 @@ export async function uploadResearchSourceFile(id, sourceId, file) {
   return response.data
 }
 
+/** PATCH a single source's metadata (title, citation, url, doi, isbn, etc.). */
+export async function updateResearchSource(id, sourceId, payload) {
+  const response = await api.patch(
+    `/api/v1/researches/${id}/sources/${sourceId}`,
+    payload,
+  )
+  return response.data
+}
+
 // ── Feeds & search ─────────────────────────────────────────────
 
 export async function getResearchFeed({ page = 0, size = 20, sort = 'publishedAt,desc' } = {}) {
@@ -154,14 +163,10 @@ export async function getResearcherPublications(researcherId, { page = 0, size =
 }
 
 export async function searchResearch({ q = '', page = 0, size = 20 } = {}) {
+  // Elasticsearch (irc-research) BM25 — replaced the old Postgres LIKE.
+  // Returns either `{query, page, size, results: [UUID]}` or a Page<UUID>;
+  // both shapes are handled by the search.api hydration layer.
   const response = await api.get('/api/v1/researches/search', { params: { q, page, size } })
-  return response.data
-}
-
-export async function fullTextSearchResearch({ q = '', page = 0, size = 20 } = {}) {
-  const response = await api.get('/api/v1/researches/search/fts', {
-    params: { q, page, size },
-  })
   return response.data
 }
 
@@ -191,13 +196,17 @@ export async function getMyAllResearch({ page = 0, size = 20 } = {}) {
 
 // ── Reactions ──────────────────────────────────────────────────
 //
-// Single LIKE (Instagram heart). Backend accepts an empty body and
-// defaults it to LIKE; repeat /react calls are idempotent.
+// Single LIKE (Instagram heart). The legacy `/react` endpoint and
+// the bare `/reactions` aggregate on ResearchController were removed
+// — ResearchSocialController is now the single canonical surface:
+//   POST   /researches/{id}/reactions             — toggle on
+//   DELETE /researches/{id}/reactions             — toggle off
+//   GET    /researches/{id}/reactions/breakdown   — counts by type
 
 // eslint-disable-next-line no-unused-vars
 export async function reactToResearch(researchId, reactionType) {
   await api.post(
-    `/api/v1/researches/${researchId}/react`,
+    `/api/v1/researches/${researchId}/reactions`,
     null,
     idempotencyHeaders(newIdempotencyKey()),
   )
@@ -209,14 +218,14 @@ export async function reactToResearch(researchId, reactionType) {
 // server number on resolve instead of waiting for the SSE echo.
 export async function removeResearchReaction(researchId) {
   const response = await api.delete(
-    `/api/v1/researches/${researchId}/react`,
+    `/api/v1/researches/${researchId}/reactions`,
     idempotencyHeaders(newIdempotencyKey()),
   )
   return response.data
 }
 
 export async function getResearchReactionBreakdown(researchId) {
-  const response = await api.get(`/api/v1/researches/${researchId}/reactions`)
+  const response = await api.get(`/api/v1/researches/${researchId}/reactions/breakdown`)
   return response.data
 }
 
@@ -266,6 +275,22 @@ export async function editResearchComment(researchId, commentId, payload) {
 
 export async function deleteResearchComment(researchId, commentId) {
   await api.delete(`/api/v1/researches/${researchId}/comments/${commentId}`)
+}
+
+// ── Comment moderation (research owner / scholar / admin) ──────
+
+export async function hideResearchComment(researchId, commentId) {
+  const response = await api.post(
+    `/api/v1/researches/${researchId}/comments/${commentId}/hide`,
+  )
+  return response.data
+}
+
+export async function unhideResearchComment(researchId, commentId) {
+  const response = await api.post(
+    `/api/v1/researches/${researchId}/comments/${commentId}/unhide`,
+  )
+  return response.data
 }
 
 /**
@@ -347,6 +372,12 @@ export async function getSavedByCollection(name, { page = 0, size = 20 } = {}) {
     params: { name, page, size },
   })
   return response.data
+}
+
+export async function renameSavedResearchCollection(oldName, newName) {
+  await api.patch('/api/v1/researches/me/saved/collections', null, {
+    params: { oldName, newName },
+  })
 }
 
 // ── View / share / cite / download ─────────────────────────────

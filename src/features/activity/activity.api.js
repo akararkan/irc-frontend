@@ -18,15 +18,45 @@ import { API_URL } from '@/config/env'
 
 /**
  * GET /api/v1/users/me/activity
+ *
  * @param {object} [opts]
- * @param {string} [opts.type] — filter by UserActivityType (omit for all)
+ * @param {string} [opts.type]
+ *   Single UserActivityType filter. Back-compat only — prefer `types`.
+ * @param {string[]} [opts.types]
+ *   Multi-type union filter. Sent as repeated `types=` query params so
+ *   Spring binds them as a collection. When present, overrides `type`.
+ * @param {string|Date} [opts.from]
+ *   Inclusive lower bound on `createdAt`. ISO-8601 instant (e.g.
+ *   `2026-05-01T00:00:00Z`) or a `Date` instance.
+ * @param {string|Date} [opts.to]
+ *   Inclusive upper bound on `createdAt`. Same format as `from`.
  * @param {number} [opts.page=0]
  * @param {number} [opts.size=20]
  */
-export async function getMyActivity({ type, page = 0, size = 20 } = {}) {
+export async function getMyActivity({
+  type,
+  types,
+  from,
+  to,
+  page = 0,
+  size = 20,
+} = {}) {
   const params = { page, size }
-  if (type) params.type = type
-  const response = await api.get('/api/v1/users/me/activity', { params })
+  if (Array.isArray(types) && types.length > 0) {
+    // Spring's `Collection<UserActivityType>` binding accepts repeated
+    // params (`types=A&types=B`). axios serializes arrays this way by
+    // default with `paramsSerializer.indexes = null`, which we pass
+    // through explicitly so the wire shape stays predictable.
+    params.types = types
+  } else if (type) {
+    params.type = type
+  }
+  if (from) params.from = toIsoInstant(from)
+  if (to) params.to = toIsoInstant(to)
+  const response = await api.get('/api/v1/users/me/activity', {
+    params,
+    paramsSerializer: { indexes: null },
+  })
   return response.data
 }
 
@@ -35,17 +65,26 @@ export async function deleteActivity(activityId) {
 }
 
 /**
- * DELETE /api/v1/users/me/activity[?type=...]
- * @param {object} [opts]
- * @param {string} [opts.type] — when provided, only entries of that
- *   UserActivityType are deleted (e.g. clear reactions without
- *   touching comments). Omit to wipe the whole log.
- * @returns {Promise<{ deleted: number }>}
+ * DELETE /api/v1/users/me/activity[?type=...|&types=...]
+ *
+ * Same filter shape as `getMyActivity`. When neither `type` nor `types`
+ * is provided, every activity row is removed.
  */
-export async function clearAllActivity({ type } = {}) {
-  const params = type ? { type } : undefined
-  const response = await api.delete('/api/v1/users/me/activity', { params })
+export async function clearAllActivity({ type, types } = {}) {
+  let params
+  if (Array.isArray(types) && types.length > 0) params = { types }
+  else if (type) params = { type }
+  const response = await api.delete('/api/v1/users/me/activity', {
+    params,
+    paramsSerializer: { indexes: null },
+  })
   return response.data
+}
+
+function toIsoInstant(value) {
+  if (!value) return undefined
+  if (value instanceof Date) return value.toISOString()
+  return String(value)
 }
 
 // ══════════════════════════════════════════════════════════════

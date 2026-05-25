@@ -77,10 +77,10 @@ import {
 function Stat({ label, value, to }) {
   const body = (
     <>
-      <span className="font-display text-[19px] font-semibold tabular-nums leading-none tracking-[-0.01em] text-ink">
+      <span className="font-semibold text-[19px] font-semibold tabular-nums leading-none tracking-[-0.01em] text-ink">
         {formatNumber(value ?? 0)}
       </span>
-      <span className="text-[11px] text-ink-3">{label}</span>
+      <span className="text-[11px] text-fg-muted">{label}</span>
     </>
   )
   const className = 'flex shrink-0 items-baseline gap-1.5 transition-opacity'
@@ -96,8 +96,8 @@ function Stat({ label, value, to }) {
 
 function ProfileLink({ href, icon: Icon, children }) {
   const inner = (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-paper px-2.5 py-1 text-[12px] text-ink-2 transition-colors hover:border-brand/40 hover:text-ink">
-      {Icon ? <Icon className="size-3.5 text-ink-3" strokeWidth={1.6} /> : null}
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-background px-2.5 py-1 text-[12px] text-fg-soft transition-colors hover:border-fg/40 hover:text-ink">
+      {Icon ? <Icon className="size-3.5 text-fg-muted" strokeWidth={1.6} /> : null}
       {children}
     </span>
   )
@@ -121,7 +121,7 @@ function ProfilePosts({ userId }) {
       setLoading(true)
       try {
         const data = await getUserPosts(userId, { page: 0, size: 20 })
-        if (!cancelled) setPosts(data?.content ?? [])
+        if (!cancelled) setPosts(unwrapList(data))
       } catch (error) {
         if (!cancelled) toast.error(extractApiMessage(error, 'Could not load posts.'))
       } finally {
@@ -137,8 +137,8 @@ function ProfilePosts({ userId }) {
   if (loading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-32 w-full rounded-xl" />
-        <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-32 w-full rounded-md" />
+        <Skeleton className="h-32 w-full rounded-md" />
       </div>
     )
   }
@@ -199,7 +199,7 @@ function ProfileResearch({ userId }) {
       setLoading(true)
       try {
         const data = await getResearcherPublications(userId, { page: 0, size: 20 })
-        if (!cancelled) setItems(data?.content ?? [])
+        if (!cancelled) setItems(unwrapList(data))
       } catch {
         if (!cancelled) setItems([])
       } finally {
@@ -212,7 +212,7 @@ function ProfileResearch({ userId }) {
     }
   }, [userId])
 
-  if (loading) return <Skeleton className="h-72 w-full rounded-xl" />
+  if (loading) return <Skeleton className="h-72 w-full rounded-md" />
   if (items.length === 0) {
     return (
       <EmptyState
@@ -254,7 +254,7 @@ function ProfileQuestions() {
       setLoading(true)
       try {
         const data = await getMyQuestions({ page: 0, size: 20 })
-        if (!cancelled) setItems(data?.content ?? [])
+        if (!cancelled) setItems(unwrapList(data))
       } catch (error) {
         if (!cancelled) toast.error(extractApiMessage(error, 'Could not load questions.'))
       } finally {
@@ -270,8 +270,8 @@ function ProfileQuestions() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-28 w-full rounded-xl" />
-        <Skeleton className="h-28 w-full rounded-xl" />
+        <Skeleton className="h-28 w-full rounded-md" />
+        <Skeleton className="h-28 w-full rounded-md" />
       </div>
     )
   }
@@ -308,7 +308,7 @@ function ProfileSaved() {
           : getSavedResearch({ page: 0, size: 20 }),
         getSavedCollections().catch(() => []),
       ])
-      setItems(saved?.content ?? [])
+      setItems(unwrapList(saved))
       setCollections(Array.isArray(names) ? names : [])
     } catch (error) {
       toast.error(extractApiMessage(error, 'Could not load your library.'))
@@ -324,8 +324,8 @@ function ProfileSaved() {
   if (loading && items.length === 0) {
     return (
       <div className="grid gap-4 md:grid-cols-2">
-        <Skeleton className="h-72 rounded-xl" />
-        <Skeleton className="h-72 rounded-xl" />
+        <Skeleton className="h-72 rounded-md" />
+        <Skeleton className="h-72 rounded-md" />
       </div>
     )
   }
@@ -377,13 +377,56 @@ function CollectionChip({ active, onClick, children }) {
       className={cn(
         'rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
         active
-          ? 'border-brand bg-brand text-brand-foreground'
-          : 'border-border text-ink-3 hover:border-brand/40 hover:text-ink',
+          ? 'border-fg bg-brand text-accent-indigo-foreground'
+          : 'border-line text-fg-muted hover:border-fg/40 hover:text-ink',
       )}
     >
       {children}
     </button>
   )
+}
+
+/**
+ * Best-effort item count for any list-shaped backend response. The
+ * post package's `by-author` endpoint returns a bare `List<T>`, the
+ * research and Q&A endpoints return a Spring `Page<T>`, and the
+ * Cassandra cursor endpoints return `{items, nextCursor, hasMore}`.
+ *
+ * Prefers `totalElements` when present (Spring Page) — falls back to
+ * counting the array. The caller fetches with a generously high
+ * pageSize so the array length is a useful proxy until the backend
+ * ships dedicated counter fields on UserResponse (P1 #8 in the
+ * backend enhancement roadmap).
+ */
+function countItems(payload) {
+  if (payload == null) return null
+  if (typeof payload === 'object' && typeof payload.totalElements === 'number') {
+    return payload.totalElements
+  }
+  if (Array.isArray(payload)) return payload.length
+  if (Array.isArray(payload?.content)) return payload.content.length
+  if (Array.isArray(payload?.items)) return payload.items.length
+  return null
+}
+
+/**
+ * Return the underlying array from any list-shaped backend response,
+ * regardless of envelope. Mirrors the cases `countItems` handles:
+ *
+ *   - bare `List<T>`              → as-is               (posts by-author)
+ *   - Spring `Page<T>.content`    → unwrap `.content`   (research, Q&A)
+ *   - Cassandra `{items, ...}`    → unwrap `.items`     (cursor feeds)
+ *   - null / unknown shape        → `[]`
+ *
+ * Use this anywhere a list endpoint result feeds a `.map(...)` or a
+ * `.length` check. Without it, the post-package endpoints that ship a
+ * bare list silently render empty.
+ */
+function unwrapList(payload) {
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.content)) return payload.content
+  if (Array.isArray(payload?.items)) return payload.items
+  return []
 }
 
 function timeOf(entry) {
@@ -413,14 +456,14 @@ function ProfileActivity({ userId, includeQuestions = false }) {
         if (cancelled) return
 
         const merged = []
-        ;(postsData?.content ?? []).forEach((p) =>
+        unwrapList(postsData).forEach((p) =>
           merged.push({ kind: 'post', id: `post:${p.id}`, data: p }),
         )
-        ;(researchData?.content ?? []).forEach((r) =>
+        unwrapList(researchData).forEach((r) =>
           merged.push({ kind: 'research', id: `research:${r.id}`, data: r }),
         )
         if (includeQuestions) {
-          ;(questionsData?.content ?? []).forEach((q) =>
+          unwrapList(questionsData).forEach((q) =>
             merged.push({ kind: 'question', id: `question:${q.id}`, data: q }),
           )
         }
@@ -463,8 +506,8 @@ function ProfileActivity({ userId, includeQuestions = false }) {
   if (loading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-40 w-full rounded-xl" />
-        <Skeleton className="h-40 w-full rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-md" />
+        <Skeleton className="h-40 w-full rounded-md" />
       </div>
     )
   }
@@ -505,7 +548,7 @@ function TabPill({ value, children, count }) {
     <TabsTrigger
       value={value}
       className={cn(
-        'relative rounded-none border-0 bg-transparent px-0 py-3 text-[13.5px] font-medium text-ink-3 shadow-none',
+        'relative rounded-none border-0 bg-transparent px-0 py-3 text-[13.5px] font-medium text-fg-muted shadow-none',
         'data-[state=active]:text-ink data-[state=active]:shadow-none',
         'after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:rounded-full after:bg-transparent',
         'data-[state=active]:after:bg-brand transition-colors',
@@ -513,7 +556,7 @@ function TabPill({ value, children, count }) {
     >
       {children}
       {count != null ? (
-        <span className="ml-1.5 font-mono text-[10.5px] text-ink-4">{count}</span>
+        <span className="ml-1.5 font-mono text-[10.5px] text-fg-faint">{count}</span>
       ) : null}
     </TabsTrigger>
   )
@@ -525,7 +568,12 @@ export function ProfilePage() {
   const { user: currentUser, isAuthenticated } = useAuth()
   const [profile, setProfile] = useState(null)
   const [status, setStatus] = useState(null)
-  const [counts, setCounts] = useState({ posts: null, research: null, saved: null })
+  const [counts, setCounts] = useState({
+    posts: null,
+    research: null,
+    saved: null,
+    questions: null,
+  })
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [profileStories, setProfileStories] = useState([])
@@ -536,7 +584,7 @@ export function ProfilePage() {
     let cancelled = false
     setProfile(null)
     setStatus(null)
-    setCounts({ posts: null, research: null, saved: null })
+    setCounts({ posts: null, research: null, saved: null, questions: null })
     setLoading(true)
 
     async function load() {
@@ -561,22 +609,39 @@ export function ProfilePage() {
                 if (!cancelled) setStatus(null)
               })
           }
-          // Saved library is private — only fetch its size when viewing
-          // your own profile. The endpoint already requires auth, but
-          // skipping the request avoids a 403 on other users' pages.
+          // Counters: the UserResponse DTO doesn't ship postsCount /
+          // researchCount / questionsCount yet (backend roadmap P1 #8),
+          // so each count is derived from the first page of the
+          // matching list endpoint. We ask for a generous pageSize so
+          // `array.length` is a useful approximation when the
+          // endpoint returns a bare list (`/posts/by-author` does this
+          // per POST_API.md §2). When the endpoint returns a Spring
+          // Page<T> (research / Q&A), `totalElements` is used directly
+          // — that's the exact count.
+          //
+          // Saved library is private — only fetch its size when
+          // viewing your own profile. Same for Questions: there is no
+          // "questions by author" endpoint, only `/questions/me`.
           const isOwnProfile = isAuthenticated && currentUser?.id === userId
+          const COUNT_PAGE_SIZE = 100
           Promise.all([
-            getUserPosts(userId, { page: 0, size: 1 }).catch(() => null),
-            getResearcherPublications(userId, { page: 0, size: 1 }).catch(() => null),
+            getUserPosts(userId, { page: 0, size: COUNT_PAGE_SIZE, pageSize: COUNT_PAGE_SIZE })
+              .catch(() => null),
+            getResearcherPublications(userId, { page: 0, size: COUNT_PAGE_SIZE })
+              .catch(() => null),
             isOwnProfile
               ? getSavedResearch({ page: 0, size: 1 }).catch(() => null)
               : Promise.resolve(null),
-          ]).then(([postsPage, researchPage, savedPage]) => {
+            isOwnProfile
+              ? getMyQuestions({ page: 0, size: COUNT_PAGE_SIZE }).catch(() => null)
+              : Promise.resolve(null),
+          ]).then(([postsResult, researchResult, savedResult, questionsResult]) => {
             if (cancelled) return
             setCounts({
-              posts: postsPage?.totalElements ?? null,
-              research: researchPage?.totalElements ?? null,
-              saved: savedPage?.totalElements ?? null,
+              posts: countItems(postsResult),
+              research: countItems(researchResult),
+              saved: countItems(savedResult),
+              questions: countItems(questionsResult),
             })
           })
         }
@@ -692,8 +757,8 @@ export function ProfilePage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-44 w-full rounded-2xl" />
-        <Skeleton className="h-64 w-full rounded-2xl" />
+        <Skeleton className="h-44 w-full rounded-lg" />
+        <Skeleton className="h-64 w-full rounded-lg" />
       </div>
     )
   }
@@ -740,6 +805,13 @@ export function ProfilePage() {
   const answersCount = profile.answersCount ?? profile.answerCount ?? 0
   const savedCount = counts.saved
   const reelsCount = profile.reelsCount ?? 0
+  // Activity rolls up everything the Activity tab actually lists:
+  // posts + research + (own questions, when viewing your own profile).
+  // Reels are a subset of posts, so they're already counted there.
+  const ownQuestionsCount = isMe
+    ? (counts.questions ?? profile.questionsCount ?? profile.questionCount ?? 0)
+    : 0
+  const activityCount = postsCount + researchCount + ownQuestionsCount
   const hasStories = profileStories.length > 0
 
   const linkList = []
@@ -778,7 +850,7 @@ export function ProfilePage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-        className="overflow-hidden rounded-2xl border border-border bg-paper"
+        className="overflow-hidden rounded-lg border border-line bg-background"
         style={{ boxShadow: 'var(--shadow-sm)' }}
       >
         {/* ── Cover banner ─────────────────────────────────── */}
@@ -833,7 +905,7 @@ export function ProfilePage() {
                       'h-9 gap-1.5 rounded-lg text-[13px] font-medium',
                       status?.isFollowing
                         ? 'bg-white/95 text-[#15243B] hover:bg-white'
-                        : 'bg-brand text-brand-foreground hover:bg-brand/90',
+                        : 'bg-brand text-accent-indigo-foreground hover:bg-brand/90',
                     )}
                   >
                     {status?.isFollowing ? (
@@ -902,31 +974,31 @@ export function ProfilePage() {
                     'linear-gradient(135deg, var(--brand), var(--accent-sky, #0891B2), #7C3AED)',
                 }}
               >
-                <div className="rounded-[17px] bg-paper p-[2px]">
+                <div className="rounded-[17px] bg-background p-[2px]">
                   <UserAvatar
                     user={profile}
-                    className="size-[88px] rounded-2xl text-[32px] sm:size-24"
+                    className="size-[88px] rounded-lg text-[32px] sm:size-24"
                   />
                 </div>
               </button>
             ) : (
-              <div className="w-fit rounded-2xl bg-paper p-[3px] ring-1 ring-border">
+              <div className="w-fit rounded-lg bg-background p-[3px] ring-1 ring-border">
                 <UserAvatar
                   user={profile}
-                  className="size-[88px] rounded-xl text-[32px] sm:size-24"
+                  className="size-[88px] rounded-md text-[32px] sm:size-24"
                 />
               </div>
             )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-display text-[24px] font-semibold leading-tight tracking-[-0.018em] text-ink sm:text-[28px]">
+            <h1 className="font-semibold text-[24px] font-semibold leading-tight tracking-[-0.018em] text-ink sm:text-[28px]">
               {getFullName(profile) || handle}
             </h1>
             {verified ? (
               <span
                 title="Verified"
-                className="grid size-5 place-items-center rounded-full bg-brand text-brand-foreground"
+                className="grid size-5 place-items-center rounded-full bg-brand text-accent-indigo-foreground"
               >
                 <CheckCircle2 className="size-3.5" strokeWidth={2.4} />
               </span>
@@ -934,13 +1006,13 @@ export function ProfilePage() {
             {profile.role ? <RoleBadge role={profile.role} size="md" /> : null}
           </div>
 
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-ink-3">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-fg-muted">
             {handle ? (
-              <span className="font-mono text-ink-3">@{handle}</span>
+              <span className="font-mono text-fg-muted">@{handle}</span>
             ) : null}
             {getLocation(profile) ? (
               <>
-                <span aria-hidden className="text-ink-4">·</span>
+                <span aria-hidden className="text-fg-faint">·</span>
                 <span className="inline-flex items-center gap-1">
                   <MapPin className="size-3.5" strokeWidth={1.6} />
                   {getLocation(profile)}
@@ -949,7 +1021,7 @@ export function ProfilePage() {
             ) : null}
             {joinedLabel ? (
               <>
-                <span aria-hidden className="text-ink-4">·</span>
+                <span aria-hidden className="text-fg-faint">·</span>
                 <span className="inline-flex items-center gap-1">
                   <Calendar className="size-3.5" strokeWidth={1.6} />
                   Joined {joinedLabel}
@@ -959,13 +1031,13 @@ export function ProfilePage() {
           </div>
 
           {getProfileBio(profile) ? (
-            <p className="mt-3 max-w-2xl font-display text-[15px] italic leading-[1.6] text-ink-2">
+            <p className="mt-3 max-w-2xl font-semibold text-[15px] italic leading-[1.6] text-fg-soft">
               “{getProfileBio(profile)}”
             </p>
           ) : null}
 
           {getSelfDescriber(profile) ? (
-            <p className="mt-2 max-w-2xl text-[14px] leading-[1.6] text-ink-2">
+            <p className="mt-2 max-w-2xl text-[14px] leading-[1.6] text-fg-soft">
               {getSelfDescriber(profile)}
             </p>
           ) : null}
@@ -980,7 +1052,7 @@ export function ProfilePage() {
             </div>
           ) : null}
 
-          <div className="mt-5 flex flex-wrap items-center gap-x-7 gap-y-3 border-t border-border pt-4">
+          <div className="mt-5 flex flex-wrap items-center gap-x-7 gap-y-3 border-t border-line pt-4">
             <Stat
               label="Followers"
               value={followerCount}
@@ -993,6 +1065,7 @@ export function ProfilePage() {
             />
             {showsResearch ? <Stat label="Research" value={researchCount} /> : null}
             <Stat label="Posts" value={postsCount} />
+            <Stat label="Activity" value={activityCount} />
             <Stat label="Answers" value={answersCount} />
             {reelsCount > 0 ? <Stat label="Reels" value={reelsCount} /> : null}
           </div>
@@ -1002,7 +1075,7 @@ export function ProfilePage() {
       <StoryHighlightBar userId={profile.id} isMe={isMe} />
 
       <Tabs defaultValue={showsResearch ? 'research' : 'activity'}>
-        <TabsList className="flex w-full justify-start gap-7 overflow-x-auto rounded-none border-0 border-b border-border bg-transparent p-0 scrollbar-none">
+        <TabsList className="flex w-full justify-start gap-7 overflow-x-auto rounded-none border-0 border-b border-line bg-transparent p-0 scrollbar-none">
           {showsResearch ? (
             <TabPill value="research" count={researchCount}>
               Research
@@ -1011,7 +1084,7 @@ export function ProfilePage() {
           <TabPill value="posts" count={postsCount}>
             Posts
           </TabPill>
-          <TabPill value="activity">Activity</TabPill>
+          <TabPill value="activity" count={activityCount}>Activity</TabPill>
           {isMe ? <TabPill value="questions">Questions</TabPill> : null}
           {isMe ? (
             <TabPill value="saved" count={savedCount ?? undefined}>
@@ -1043,18 +1116,18 @@ export function ProfilePage() {
           </TabsContent>
         ) : null}
         <TabsContent value="about" className="mt-5">
-          <Card className="rounded-xl border-border">
+          <Card className="rounded-md border-line">
             <CardContent className="space-y-3 p-5 text-[14px]">
               {getSelfDescriber(profile) ? (
-                <p className="whitespace-pre-wrap leading-[1.65] text-ink-2">
+                <p className="whitespace-pre-wrap leading-[1.65] text-fg-soft">
                   {getSelfDescriber(profile)}
                 </p>
               ) : (
-                <p className="text-ink-3">No description provided.</p>
+                <p className="text-fg-muted">No description provided.</p>
               )}
               {getProfileLinks(profile).length ? (
-                <div className="space-y-1.5 border-t border-border pt-3">
-                  <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink-3">
+                <div className="space-y-1.5 border-t border-line pt-3">
+                  <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-muted">
                     Links
                   </p>
                   {getProfileLinks(profile).map((link) => (
@@ -1063,7 +1136,7 @@ export function ProfilePage() {
                       href={link.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="block truncate text-brand hover:underline"
+                      className="block truncate text-accent-indigo hover:underline"
                     >
                       {link.description || link.url}
                     </a>

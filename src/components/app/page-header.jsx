@@ -25,9 +25,9 @@ export function PageHeader({
       )}
     >
       {eyebrow ? (
-        <div className="mb-4 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.16em] text-brand">
+        <div className="mb-4 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.16em] text-accent-indigo">
           {number ? (
-            <span className="grid size-8 place-items-center rounded-full border border-brand/50 font-mono text-[11px] tabular-nums">
+            <span className="grid size-8 place-items-center rounded-full border border-fg/50 font-mono text-[11px] tabular-nums">
               {number}
             </span>
           ) : (
@@ -45,7 +45,7 @@ export function PageHeader({
         <div className="min-w-0 flex-1">
           <h1
             className={cn(
-              'font-display font-medium leading-[1.05] tracking-[-0.022em] text-ink text-balance',
+              'font-semibold font-medium leading-[1.05] tracking-[-0.022em] text-ink text-balance',
               'text-[32px] sm:text-[44px]',
             )}
           >
@@ -53,7 +53,7 @@ export function PageHeader({
           </h1>
 
           {description ? (
-            <p className="mt-4 max-w-[60ch] text-[15px] leading-[1.65] text-ink-2">
+            <p className="mt-4 max-w-[60ch] text-[15px] leading-[1.65] text-fg-soft">
               {description}
             </p>
           ) : null}
@@ -70,7 +70,7 @@ export function PageHeader({
             <div key={i}>
               <div
                 className={cn(
-                  'font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-4',
+                  'font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-fg-faint',
                 )}
               >
                 {s.label}
@@ -81,8 +81,8 @@ export function PageHeader({
                   s.tone === 'gold'
                     ? 'text-gold-2'
                     : s.tone === 'brand'
-                      ? 'text-brand'
-                      : 'text-ink-2',
+                      ? 'text-accent-indigo'
+                      : 'text-fg-soft',
                 )}
               >
                 {s.value}

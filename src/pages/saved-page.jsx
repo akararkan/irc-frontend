@@ -1,375 +1,237 @@
-import { useEffect, useState } from 'react'
-import { Bookmark, Library } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Bookmark, BookMarked, ChevronLeft, Loader2, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/app/empty-state'
 import { UserAvatar } from '@/components/app/user-avatar'
-import { ResearchCard } from '@/components/app/research-card'
-import { QuestionFeedCard } from '@/components/app/question-feed-card'
-import {
-  getSavedResearch,
-} from '@/features/research/research.api'
-import {
-  getSavedPosts,
-} from '@/features/posts/posts.api'
-import {
-  getSavedQuestions,
-} from '@/features/qna/qna.api'
-import { useToast } from '@/components/ui/toaster'
+import { getSavedPosts } from '@/features/posts/posts.api'
 import { useAuth } from '@/features/auth/auth-context'
-import { cn } from '@/lib/utils'
+import { useToast } from '@/components/ui/toaster'
 import { extractApiMessage } from '@/lib/api-error'
 import { formatNumber, getFullName, getHandle } from '@/lib/format'
+import { RelativeTime } from '@/components/app/relative-time'
+import { cn } from '@/lib/utils'
 
-// Post type → readable label
 const POST_TYPE_LABEL = {
-  TEXT: 'Post',
-  EMBEDDED: 'Embedded Post',
-  VOICE_POST: 'Voice Post',
-  REEL: 'Reel',
+  TEXT: 'Text', EMBEDDED: 'Post', VOICE_POST: 'Voice', REEL: 'Reel', REPOST: 'Repost',
 }
 
-function formatSavedDate(iso) {
-  if (!iso) return null
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+/* ── Collection thumb (4-quadrant mosaic) ───────────────────────── */
+function CollectionThumb({ posts = [] }) {
+  const tones = ['bg-bg-muted', 'bg-line', 'bg-line-strong', 'bg-bg-soft']
+  const show = posts.slice(0, 4)
+  if (show.length === 0) {
+    return (
+      <div className="flex aspect-square items-center justify-center rounded-md bg-bg-muted">
+        <BookMarked className="size-6 text-fg-faint" strokeWidth={1.5} />
+      </div>
+    )
+  }
+  return (
+    <div className="grid aspect-square grid-cols-2 gap-[2px] overflow-hidden rounded-md bg-line">
+      {[0, 1, 2, 3].map((i) => {
+        const p = show[i]
+        const mediaUrl = p?.mediaUrls?.[0] ?? p?.mediaUrl
+        return (
+          <div key={i} className={cn('overflow-hidden', tones[i])}>
+            {mediaUrl ? (
+              <img src={mediaUrl} alt="" className="h-full w-full object-cover" />
+            ) : null}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
-// ─── Compact saved post row ─────────────────────────────────────────
+/* ── Collection tile ────────────────────────────────────────────── */
+function CollectionTile({ name, posts, onClick }) {
+  return (
+    <button type="button" onClick={onClick} className="group flex flex-col gap-2 text-left">
+      <CollectionThumb posts={posts} />
+      <div>
+        <p className="text-[13.5px] font-semibold text-fg">{name}</p>
+        <p className="font-mono text-[10.5px] text-fg-muted">{posts.length} items</p>
+      </div>
+    </button>
+  )
+}
+
+/* ── Saved post row (list view) ─────────────────────────────────── */
 function SavedPostRow({ post }) {
   const author = post.author ?? {
     fullName: [post.authorFname, post.authorLname].filter(Boolean).join(' ') || null,
     username: post.authorUsername,
     profileImage: post.authorProfileImage ?? post.authorAvatarUrl,
-    role: post.authorRole,
   }
   const displayName = getFullName(author) || getHandle(author) || 'Unknown'
   const typeLabel = POST_TYPE_LABEL[post.postType ?? 'TEXT'] ?? 'Post'
-  const savedDate = formatSavedDate(post.savedAt)
-  const href = `/posts/${post.id}`
+  const mediaUrl = post.mediaUrls?.[0] ?? post.mediaUrl
 
   return (
     <Link
-      to={href}
-      className="flex items-start gap-4 border-b-[0.5px] border-border bg-paper py-5 transition-colors hover:bg-secondary/30"
+      to={`/posts/${post.id}`}
+      className="flex items-start gap-4 border-b border-line py-4 transition-colors last:border-0 hover:bg-bg-soft"
     >
-      <UserAvatar user={author} className="size-10 shrink-0" />
-      <div className="min-w-0 flex-1 space-y-2">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-          <span className="font-display text-[15px] font-semibold text-ink">
-            {displayName}
-          </span>
-          <span className="font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
+      {mediaUrl ? (
+        <div className="size-14 shrink-0 overflow-hidden rounded-md border border-line bg-bg-muted">
+          <img src={mediaUrl} alt="" className="h-full w-full object-cover" />
+        </div>
+      ) : (
+        <div className="flex size-14 shrink-0 items-center justify-center rounded-md border border-line bg-bg-soft">
+          <BookMarked className="size-5 text-fg-faint" strokeWidth={1.5} />
+        </div>
+      )}
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <UserAvatar user={author} className="size-5 shrink-0" />
+          <span className="truncate text-[12.5px] font-semibold text-fg">{displayName}</span>
+          <span className="inline-flex items-center rounded-[4px] border border-line px-1.5 py-px font-mono text-[9.5px] uppercase tracking-[0.04em] text-fg-muted">
             {typeLabel}
-            {savedDate ? ` · Saved ${savedDate}` : ''}
           </span>
         </div>
         {post.textContent ? (
-          <p
-            dir="auto"
-            className="line-clamp-2 font-display text-[17px] leading-[1.5] tracking-[-0.005em] text-ink"
-          >
-            {post.textContent}
-          </p>
+          <p className="mt-1 line-clamp-2 text-[13px] leading-[1.45] text-fg-soft">{post.textContent}</p>
         ) : null}
+        <div className="mt-1.5 flex items-center gap-3 font-mono text-[10.5px] text-fg-faint">
+          <span>♥ {formatNumber(post.reactionCount ?? 0)}</span>
+          <span>💬 {formatNumber(post.commentCount ?? 0)}</span>
+          {post.savedAt ? (
+            <span className="ml-auto">Saved <RelativeTime value={post.savedAt} /></span>
+          ) : null}
+        </div>
       </div>
     </Link>
   )
 }
 
-// ─── Tab button — flat underline style ─────────────────────────────
-function SavedTab({ label, count, active, onSelect }) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn(
-        'relative shrink-0 whitespace-nowrap pb-3 pr-7 text-[15px] font-medium transition-colors',
-        active ? 'text-ink' : 'text-ink-3 hover:text-ink',
-      )}
-      aria-pressed={active}
-    >
-      {label}
-      {count != null ? (
-        <span className="ml-2 font-mono text-[12px] text-ink-4">{formatNumber(count)}</span>
-      ) : null}
-      {active ? (
-        <span className="absolute bottom-0 left-0 h-[2px] w-[calc(100%-1.75rem)] rounded-full bg-ink" />
-      ) : null}
-    </button>
-  )
-}
-
-// ─── Posts panel ────────────────────────────────────────────────────
-function PostsPanel({ onCount }) {
-  const toast = useToast()
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      try {
-        const saved = await getSavedPosts({ page: 0, size: 40 })
-        if (!cancelled) {
-          const rows = (saved?.content ?? []).map((p) => ({ ...p, isSaved: true }))
-          setItems(rows)
-          onCount?.(rows.length)
-        }
-      } catch (error) {
-        if (!cancelled) toast.error(extractApiMessage(error, 'Could not load saved posts.'))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [toast]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  function handleChange(updated) {
-    if (updated.isSaved === false) {
-      setItems((c) => c.filter((item) => item.id !== updated.id))
-      return
-    }
-    setItems((c) => c.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)))
-  }
-
-  if (loading) {
-    return (
-      <div className="space-y-0">
-        {[1, 2, 3].map((i) => <Skeleton key={i} className="my-5 h-16 w-full rounded-none" />)}
-      </div>
-    )
-  }
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon={Bookmark}
-        title="No posts saved yet"
-        description="Tap the bookmark on any post to keep it here."
-        action={
-          <Button asChild size="sm" className="rounded-xl">
-            <Link to="/">Browse the feed</Link>
-          </Button>
-        }
-      />
-    )
-  }
-  return (
-    <div>
-      {items.map((post) => (
-        <SavedPostRow key={post.id} post={post} onChange={handleChange} />
-      ))}
-    </div>
-  )
-}
-
-// ─── Research panel ─────────────────────────────────────────────────
-function ResearchPanel({ onCount }) {
-  const toast = useToast()
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      try {
-        const saved = await getSavedResearch({ page: 0, size: 20 })
-        if (!cancelled) {
-          const rows = saved?.content ?? []
-          setItems(rows)
-          onCount?.(rows.length)
-        }
-      } catch (error) {
-        if (!cancelled) toast.error(extractApiMessage(error, 'Could not load saved research.'))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [toast]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (loading) {
-    return (
-      <div className="grid gap-4 pt-6 md:grid-cols-2">
-        <Skeleton className="h-72 rounded-xl" />
-        <Skeleton className="h-72 rounded-xl" />
-      </div>
-    )
-  }
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon={Bookmark}
-        title="No research saved yet"
-        description="Open any research and tap Save to keep it here."
-        action={
-          <Button asChild size="sm" className="rounded-xl">
-            <Link to="/research">Browse research</Link>
-          </Button>
-        }
-      />
-    )
-  }
-  return (
-    <div className="grid gap-4 pt-6 md:grid-cols-2">
-      {items.map((item) => (
-        <ResearchCard key={item.id} item={item} />
-      ))}
-    </div>
-  )
-}
-
-// ─── Questions panel ─────────────────────────────────────────────────
-function QuestionsPanel({ onCount }) {
-  const toast = useToast()
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      try {
-        const saved = await getSavedQuestions({ page: 0, size: 20 })
-        if (!cancelled) {
-          const rows = saved?.content ?? []
-          setItems(rows)
-          onCount?.(rows.length)
-        }
-      } catch (error) {
-        if (!cancelled) toast.error(extractApiMessage(error, 'Could not load saved questions.'))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [toast]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (loading) {
-    return (
-      <div className="grid gap-4 pt-6 md:grid-cols-2">
-        <Skeleton className="h-48 rounded-xl" />
-        <Skeleton className="h-48 rounded-xl" />
-      </div>
-    )
-  }
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon={Bookmark}
-        title="No questions saved yet"
-        description="Save any question to find it here later."
-        action={
-          <Button asChild size="sm" className="rounded-xl">
-            <Link to="/questions">Browse questions</Link>
-          </Button>
-        }
-      />
-    )
-  }
-  return (
-    <div className="grid gap-4 pt-6 md:grid-cols-2">
-      {items.map((question) => (
-        <QuestionFeedCard key={question.id} question={question} />
-      ))}
-    </div>
-  )
-}
-
-// ─── Page ────────────────────────────────────────────────────────────
+/* ── Main page ─────────────────────────────────────────────────── */
 export function SavedPage() {
-  const { isAuthenticated } = useAuth()
-  const [tab, setTab] = useState('posts')
-  const [counts, setCounts] = useState({ posts: null, research: null, questions: null })
+  const { user, isAuthenticated } = useAuth()
+  const toast = useToast()
+  const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [activeCollection, setActiveCollection] = useState(null)
 
-  function setCount(key, value) {
-    setCounts((prev) => ({ ...prev, [key]: value }))
-  }
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) { setLoading(false); return }
+    let cancelled = false
+    setLoading(true)
+    getSavedPosts(user.id, { pageSize: 100 })
+      .then((data) => {
+        if (cancelled) return
+        const items = Array.isArray(data) ? data
+          : Array.isArray(data?.items) ? data.items
+          : Array.isArray(data?.content) ? data.content
+          : []
+        setPosts(items)
+      })
+      .catch((err) => { if (!cancelled) toast.error(extractApiMessage(err, 'Could not load saved posts.')) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [isAuthenticated, user?.id, toast])
+
+  const collections = useMemo(() => {
+    const map = new Map()
+    for (const p of posts) {
+      const key = p.savedCollectionName ?? 'Default'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(p)
+    }
+    return [...map.entries()]
+      .sort(([a], [b]) => (a === 'Default' ? -1 : b === 'Default' ? 1 : a.localeCompare(b)))
+      .map(([name, items]) => ({ name, items }))
+  }, [posts])
+
+  const activeItems = useMemo(
+    () => collections.find((c) => c.name === activeCollection)?.items ?? [],
+    [collections, activeCollection],
+  )
 
   if (!isAuthenticated) {
     return (
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Section 11</p>
-          <h1 className="font-display text-[40px] font-semibold leading-[1.05] tracking-[-0.02em] text-ink sm:text-[52px]">
-            Saved.
-          </h1>
-          <p className="font-display text-[16px] italic leading-[1.6] text-ink-3">
-            Posts, research, and questions you've bookmarked across the network.
-          </p>
-        </div>
-        <EmptyState
-          icon={Library}
-          title="Sign in to build your library"
-          description="Save posts and research to return to them later."
-          action={
-            <div className="flex gap-2">
-              <Button asChild size="sm" variant="outline" className="rounded-xl">
-                <Link to="/login">Sign in</Link>
-              </Button>
-              <Button asChild size="sm" className="rounded-xl">
-                <Link to="/signup">Create account</Link>
-              </Button>
-            </div>
-          }
-        />
-      </div>
+      <EmptyState
+        icon={BookMarked}
+        title="Sign in to view saved posts"
+        description="Posts you bookmark appear here, organized into collections."
+        action={
+          <Button asChild variant="outline" size="sm" className="rounded-md">
+            <Link to="/login">Sign in</Link>
+          </Button>
+        }
+      />
     )
   }
 
   return (
-    <div className="space-y-0">
-      {/* ── Editorial header ───────────────────────────────────── */}
-      <div className="space-y-2 pb-8">
-        <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">Section 11</p>
-        <h1 className="font-display text-[40px] font-semibold leading-[1.05] tracking-[-0.02em] text-ink sm:text-[52px]">
-          Saved.
-        </h1>
-        <p className="font-display text-[16px] italic leading-[1.6] text-ink-3">
-          Posts, research, and questions you've bookmarked across the network.
-        </p>
-      </div>
-
-      {/* ── Flat underline tabs ────────────────────────────────── */}
-      <div className="flex flex-nowrap items-end overflow-x-auto border-b-[0.5px] border-border scrollbar-none">
-        <SavedTab
-          label="Posts"
-          count={counts.posts}
-          active={tab === 'posts'}
-          onSelect={() => setTab('posts')}
-        />
-        <SavedTab
-          label="Research"
-          count={counts.research}
-          active={tab === 'research'}
-          onSelect={() => setTab('research')}
-        />
-        <SavedTab
-          label="Questions"
-          count={counts.questions}
-          active={tab === 'questions'}
-          onSelect={() => setTab('questions')}
-        />
-      </div>
-
-      {/* ── Tab panels ─────────────────────────────────────────── */}
-      <div>
-        {tab === 'posts' ? (
-          <PostsPanel onCount={(n) => setCount('posts', n)} />
-        ) : tab === 'research' ? (
-          <ResearchPanel onCount={(n) => setCount('research', n)} />
+    <div>
+      {/* Header */}
+      <div className="flex items-end justify-between gap-4 pb-6">
+        <div>
+          {activeCollection ? (
+            <button
+              type="button"
+              onClick={() => setActiveCollection(null)}
+              className="mb-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-fg-muted transition-colors hover:text-fg"
+            >
+              <ChevronLeft className="size-3.5" strokeWidth={1.8} />
+              Collections
+            </button>
+          ) : (
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.04em] text-fg-muted">Library</p>
+          )}
+          <h1 className="text-[28px] font-semibold leading-none tracking-[-0.022em] text-fg">
+            {activeCollection ?? 'Saved'}
+          </h1>
+        </div>
+        {!activeCollection ? (
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-md border-line text-[12.5px] font-medium text-fg-muted">
+            <Plus className="size-3.5" strokeWidth={2} />
+            New collection
+          </Button>
         ) : (
-          <QuestionsPanel onCount={(n) => setCount('questions', n)} />
+          <p className="font-mono text-[11px] text-fg-muted">
+            {activeItems.length} {activeItems.length === 1 ? 'item' : 'items'}
+          </p>
         )}
       </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="size-5 animate-spin text-fg-muted" />
+        </div>
+      ) : posts.length === 0 ? (
+        <EmptyState
+          icon={Bookmark}
+          title="Nothing saved yet"
+          description="Tap the bookmark icon on any post to save it here."
+        />
+      ) : activeCollection ? (
+        <div className="rounded-lg border border-line bg-background">
+          <div className="px-5">
+            {activeItems.map((p) => <SavedPostRow key={p.id} post={p} />)}
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4">
+          {collections.map((col) => (
+            <CollectionTile
+              key={col.name}
+              name={col.name}
+              posts={col.items}
+              onClick={() => setActiveCollection(col.name)}
+            />
+          ))}
+          <button type="button" className="flex flex-col gap-2 text-left">
+            <div className="flex aspect-square items-center justify-center rounded-md border border-dashed border-line-strong bg-bg-soft transition-colors hover:bg-bg-muted">
+              <Plus className="size-6 text-fg-faint" strokeWidth={1.5} />
+            </div>
+            <p className="text-[12.5px] text-fg-faint">New collection</p>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

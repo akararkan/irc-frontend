@@ -161,6 +161,10 @@ export function seedFromResponse(kind, response, { authoritative = true } = {}) 
   } else if (response.currentUserReacted !== undefined) {
     reactedFlag = Boolean(response.currentUserReacted)
     type = response.currentUserReactionType ?? null
+  } else if (response.likedByMe !== undefined) {
+    // Cassandra-era PostResponse / FeedItemResponse / CommentResponse.
+    reactedFlag = Boolean(response.likedByMe)
+    type = response.likedByMe ? 'LIKE' : null
   }
   if (reactedFlag === true) {
     setReacted(kind, id, true, type)
@@ -171,6 +175,7 @@ export function seedFromResponse(kind, response, { authoritative = true } = {}) 
   if (response.isSaved !== undefined) savedFlag = Boolean(response.isSaved)
   else if (response.saved !== undefined) savedFlag = Boolean(response.saved)
   else if (response.currentUserSaved !== undefined) savedFlag = Boolean(response.currentUserSaved)
+  else if (response.savedByMe !== undefined) savedFlag = Boolean(response.savedByMe)
   if (savedFlag === true) {
     setSaved(kind, id, true)
   } else if (savedFlag === false && authoritative) {

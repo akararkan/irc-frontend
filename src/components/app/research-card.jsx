@@ -23,7 +23,7 @@ import { RelativeTime } from '@/components/app/relative-time'
 const STATUS_META = {
   PUBLISHED: { label: 'Published', className: 'bg-[#ECFDF5] text-[#065F46]' },
   DRAFT: { label: 'Draft', className: 'bg-[#FFFBEB] text-[#B45309]' },
-  ARCHIVED: { label: 'Archived', className: 'bg-secondary text-ink-3' },
+  ARCHIVED: { label: 'Archived', className: 'bg-secondary text-fg-muted' },
   RETRACTED: { label: 'Retracted', className: 'bg-destructive/10 text-destructive' },
 }
 
@@ -119,7 +119,7 @@ export function ResearchCard({ item: incoming }) {
     <Link
       ref={setLiveRef}
       to={href}
-      className="group block overflow-hidden rounded-2xl border border-border bg-paper transition-colors hover:border-[#0891B2]/40"
+      className="group block overflow-hidden rounded-lg border border-line bg-background transition-colors hover:border-[#0891B2]/40"
       style={{ boxShadow: 'var(--shadow-xs)' }}
     >
       {/* ── Cover ─────────────────────────────────────────── */}
@@ -132,7 +132,7 @@ export function ResearchCard({ item: incoming }) {
               className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
             />
             <span className="absolute inset-0 grid place-items-center bg-black/15">
-              <span className="grid size-12 place-items-center rounded-full bg-paper/90 text-ink backdrop-blur transition-transform group-hover:scale-110">
+              <span className="grid size-12 place-items-center rounded-full bg-background/90 text-ink backdrop-blur transition-transform group-hover:scale-110">
                 <Play className="size-5 translate-x-[1px]" />
               </span>
             </span>
@@ -179,7 +179,7 @@ export function ResearchCard({ item: incoming }) {
             ) : null}
           </div>
           {item.ircId ? (
-            <span className="inline-flex items-center rounded-md bg-paper/90 px-2 py-0.5 font-mono text-[10px] font-medium text-ink-2 backdrop-blur">
+            <span className="inline-flex items-center rounded-md bg-background/90 px-2 py-0.5 font-mono text-[10px] font-medium text-fg-soft backdrop-blur">
               {item.ircId}
             </span>
           ) : null}
@@ -188,10 +188,10 @@ export function ResearchCard({ item: incoming }) {
 
       {/* ── Body ──────────────────────────────────────────── */}
       <div className="space-y-2.5 p-4 sm:p-5">
-        <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10.5px] text-ink-3">
+        <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10.5px] text-fg-muted">
           {item.doi ? (
             <span>
-              DOI: <span className="text-ink-2">{item.doi}</span>
+              DOI: <span className="text-fg-soft">{item.doi}</span>
             </span>
           ) : null}
           <span aria-hidden className="ml-auto" />
@@ -204,13 +204,13 @@ export function ResearchCard({ item: incoming }) {
 
         <h3
           dir="auto"
-          className="text-balance font-display text-[19px] font-semibold leading-[1.2] tracking-[-0.012em] text-ink transition-colors group-hover:text-[#0891B2]"
+          className="text-balance font-semibold text-[19px] font-semibold leading-[1.2] tracking-[-0.012em] text-ink transition-colors group-hover:text-[#0891B2]"
         >
           {item.title}
         </h3>
 
         {item.abstractText || item.description ? (
-          <p dir="auto" className="line-clamp-3 text-[13.5px] leading-[1.6] text-ink-2">
+          <p dir="auto" className="line-clamp-3 text-[13.5px] leading-[1.6] text-fg-soft">
             {item.abstractText ?? item.description}
           </p>
         ) : null}
@@ -220,7 +220,7 @@ export function ResearchCard({ item: incoming }) {
             {item.tags.slice(0, 5).map((tag) => (
               <span
                 key={tag}
-                className="rounded-md bg-secondary px-2 py-0.5 text-[11.5px] text-ink-3 transition-colors group-hover:text-ink"
+                className="rounded-md bg-bg-soft px-2 py-0.5 text-[11.5px] text-fg-muted transition-colors group-hover:text-ink"
               >
                 #{tag}
               </span>
@@ -229,7 +229,7 @@ export function ResearchCard({ item: incoming }) {
         ) : null}
 
         {/* Footer */}
-        <div className="flex items-center gap-2.5 border-t border-border pt-3">
+        <div className="flex items-center gap-2.5 border-t border-line pt-3">
           <UserAvatar user={author} className="size-7 rounded-full" />
           <div className="min-w-0 flex-1 leading-tight">
             <div className="flex flex-wrap items-center gap-1.5">
@@ -239,10 +239,10 @@ export function ResearchCard({ item: incoming }) {
               <RoleBadge role="RESEARCHER" size="xs" />
             </div>
             {authorHandle ? (
-              <p className="truncate font-mono text-[10px] text-ink-3">@{authorHandle}</p>
+              <p className="truncate font-mono text-[10px] text-fg-muted">@{authorHandle}</p>
             ) : null}
           </div>
-          <div className="flex items-center gap-2.5 text-[11px] text-ink-3">
+          <div className="flex items-center gap-2.5 text-[11px] text-fg-muted">
             {item.citationCount ? (
               <LiveCount value={item.citationCount} icon={Quote} label="Citations" />
             ) : null}

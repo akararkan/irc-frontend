@@ -26,6 +26,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { MentionTextarea } from '@/components/app/mention-textarea'
 import {
@@ -114,7 +121,10 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
     }
     const url = URL.createObjectURL(coverImage)
     setCoverPreview(url)
-    return () => URL.revokeObjectURL(url)
+    // Deferred revoke so the <img>/<video> mounted with this URL has
+    // time to disconnect; otherwise React 18 StrictMode trips Firefox
+    // with "Content at … may not load data from blob:".
+    return () => { setTimeout(() => URL.revokeObjectURL(url), 1000) }
   }, [coverImage])
 
   useEffect(() => {
@@ -126,7 +136,7 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
     const url = URL.createObjectURL(videoPromo)
     setVideoPromoPreview(url)
     setVideoPromoDuration(null) // duration returned by server after upload
-    return () => URL.revokeObjectURL(url)
+    return () => { setTimeout(() => URL.revokeObjectURL(url), 1000) }
   }, [videoPromo])
 
   if (!canPublishResearch(user)) return null
@@ -419,7 +429,7 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
                       'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                       visibility === option.value
                         ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                        : 'border-line bg-background text-muted-foreground hover:text-foreground',
                     )}
                     title={option.description}
                   >
@@ -442,13 +452,13 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
 
             <div className="space-y-2">
               <Label>Toggles</Label>
-              <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+              <div className="flex flex-col gap-2 rounded-lg border border-line bg-muted/30 p-3 text-sm">
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={commentsEnabled}
                     onChange={(event) => setCommentsEnabled(event.target.checked)}
-                    className="size-4 rounded border-border"
+                    className="size-4 rounded border-line"
                   />
                   Allow comments
                 </label>
@@ -457,7 +467,7 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
                     type="checkbox"
                     checked={downloadsEnabled}
                     onChange={(event) => setDownloadsEnabled(event.target.checked)}
-                    className="size-4 rounded border-border"
+                    className="size-4 rounded border-line"
                   />
                   Allow downloads
                 </label>
@@ -481,7 +491,7 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
                 onChange={handleCoverPick}
               />
               {coverPreview ? (
-                <div className="relative overflow-hidden rounded-lg border border-border">
+                <div className="relative overflow-hidden rounded-lg border border-line">
                   <img
                     src={coverPreview}
                     alt=""
@@ -500,7 +510,7 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
                 <button
                   type="button"
                   onClick={() => coverRef.current?.click()}
-                  className="flex aspect-[5/3] w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-muted/20 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted/40"
+                  className="flex aspect-[5/3] w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-line bg-muted/20 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted/40"
                 >
                   <ImagePlus className="size-5" />
                   Upload cover image
@@ -525,7 +535,7 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
                 onChange={handleVideoPromoPick}
               />
               {videoPromoPreview ? (
-                <div className="relative overflow-hidden rounded-lg border border-border bg-black">
+                <div className="relative overflow-hidden rounded-lg border border-line bg-black">
                   <video
                     src={videoPromoPreview}
                     controls
@@ -551,7 +561,7 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
                 <button
                   type="button"
                   onClick={() => videoPromoRef.current?.click()}
-                  className="flex aspect-[5/3] w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-muted/20 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted/40"
+                  className="flex aspect-[5/3] w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-line bg-muted/20 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted/40"
                 >
                   <Video className="size-5" />
                   Upload video promo
@@ -560,7 +570,7 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
               {videoPromo ? (
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                   <span className="truncate">{videoPromo.name}</span>
-                  <span className="shrink-0 text-ink-3">· duration extracted server-side</span>
+                  <span className="shrink-0 text-fg-muted">· duration extracted server-side</span>
                 </div>
               ) : null}
             </div>
@@ -591,7 +601,7 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
                 onChange={handleFileChange}
               />
               {files.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center text-xs text-muted-foreground">
+                <p className="rounded-lg border border-dashed border-line bg-muted/20 p-4 text-center text-xs text-muted-foreground">
                   Figures, datasets, or the full paper — add images, videos, PDFs, or audio. Captions
                   and alt text help accessibility.
                 </p>
@@ -600,7 +610,7 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
                   {files.map((file, index) => (
                     <div
                       key={`${file.name}-${index}`}
-                      className="space-y-2 rounded-lg border border-border bg-muted/20 p-3"
+                      className="space-y-2 rounded-lg border border-line bg-muted/20 p-3"
                     >
                       <div className="flex items-center justify-between gap-2 text-sm">
                         <span className="truncate font-medium">{file.name}</span>
@@ -649,7 +659,7 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
                 </Button>
               </div>
               {sources.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center text-xs text-muted-foreground">
+                <p className="rounded-lg border border-dashed border-line bg-muted/20 p-4 text-center text-xs text-muted-foreground">
                   Add references so readers can verify your work — papers, books, web links, DOIs.
                 </p>
               ) : (
@@ -657,20 +667,24 @@ export function ResearchComposerButton({ onCreated, variant = 'default', classNa
                   {sources.map((source, index) => (
                     <div
                       key={index}
-                      className="space-y-2 rounded-lg border border-border bg-muted/20 p-3"
+                      className="space-y-2 rounded-lg border border-line bg-muted/20 p-3"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <select
+                        <Select
                           value={source.sourceType}
-                          onChange={(event) => updateSource(index, 'sourceType', event.target.value)}
-                          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                          onValueChange={(value) => updateSource(index, 'sourceType', value)}
                         >
-                          {SOURCE_TYPES.map((type) => (
-                            <option key={type.value} value={type.value}>
-                              {type.label}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger size="sm" className="text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SOURCE_TYPES.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <button
                           type="button"
                           onClick={() => removeSource(index)}

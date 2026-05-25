@@ -9,7 +9,7 @@ function TabsList({ className, ...props }) {
   return (
     <TabsPrimitive.List
       className={cn(
-        'flex h-10 max-w-full items-center justify-start gap-1 overflow-x-auto rounded-xl border border-border bg-secondary/60 p-1 text-ink-3 scrollbar-none snap-x snap-mandatory',
+        'flex h-10 max-w-full items-center justify-start gap-1 overflow-x-auto rounded-md border border-border bg-bg-soft p-1 text-fg-muted scrollbar-none snap-x snap-mandatory',
         className,
       )}
       {...props}
@@ -21,7 +21,7 @@ function TabsTrigger({ className, ...props }) {
   return (
     <TabsPrimitive.Trigger
       className={cn(
-        'inline-flex shrink-0 snap-start items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-1.5 text-[13px] font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:text-ink data-[state=active]:bg-paper data-[state=active]:text-brand data-[state=active]:shadow-[var(--shadow-xs)]',
+        'inline-flex shrink-0 snap-start items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-1.5 text-[13px] font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:text-ink data-[state=active]:bg-background data-[state=active]:text-fg data-[state=active]:shadow-[var(--shadow-xs)]',
         className,
       )}
       {...props}

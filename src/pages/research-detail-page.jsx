@@ -94,7 +94,7 @@ const VISIBILITY_META = {
 const STATUS_META = {
   PUBLISHED: { label: 'Published', tone: 'bg-[#ECFDF5] text-[#065F46]' },
   DRAFT: { label: 'Draft', tone: 'bg-[#FFFBEB] text-[#B45309]' },
-  ARCHIVED: { label: 'Archived', tone: 'bg-secondary text-ink-3' },
+  ARCHIVED: { label: 'Archived', tone: 'bg-secondary text-fg-muted' },
   RETRACTED: { label: 'Retracted', tone: 'bg-destructive/10 text-destructive' },
   SCHEDULED: { label: 'Scheduled', tone: 'bg-[#ECFEFF] text-[#0891B2]' },
 }
@@ -231,7 +231,7 @@ function ReadingTabs({ sourcesCount, citationsCount, commentsCount }) {
   }
 
   return (
-    <div className="sticky top-14 z-10 -mx-2 mb-2 flex items-center gap-5 overflow-x-auto border-b border-border bg-background/90 px-2 backdrop-blur scrollbar-none">
+    <div className="sticky top-14 z-10 -mx-2 mb-2 flex items-center gap-5 overflow-x-auto border-b border-line bg-background/90 px-2 backdrop-blur scrollbar-none">
       {tabs.map((tab) => {
         const isActive = active === tab.id
         return (
@@ -241,12 +241,12 @@ function ReadingTabs({ sourcesCount, citationsCount, commentsCount }) {
             onClick={() => jump(tab.id)}
             className={cn(
               'relative inline-flex items-baseline gap-2 py-3 text-[13px] font-medium transition-colors',
-              isActive ? 'text-[#0891B2]' : 'text-ink-3 hover:text-ink',
+              isActive ? 'text-[#0891B2]' : 'text-fg-muted hover:text-ink',
             )}
           >
             <span>{tab.label}</span>
             {typeof tab.count === 'number' && tab.count > 0 ? (
-              <span className="font-mono text-[11px] tabular-nums text-ink-4">
+              <span className="font-mono text-[11px] tabular-nums text-fg-faint">
                 {formatNumber(tab.count)}
               </span>
             ) : null}
@@ -313,7 +313,7 @@ function AbstractBlock({ text }) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-border bg-paper px-3.5 py-1.5 text-[12px] font-medium text-ink-2 transition-colors hover:border-[#0891B2]/40 hover:text-[#0891B2]"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-line bg-background px-3.5 py-1.5 text-[12px] font-medium text-fg-soft transition-colors hover:border-[#0891B2]/40 hover:text-[#0891B2]"
         >
           {expanded ? 'Hide full abstract' : 'Show full abstract'}
           <ChevronDown className={cn('size-3.5 transition-transform', expanded && 'rotate-180')} />
@@ -326,7 +326,7 @@ function AbstractBlock({ text }) {
 /* ── Action bar button ───────────────────────────────────────── */
 function ResearchAction({ icon: Icon, filled, label, onClick, disabled, active, tone = 'neutral' }) {
   const tones = {
-    neutral: 'border-border text-ink-2 hover:border-[#0891B2]/40 hover:text-[#0891B2]',
+    neutral: 'border-line text-fg-soft hover:border-[#0891B2]/40 hover:text-[#0891B2]',
     rose: 'border-rose-300 bg-rose-50 text-rose-600',
     cyan: 'border-[#67E8F9] bg-[#ECFEFF] text-[#0891B2]',
     primary: 'border-[#0891B2] bg-[#0891B2] text-white hover:bg-[#0E7490]',
@@ -420,7 +420,7 @@ function EditorialHero({
   return (
     <section className="relative isolate space-y-7 pb-2">
       {/* Identifier strip */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 font-mono text-[10.5px] uppercase tracking-wider text-fg-muted">
         {statusMeta ? (
           <span
             className={cn(
@@ -434,13 +434,13 @@ function EditorialHero({
         ) : null}
         {research.ircId ? (
           <>
-            <span aria-hidden className="text-ink-4">·</span>
+            <span aria-hidden className="text-fg-faint">·</span>
             <span className="tabular-nums">{research.ircId}</span>
           </>
         ) : null}
         {research.doi ? (
           <>
-            <span aria-hidden className="text-ink-4">·</span>
+            <span aria-hidden className="text-fg-faint">·</span>
             <a
               href={`https://doi.org/${research.doi}`}
               target="_blank"
@@ -458,7 +458,7 @@ function EditorialHero({
         </span>
         {readingMinutes ? (
           <>
-            <span aria-hidden className="text-ink-4">·</span>
+            <span aria-hidden className="text-fg-faint">·</span>
             <span>{readingMinutes} min read</span>
           </>
         ) : null}
@@ -466,7 +466,7 @@ function EditorialHero({
 
       {/* Cover */}
       {cover ? (
-        <div className="relative aspect-[16/6] w-full overflow-hidden rounded-2xl bg-secondary">
+        <div className="relative aspect-[16/6] w-full overflow-hidden rounded-lg bg-bg-soft">
           <img src={cover} alt={research.title} className="h-full w-full object-cover" />
           <span
             aria-hidden
@@ -478,13 +478,13 @@ function EditorialHero({
       {/* Title */}
       <h1
         dir="auto"
-        className="font-display text-[32px] font-semibold leading-[1.08] tracking-[-0.02em] text-ink sm:text-[42px]"
+        className="font-semibold text-[32px] font-semibold leading-[1.08] tracking-[-0.02em] text-ink sm:text-[42px]"
       >
         {research.title}
       </h1>
 
       {/* Authors + date + follow */}
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-b border-border pb-7">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-b border-line pb-7">
         <div className="flex items-center gap-4">
           <div className="flex -space-x-2.5">
             {allAuthors.slice(0, 5).map((author, i) => (
@@ -500,20 +500,20 @@ function EditorialHero({
             ))}
           </div>
           <div className="leading-tight">
-            <p className="font-display text-[15px] font-medium tracking-[-0.005em] text-ink">
+            <p className="font-semibold text-[15px] font-medium tracking-[-0.005em] text-ink">
               {authorNames}
             </p>
             {dateLabel ? (
-              <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-ink-3">
+              <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-fg-muted">
                 Published {dateLabel}
               </p>
             ) : null}
           </div>
         </div>
-        {leadAuthor.username ? (
+        {leadAuthor.username && !isOwner ? (
           <Link
             to={`/profile/${leadAuthor.username}`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#0891B2] bg-paper px-4 py-2 text-[12.5px] font-medium text-[#0891B2] transition-colors hover:bg-[#ECFEFF]"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#0891B2] bg-background px-4 py-2 text-[12.5px] font-medium text-[#0891B2] transition-colors hover:bg-[#ECFEFF]"
           >
             <span className="text-[15px] leading-none">+</span>
             Follow {coAuthors.length ? 'authors' : 'author'}
@@ -580,12 +580,12 @@ function EditorialHero({
         {metrics.map(({ value, label }) => (
           <div
             key={label}
-            className="rounded-xl border border-border px-4 py-3"
+            className="rounded-md border border-line px-4 py-3"
           >
-            <p className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-ink-3">
+            <p className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-fg-muted">
               {label}
             </p>
-            <p className="mt-1.5 font-display text-[20px] font-semibold leading-none tabular-nums text-ink">
+            <p className="mt-1.5 font-semibold text-[20px] font-semibold leading-none tabular-nums text-ink">
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.span
                   key={value ?? 0}
@@ -619,7 +619,7 @@ function StickyTitleBar({ visible, research, onReact, onSave, onShare, working }
       initial={false}
       animate={{ y: visible ? 0 : -64, opacity: visible ? 1 : 0 }}
       transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-      className="pointer-events-auto fixed inset-x-0 top-0 z-40 hidden border-b border-border bg-background/90 backdrop-blur lg:block"
+      className="pointer-events-auto fixed inset-x-0 top-0 z-40 hidden border-b border-line bg-background/90 backdrop-blur lg:block"
     >
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2 sm:px-6">
         <UserAvatar user={author} className="size-7 rounded-full" />
@@ -627,7 +627,7 @@ function StickyTitleBar({ visible, research, onReact, onSave, onShare, working }
           <p dir="auto" className="truncate text-[13px] font-semibold tracking-tight">
             {research.title}
           </p>
-          <p className="truncate text-[11px] text-ink-3">
+          <p className="truncate text-[11px] text-fg-muted">
             {research.researcherFullName ?? getHandle(author)}
           </p>
         </div>
@@ -642,7 +642,7 @@ function StickyTitleBar({ visible, research, onReact, onSave, onShare, working }
               'inline-flex h-8 items-center gap-1 rounded-lg border px-3 text-[12px] font-medium transition-colors',
               research.currentUserReactionType
                 ? 'border-rose-300 bg-rose-50 text-rose-600'
-                : 'border-border text-ink-2 hover:text-ink',
+                : 'border-line text-fg-soft hover:text-ink',
             )}
           >
             <Heart
@@ -658,7 +658,7 @@ function StickyTitleBar({ visible, research, onReact, onSave, onShare, working }
               'inline-flex h-8 items-center gap-1 rounded-lg border px-3 text-[12px] font-medium transition-colors',
               research.currentUserSaved
                 ? 'border-[#67E8F9] bg-[#ECFEFF] text-[#0891B2]'
-                : 'border-border text-ink-2 hover:text-ink',
+                : 'border-line text-fg-soft hover:text-ink',
             )}
           >
             {research.currentUserSaved ? (
@@ -671,7 +671,7 @@ function StickyTitleBar({ visible, research, onReact, onSave, onShare, working }
           <button
             type="button"
             onClick={onShare}
-            className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-3 text-[12px] font-medium text-ink-2 transition-colors hover:text-ink"
+            className="inline-flex h-8 items-center gap-1 rounded-lg border border-line px-3 text-[12px] font-medium text-fg-soft transition-colors hover:text-ink"
           >
             <Share2 className="size-3.5" />
             Share
@@ -686,11 +686,11 @@ function StickyTitleBar({ visible, research, onReact, onSave, onShare, working }
 function KeywordCard({ keywords, tags }) {
   if (!keywords.length && !tags?.length) return null
   return (
-    <Card className="overflow-hidden rounded-2xl border-border bg-card">
+    <Card className="overflow-hidden rounded-lg border-line bg-card">
       <CardContent className="space-y-3 p-4">
         {tags?.length ? (
           <div className="space-y-1.5">
-            <p className="font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-ink-3">
+            <p className="font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-fg-muted">
               Tags
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -707,14 +707,14 @@ function KeywordCard({ keywords, tags }) {
         ) : null}
         {keywords.length ? (
           <div className="space-y-1.5">
-            <p className="font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-ink-3">
+            <p className="font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-fg-muted">
               Keywords
             </p>
             <div className="flex flex-wrap gap-1.5">
               {keywords.map((keyword) => (
                 <span
                   key={keyword}
-                  className="inline-flex items-center rounded-full border border-border bg-paper px-2.5 py-0.5 text-[11px] text-ink"
+                  className="inline-flex items-center rounded-full border border-line bg-background px-2.5 py-0.5 text-[11px] text-ink"
                 >
                   {keyword}
                 </span>
@@ -733,19 +733,19 @@ function CitationCard({ research }) {
   return (
     <Card
       id="research-citations"
-      className="overflow-hidden rounded-2xl border-border bg-card scroll-mt-24"
+      className="overflow-hidden rounded-lg border-line bg-card scroll-mt-24"
     >
       <CardContent className="space-y-4 p-4">
         {research.citation ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <p className="flex items-center gap-1.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-ink-3">
+              <p className="flex items-center gap-1.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-fg-muted">
                 <Quote className="size-3" />
                 How to cite
               </p>
               <CopyButton value={research.citation} label="Copy" />
             </div>
-            <p className="whitespace-pre-wrap rounded-xl border border-dashed border-border bg-secondary/40 p-3 font-serif text-[13px] leading-relaxed">
+            <p className="whitespace-pre-wrap rounded-md border border-dashed border-line bg-bg-soft p-3 font-serif text-[13px] leading-relaxed">
               {research.citation}
             </p>
           </div>
@@ -754,13 +754,13 @@ function CitationCard({ research }) {
         {research.shareUrl ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <p className="flex items-center gap-1.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-ink-3">
+              <p className="flex items-center gap-1.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.14em] text-fg-muted">
                 <Link2 className="size-3" />
                 Share link
               </p>
               <CopyButton value={research.shareUrl} label="Copy" />
             </div>
-            <code className="block truncate rounded-lg border border-border bg-secondary px-2.5 py-1.5 font-mono text-[11px] text-ink-3">
+            <code className="block truncate rounded-lg border border-line bg-bg-soft px-2.5 py-1.5 font-mono text-[11px] text-fg-muted">
               {research.shareUrl}
             </code>
           </div>
@@ -781,7 +781,7 @@ function MediaFileTile({ media }) {
 
   if (isAudio) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-border bg-card p-3">
+      <div className="overflow-hidden rounded-lg border border-line bg-card p-3">
         <AudioPlayer
           src={url}
           variant="rich"
@@ -824,11 +824,11 @@ function MediaFileTile({ media }) {
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="flex aspect-[4/3] items-center justify-center bg-secondary/60 p-6 transition-opacity hover:opacity-90"
+        className="flex aspect-[4/3] items-center justify-center bg-bg-soft p-6 transition-opacity hover:opacity-90"
       >
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="grid size-14 place-items-center rounded-2xl bg-paper shadow-sm">
-            <FileText className="size-6 text-ink-3" />
+          <span className="grid size-14 place-items-center rounded-lg bg-background shadow-sm">
+            <FileText className="size-6 text-fg-muted" />
           </span>
           <span className="text-[12px] font-medium text-ink">
             Open {media.mimeType?.split('/')?.[1]?.toUpperCase() ?? 'file'}
@@ -839,7 +839,7 @@ function MediaFileTile({ media }) {
   })()
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="overflow-hidden rounded-lg border border-line bg-card">
       {Body}
       <div className="flex items-start justify-between gap-3 px-3.5 py-2.5 text-[12px]">
         <div className="min-w-0 flex-1">
@@ -848,7 +848,7 @@ function MediaFileTile({ media }) {
               {media.caption || media.originalFileName}
             </p>
           ) : null}
-          <div className="mt-0.5 flex items-center gap-2 text-ink-3">
+          <div className="mt-0.5 flex items-center gap-2 text-fg-muted">
             {media.mimeType ? <span className="truncate">{media.mimeType}</span> : null}
             {media.fileSize ? (
               <>
@@ -869,7 +869,7 @@ function MediaFileTile({ media }) {
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="shrink-0 text-ink-3 transition-colors hover:text-ink"
+            className="shrink-0 text-fg-muted transition-colors hover:text-ink"
             title="Open original"
           >
             <ExternalLink className="size-3.5" />
@@ -886,14 +886,14 @@ function SourceItem({ source, index }) {
   return (
     <li className="relative pl-10">
       <span
-        className="absolute left-0 top-1 grid size-7 place-items-center rounded-full border border-border bg-paper font-mono text-[11px] font-semibold tabular-nums text-ink-3"
+        className="absolute left-0 top-1 grid size-7 place-items-center rounded-full border border-line bg-background font-mono text-[11px] font-semibold tabular-nums text-fg-muted"
         aria-hidden
       >
         {index + 1}
       </span>
       <div className="space-y-1">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-wider text-ink-3">
+          <span className="inline-flex items-center rounded-full bg-bg-soft px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-wider text-fg-muted">
             {typeLabel}
           </span>
           <p className="font-serif text-[15px] font-semibold leading-snug text-ink">
@@ -901,7 +901,7 @@ function SourceItem({ source, index }) {
           </p>
         </div>
         {source.citationText ? (
-          <p className="whitespace-pre-wrap font-serif text-[13.5px] leading-relaxed text-ink-3">
+          <p className="whitespace-pre-wrap font-serif text-[13.5px] leading-relaxed text-fg-muted">
             {source.citationText}
           </p>
         ) : null}
@@ -918,7 +918,7 @@ function SourceItem({ source, index }) {
             </a>
           ) : null}
           {source.isbn ? (
-            <span className="inline-flex items-center gap-1 text-ink-3">
+            <span className="inline-flex items-center gap-1 text-fg-muted">
               ISBN · {source.isbn}
             </span>
           ) : null}
@@ -954,12 +954,12 @@ function SourceItem({ source, index }) {
 function SectionHeading({ icon: Icon, title, count }) {
   return (
     <div className="flex items-center gap-2">
-      {Icon ? <Icon className="size-3.5 text-ink-3" /> : null}
-      <h2 className="font-mono text-[9.5px] font-medium uppercase tracking-[0.16em] text-ink-3">
+      {Icon ? <Icon className="size-3.5 text-fg-muted" /> : null}
+      <h2 className="font-mono text-[9.5px] font-medium uppercase tracking-[0.16em] text-fg-muted">
         {title}
       </h2>
       {count != null ? (
-        <span className="text-[11px] text-ink-3">· {count}</span>
+        <span className="text-[11px] text-fg-muted">· {count}</span>
       ) : null}
       <span className="ml-2 h-px flex-1 bg-border" aria-hidden />
     </div>
@@ -972,7 +972,7 @@ function MobileStickyActions({ research, working, onPick, onClear, onSave, onSha
   const reactionCooldown = useCooldown('reaction')
   return (
     <div
-      className="fixed inset-x-0 z-30 mx-3 flex items-center gap-1 rounded-full border border-border bg-background/95 p-1 backdrop-blur lg:hidden"
+      className="fixed inset-x-0 z-30 mx-3 flex items-center gap-1 rounded-full border border-line bg-background/95 p-1 backdrop-blur lg:hidden"
       style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.5rem)' }}
     >
       <button
@@ -981,7 +981,7 @@ function MobileStickyActions({ research, working, onPick, onClear, onSave, onSha
         disabled={working || reactionCooldown > 0}
         className={cn(
           'inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-[12.5px] font-medium transition-colors',
-          liked ? 'bg-rose-50 text-rose-600' : 'text-ink-3',
+          liked ? 'bg-rose-50 text-rose-600' : 'text-fg-muted',
         )}
       >
         <Heart className={cn('size-4', liked && 'fill-current')} strokeWidth={1.8} />
@@ -992,7 +992,7 @@ function MobileStickyActions({ research, working, onPick, onClear, onSave, onSha
         onClick={onSave}
         className={cn(
           'inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-[12.5px] font-medium transition-colors',
-          research.currentUserSaved ? 'bg-[#ECFEFF] text-[#0891B2]' : 'text-ink-3',
+          research.currentUserSaved ? 'bg-[#ECFEFF] text-[#0891B2]' : 'text-fg-muted',
         )}
       >
         {research.currentUserSaved ? (
@@ -1005,7 +1005,7 @@ function MobileStickyActions({ research, working, onPick, onClear, onSave, onSha
       <button
         type="button"
         onClick={onShare}
-        className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-[12.5px] font-medium text-ink-3"
+        className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-[12.5px] font-medium text-fg-muted"
       >
         <Share2 className="size-4" />
         Share
@@ -1022,7 +1022,7 @@ function VideoPromo({ url, thumbnail, duration }) {
   const videoUrl = resolveMediaUrl(url)
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-black">
+    <div className="relative overflow-hidden rounded-lg border border-line bg-black">
       {playing ? (
         <video
           src={videoUrl}
@@ -1490,8 +1490,8 @@ export function ResearchDetailPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="aspect-[16/7] w-full rounded-2xl" />
-        <Skeleton className="h-10 w-3/4 rounded-2xl" />
+        <Skeleton className="aspect-[16/7] w-full rounded-lg" />
+        <Skeleton className="h-10 w-3/4 rounded-lg" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-5/6" />
@@ -1546,7 +1546,7 @@ export function ResearchDetailPage() {
           asChild
           variant="ghost"
           size="sm"
-          className="rounded-lg text-ink-3 hover:text-ink"
+          className="rounded-lg text-fg-muted hover:text-ink"
         >
           <Link to="/research">
             <ArrowLeft className="size-4" />
@@ -1578,7 +1578,7 @@ export function ResearchDetailPage() {
                   <MoreHorizontal className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 rounded-xl">
+              <DropdownMenuContent align="end" className="w-56 rounded-md">
                 {status !== 'PUBLISHED' ? (
                   <DropdownMenuItem
                     onSelect={() => runLifecycle(publishResearch, 'published')}
@@ -1757,7 +1757,7 @@ export function ResearchDetailPage() {
             />
 
             {!commentsEnabled ? (
-              <p className="rounded-2xl border border-dashed border-border bg-secondary/40 px-4 py-3 text-[13px] text-ink-3">
+              <p className="rounded-lg border border-dashed border-line bg-bg-soft px-4 py-3 text-[13px] text-fg-muted">
                 Comments are disabled for this research.
               </p>
             ) : (

@@ -2,11 +2,11 @@ import { cn } from '@/lib/utils'
 
 export function inputClass(hasError) {
   return cn(
-    'h-11 w-full rounded-lg border bg-secondary px-3.5 text-[14px] text-ink',
-    'placeholder:text-ink-4 transition-colors outline-none',
-    'focus:border-brand/50 focus:bg-paper focus:ring-[3px] focus:ring-brand/15',
+    'h-12 w-full rounded-xl border bg-card px-4 text-[14.5px] text-ink',
+    'placeholder:text-fg-faint transition-all outline-none',
+    'focus:border-ring focus:bg-card focus:ring-[4px] focus:ring-ring/15',
     hasError
       ? 'border-destructive/55 focus:border-destructive focus:ring-destructive/15'
-      : 'border-border',
+      : 'border-line',
   )
 }

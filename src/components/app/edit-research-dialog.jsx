@@ -24,6 +24,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import {
   addResearchMedia,
@@ -172,7 +179,9 @@ export function EditResearchDialog({ research, open, onOpenChange, onUpdated }) 
     }
     const url = URL.createObjectURL(coverFile)
     setCoverPreview(url)
-    return () => URL.revokeObjectURL(url)
+    // Deferred revoke so any in-flight <img>/<video> load finishes
+    // first; React 18 StrictMode otherwise races and trips Firefox.
+    return () => { setTimeout(() => URL.revokeObjectURL(url), 1000) }
   }, [coverFile])
 
   useEffect(() => {
@@ -184,7 +193,7 @@ export function EditResearchDialog({ research, open, onOpenChange, onUpdated }) 
     const url = URL.createObjectURL(videoFile)
     setVideoPreview(url)
     setVideoDuration(null) // duration returned by server after upload
-    return () => URL.revokeObjectURL(url)
+    return () => { setTimeout(() => URL.revokeObjectURL(url), 1000) }
   }, [videoFile])
 
   if (!research) return null
@@ -854,17 +863,21 @@ export function EditResearchDialog({ research, open, onOpenChange, onUpdated }) 
                       className="space-y-2 rounded-lg border border-border bg-muted/20 p-3"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <select
+                        <Select
                           value={source.sourceType}
-                          onChange={(event) => updateSource(index, 'sourceType', event.target.value)}
-                          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                          onValueChange={(value) => updateSource(index, 'sourceType', value)}
                         >
-                          {SOURCE_TYPES.map((type) => (
-                            <option key={type.value} value={type.value}>
-                              {type.label}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger size="sm" className="text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SOURCE_TYPES.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <button
                           type="button"
                           onClick={() => removeSource(index)}

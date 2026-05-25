@@ -57,8 +57,8 @@ function SearchHitCard({ hit }) {
     <Link
       to={href}
       className={cn(
-        'group flex items-start gap-3.5 rounded-2xl border border-border bg-card p-4 transition-all',
-        'hover:border-brand/40 hover:shadow-soft',
+        'group flex items-start gap-3.5 rounded-lg border border-line bg-card p-4 transition-all',
+        'hover:border-fg/40 hover:shadow-soft',
       )}
     >
       {isUser ? (
@@ -71,7 +71,7 @@ function SearchHitCard({ hit }) {
           className="size-12 shrink-0"
         />
       ) : hit.thumbnailUrl ? (
-        <div className="size-14 shrink-0 overflow-hidden rounded-xl border border-border bg-muted">
+        <div className="size-14 shrink-0 overflow-hidden rounded-md border border-line bg-muted">
           <img
             src={hit.thumbnailUrl}
             alt=""
@@ -82,7 +82,7 @@ function SearchHitCard({ hit }) {
       ) : (
         <span
           className={cn(
-            'grid size-12 shrink-0 place-items-center rounded-xl border',
+            'grid size-12 shrink-0 place-items-center rounded-md border',
             meta.accent,
           )}
           aria-hidden
@@ -285,7 +285,7 @@ export function SearchPage() {
         }
         action={
           loading ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
               <Loader2 className="size-3 animate-spin" />
               Searching
             </span>
@@ -300,7 +300,7 @@ export function SearchPage() {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder='Try "ihsan", "#hadith", or @username'
-          className="h-12 w-full rounded-xl border border-border bg-paper pl-10 pr-4 text-[14px] text-ink placeholder:text-ink-4 focus:border-brand/50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/15"
+          className="h-12 w-full rounded-md border border-line bg-background pl-10 pr-4 text-[14px] text-ink placeholder:text-fg-faint focus:border-fg/50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/15"
           autoFocus
         />
       </div>
@@ -318,8 +318,8 @@ export function SearchPage() {
                 className={cn(
                   'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
                   active
-                    ? 'border-brand bg-brand text-brand-foreground'
-                    : 'border-border bg-paper text-ink-3 hover:border-brand/40 hover:text-brand',
+                    ? 'border-fg bg-brand text-accent-indigo-foreground'
+                    : 'border-line bg-background text-fg-muted hover:border-fg/40 hover:text-accent-indigo',
                 )}
                 aria-pressed={active}
               >
@@ -329,7 +329,7 @@ export function SearchPage() {
           })}
         </div>
       ) : (
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand/[0.06] px-3 py-1.5 text-[12.5px] font-semibold text-brand">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-fg/30 bg-brand/[0.06] px-3 py-1.5 text-[12.5px] font-semibold text-accent-indigo">
           <Hash className="size-3.5" />
           Hashtag · #{term}
         </div>
