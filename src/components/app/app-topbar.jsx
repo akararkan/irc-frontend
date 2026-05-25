@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { NotificationBell } from '@/components/app/notification-bell'
 import { UserAvatar } from '@/components/app/user-avatar'
+import { IrcWordmark } from '@/components/app/irc-mark'
 import { useAuth } from '@/features/auth/auth-context'
 import { instantSearch, unifiedSearch } from '@/features/search/search.api'
 import { cn } from '@/lib/utils'
@@ -33,7 +34,7 @@ function LangSwitcher() {
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 gap-1.5 rounded-md px-2.5 font-mono text-[11.5px] font-medium text-fg-muted hover:bg-bg-soft hover:text-fg"
+          className="h-9 gap-1.5 rounded-full px-3 text-[12.5px] font-bold text-fg-soft hover:bg-bg-soft hover:text-fg"
           title="Change language"
         >
           {current.nativeLabel}
@@ -41,19 +42,19 @@ function LangSwitcher() {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-40 rounded-md border-line bg-card shadow-sm"
+        className="w-40 rounded-xl border-line bg-card shadow-lg"
       >
         {LANGUAGES.map((l) => (
           <DropdownMenuItem
             key={l.code}
             onSelect={() => setLang(l.code)}
             className={cn(
-              'flex items-center gap-2.5 rounded-sm text-[12.5px]',
-              l.code === current.code && 'font-semibold text-fg',
+              'flex items-center gap-2.5 rounded-lg text-[13px]',
+              l.code === current.code && 'font-bold text-brand',
             )}
             dir={l.dir}
           >
-            <span className="w-5 shrink-0 text-center font-mono text-[11px] font-semibold">
+            <span className="w-5 shrink-0 text-center font-display text-[13px] font-semibold">
               {l.code === 'en' ? 'A' : l.code === 'ar' ? 'ع' : 'ک'}
             </span>
             {l.nativeLabel}
@@ -69,14 +70,7 @@ function isMacLike() {
   return /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '')
 }
 
-const TYPEAHEAD_GROUP_ORDER = [
-  'USER',
-  'POST',
-  'REEL',
-  'QUESTION',
-  'ANSWER',
-  'RESEARCH',
-]
+const TYPEAHEAD_GROUP_ORDER = ['USER', 'POST', 'REEL', 'QUESTION', 'ANSWER', 'RESEARCH']
 
 function flattenGroups(unified) {
   if (!unified) return []
@@ -100,9 +94,7 @@ function SearchHitRow({ hit, onActivate }) {
   const href = searchHitHref(hit) ?? '#'
 
   const isUser = hit.type === 'USER'
-  const cleanHandle = isUser
-    ? getHandle({ username: hit.username || hit.snippet })
-    : null
+  const cleanHandle = isUser ? getHandle({ username: hit.username || hit.snippet }) : null
   const userPrimary = isUser
     ? hit.title || cleanHandle || '(unknown)'
     : hit.title || hit.snippet || '(untitled)'
@@ -111,7 +103,7 @@ function SearchHitRow({ hit, onActivate }) {
     <Link
       to={href}
       onClick={() => onActivate?.(hit)}
-      className="flex items-start gap-2.5 rounded-sm px-2.5 py-2 text-left transition-colors hover:bg-bg-soft focus-visible:bg-bg-soft focus-visible:outline-none"
+      className="flex items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-bg-soft focus-visible:bg-bg-soft focus-visible:outline-none"
     >
       {isUser ? (
         <UserAvatar
@@ -120,22 +112,22 @@ function SearchHitRow({ hit, onActivate }) {
             fullName: hit.title,
             profileImage: hit.thumbnailUrl,
           }}
-          className="size-7 shrink-0"
+          className="size-8 shrink-0"
         />
       ) : (
         <span
-          className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md border border-line bg-bg-soft text-fg-muted"
+          className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border border-line bg-bg-soft text-brand"
           aria-hidden
         >
-          <Icon className="size-[14px]" strokeWidth={1.7} />
+          <Icon className="size-[15px]" strokeWidth={1.8} />
         </span>
       )}
       <div className="min-w-0 flex-1 leading-tight">
-        <p className="truncate text-[13px] font-semibold text-fg">{userPrimary}</p>
+        <p className="truncate text-[13.5px] font-bold text-fg">{userPrimary}</p>
         {isUser && cleanHandle ? (
-          <p className="truncate font-mono text-[11px] text-fg-muted">@{cleanHandle}</p>
+          <p className="truncate text-[11.5px] text-fg-muted">@{cleanHandle}</p>
         ) : hit.snippet && hit.snippet !== hit.title ? (
-          <p className="line-clamp-1 text-[11.5px] text-fg-muted">{hit.snippet}</p>
+          <p className="line-clamp-1 text-[12px] text-fg-muted">{hit.snippet}</p>
         ) : null}
       </div>
     </Link>
@@ -230,8 +222,8 @@ function SearchBar() {
   const term = query.trim()
 
   return (
-    <form ref={containerRef} onSubmit={handleSubmit} className="relative w-full max-w-md">
-      <Search className="pointer-events-none absolute left-3 top-1/2 size-[14px] -translate-y-1/2 text-fg-muted" strokeWidth={1.7} />
+    <form ref={containerRef} onSubmit={handleSubmit} className="relative mx-auto w-full max-w-md">
+      <Search className="pointer-events-none absolute left-4 top-1/2 size-[16px] -translate-y-1/2 text-fg-muted" strokeWidth={1.8} />
       <Input
         ref={inputRef}
         type="search"
@@ -243,36 +235,34 @@ function SearchBar() {
         onFocus={() => setIsOpen(true)}
         placeholder="Search scholars, posts, questions, #tags…"
         className={cn(
-          'h-8 rounded-md border border-line bg-bg-soft pl-9 pr-14 text-[12.5px] text-fg placeholder:text-fg-faint',
-          'transition focus-visible:border-line-strong focus-visible:bg-background focus-visible:ring-0',
+          'h-11 rounded-full border border-line bg-card pl-11 pr-16 text-[13.5px] text-fg shadow-soft placeholder:text-fg-faint',
+          'transition focus-visible:border-ring focus-visible:bg-card focus-visible:ring-[4px] focus-visible:ring-ring/15',
         )}
         aria-label="Search"
       />
       <kbd
-        className="pointer-events-none absolute right-2 top-1/2 inline-flex h-[18px] -translate-y-1/2 items-center gap-0.5 rounded-[4px] border border-line bg-background px-1.5 font-mono text-[10px] text-fg-muted"
+        className="pointer-events-none absolute right-3 top-1/2 inline-flex h-[20px] -translate-y-1/2 items-center gap-0.5 rounded-full border border-line bg-bg-soft px-2 font-mono text-[10px] text-fg-muted"
         aria-hidden
       >
         {isMac ? '⌘' : 'Ctrl'}K
       </kbd>
       {isOpen && term.length >= 2 ? (
-        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-md border border-line bg-card shadow-md">
+        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-line bg-card shadow-lg animate-scale-in">
           {isLoading && !hasResults ? (
-            <p className="flex items-center gap-2 px-4 py-3 text-[12.5px] text-fg-muted">
+            <p className="flex items-center gap-2 px-4 py-3.5 text-[13px] text-fg-muted">
               <Loader2 className="size-3.5 animate-spin" />
               Searching…
             </p>
           ) : !hasResults ? (
-            <p className="px-4 py-3 text-[12.5px] text-fg-muted">
-              No results for "{term}".
-            </p>
+            <p className="px-4 py-3.5 text-[13px] text-fg-muted">No results for &ldquo;{term}&rdquo;.</p>
           ) : (
-            <div className="max-h-[480px] overflow-y-auto p-1.5">
+            <div className="max-h-[480px] overflow-y-auto p-2">
               {groups.map(({ type, hits }) => {
                 const meta = getSearchTypeMeta(type)
                 const Icon = meta.icon
                 return (
                   <section key={type} className="px-1 pb-2 last:pb-0">
-                    <header className="flex items-center gap-1.5 px-2 pb-1 pt-2 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-fg-faint">
+                    <header className="flex items-center gap-1.5 px-2.5 pb-1.5 pt-2 text-[10.5px] font-bold uppercase tracking-[0.08em] text-fg-faint">
                       <Icon className="size-3" />
                       {meta.plural}
                     </header>
@@ -290,13 +280,13 @@ function SearchBar() {
               })}
             </div>
           )}
-          <footer className="border-t border-line bg-bg-soft p-1.5">
+          <footer className="border-t border-line bg-bg-soft p-2">
             <Link
               to={`/search?q=${encodeURIComponent(term)}`}
               onClick={() => setIsOpen(false)}
-              className="flex w-full items-center justify-between rounded-sm px-3 py-2 text-[12px] font-semibold text-fg transition-colors hover:bg-bg-muted"
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-[12.5px] font-bold text-brand transition-colors hover:bg-bg-muted"
             >
-              See all results for "{term}"
+              See all results for &ldquo;{term}&rdquo;
               <ChevronRight className="size-3.5" />
             </Link>
           </footer>
@@ -325,43 +315,37 @@ function AccountMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-8 rounded-full p-0 hover:bg-bg-soft">
-          <UserAvatar
-            user={user}
-            className="size-7 ring-1 ring-line"
-          />
+        <Button variant="ghost" size="icon" className="size-10 rounded-full p-0 hover:bg-bg-soft">
+          <UserAvatar user={user} className="size-9 ring-2 ring-brand/25" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="w-60 rounded-md border-line bg-card shadow-sm"
-      >
+      <DropdownMenuContent align="end" className="w-60 rounded-xl border-line bg-card shadow-lg">
         <DropdownMenuLabel>
           <div className="leading-tight">
-            <p className="truncate text-[13px] font-semibold text-fg">
+            <p className="truncate text-[13.5px] font-bold text-fg">
               {getFullName(user) || getHandle(user) || 'Account'}
             </p>
             {getHandle(user) ? (
-              <p className="truncate font-mono text-[11px] font-normal text-fg-muted">
-                @{getHandle(user)}
-              </p>
+              <p className="truncate text-[11.5px] font-normal text-fg-muted">@{getHandle(user)}</p>
             ) : null}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {profileHref ? (
-          <DropdownMenuItem asChild>
+          <DropdownMenuItem asChild className="rounded-lg text-[13px]">
             <Link to={profileHref}>Profile</Link>
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem asChild>
+        <DropdownMenuItem asChild className="rounded-lg text-[13px]">
           <Link to="/saved">Saved</Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
+        <DropdownMenuItem asChild className="rounded-lg text-[13px]">
           <Link to="/settings">Settings</Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={handleSignOut}>Sign out</DropdownMenuItem>
+        <DropdownMenuItem onSelect={handleSignOut} className="rounded-lg text-[13px]">
+          Sign out
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -373,7 +357,7 @@ export function AppTopbar({ onMenuClick, onToggleSidebar, sidebarCollapsed, titl
   return (
     <header
       className={cn(
-        'glass-panel sticky top-0 z-20 flex h-12 items-center gap-2 border-b border-line px-3 sm:gap-3 sm:px-6',
+        'glass-panel sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-line px-3 sm:gap-3 sm:px-6',
         className,
       )}
       style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
@@ -382,11 +366,11 @@ export function AppTopbar({ onMenuClick, onToggleSidebar, sidebarCollapsed, titl
         type="button"
         variant="ghost"
         size="icon"
-        className="size-8 rounded-md text-fg-muted hover:bg-bg-soft hover:text-fg lg:hidden"
+        className="size-10 rounded-full text-fg-soft hover:bg-bg-soft hover:text-fg lg:hidden"
         onClick={onMenuClick}
         aria-label="Open navigation"
       >
-        <Menu className="size-[18px]" strokeWidth={1.7} />
+        <Menu className="size-[20px]" strokeWidth={1.8} />
       </Button>
 
       {onToggleSidebar ? (
@@ -394,28 +378,25 @@ export function AppTopbar({ onMenuClick, onToggleSidebar, sidebarCollapsed, titl
           type="button"
           variant="ghost"
           size="icon"
-          className="hidden size-8 rounded-md text-fg-muted hover:bg-bg-soft hover:text-fg lg:inline-flex"
+          className="hidden size-10 rounded-full text-fg-soft hover:bg-bg-soft hover:text-fg lg:inline-flex"
           onClick={onToggleSidebar}
           aria-label={sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}
           title={sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}
         >
           {sidebarCollapsed ? (
-            <PanelLeftOpen className="size-[16px]" strokeWidth={1.7} />
+            <PanelLeftOpen className="size-[18px]" strokeWidth={1.8} />
           ) : (
-            <PanelLeftClose className="size-[16px]" strokeWidth={1.7} />
+            <PanelLeftClose className="size-[18px]" strokeWidth={1.8} />
           )}
         </Button>
       ) : null}
 
-      <Link to="/" className="flex items-center gap-2 lg:hidden">
-        <div className="grid size-[20px] shrink-0 place-items-center rounded-[4px] bg-fg font-mono text-[10px] font-semibold text-background">
-          i
-        </div>
-        <span className="text-[13px] font-semibold tracking-[-0.01em] text-fg">irc</span>
+      <Link to="/" className="lg:hidden">
+        <IrcWordmark markClassName="size-8" />
       </Link>
 
       {title ? (
-        <h1 className="truncate text-[14px] font-semibold leading-none tracking-[-0.01em] text-fg">
+        <h1 className="truncate font-display text-[16px] font-semibold leading-none tracking-[-0.01em] text-fg">
           {title}
         </h1>
       ) : null}
@@ -427,9 +408,9 @@ export function AppTopbar({ onMenuClick, onToggleSidebar, sidebarCollapsed, titl
       <Link
         to="/search"
         aria-label="Search"
-        className="ml-auto grid size-8 place-items-center rounded-md text-fg-muted transition-colors hover:bg-bg-soft hover:text-fg md:hidden"
+        className="ml-auto grid size-10 place-items-center rounded-full text-fg-soft transition-colors hover:bg-bg-soft hover:text-fg md:hidden"
       >
-        <Search className="size-[16px]" strokeWidth={1.7} />
+        <Search className="size-[18px]" strokeWidth={1.8} />
       </Link>
 
       <div className="flex items-center gap-1 md:ml-auto md:gap-1.5">
@@ -446,14 +427,14 @@ export function AppTopbar({ onMenuClick, onToggleSidebar, sidebarCollapsed, titl
               asChild
               variant="ghost"
               size="sm"
-              className="h-8 rounded-md text-[12.5px] font-medium text-fg-muted hover:bg-bg-soft hover:text-fg"
+              className="h-9 rounded-full px-4 text-[13px] font-bold text-fg-soft hover:bg-bg-soft hover:text-fg"
             >
               <Link to="/login">Sign in</Link>
             </Button>
             <Button
               asChild
               size="sm"
-              className="h-8 rounded-md bg-fg px-3 text-[12.5px] font-medium text-background hover:bg-fg-soft"
+              className="h-9 rounded-full bg-[linear-gradient(135deg,var(--accent-indigo),var(--primary))] px-4 text-[13px] font-bold text-primary-foreground shadow-soft hover:-translate-y-px"
             >
               <Link to="/signup">Sign up</Link>
             </Button>

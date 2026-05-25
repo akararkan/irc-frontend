@@ -228,7 +228,7 @@ function ActionButton({
       transition={{ type: 'spring', stiffness: 500, damping: 28 }}
       aria-label={label}
       className={cn(
-        'inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-[12.5px] font-medium tabular-nums transition-colors disabled:opacity-40',
+        'inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[13px] font-bold tabular-nums transition-colors disabled:opacity-40',
         active ? activeColor : 'text-fg-muted hover:bg-bg-soft hover:text-fg',
         className,
       )}
@@ -310,11 +310,11 @@ function MediaItem({ item, className, onOpen }) {
         target="_blank"
         rel="noreferrer"
         className={cn(
-          'group flex items-center gap-3.5 rounded-md border border-line bg-bg-soft px-3.5 py-3 transition-colors hover:bg-bg-soft',
+          'group flex items-center gap-3.5 rounded-2xl border border-line bg-bg-soft px-3.5 py-3 transition-colors hover:bg-card',
           className,
         )}
       >
-        <span className="grid size-11 shrink-0 place-items-center rounded-md border border-line bg-background text-fg-soft">
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-line bg-card text-brand">
           <FileText className="size-5" strokeWidth={1.5} />
         </span>
         <span className="min-w-0 flex-1 leading-tight">
@@ -385,7 +385,7 @@ function MediaGrid({ media, author, caption }) {
     if (isVideo) {
       return (
         <>
-          <div className="mx-auto max-w-[480px] overflow-hidden rounded-md border border-line bg-black">
+          <div className="mx-auto max-w-[480px] overflow-hidden rounded-2xl border border-line bg-black">
             <MediaItem
               item={sole}
               className="max-h-[420px] w-full object-contain sm:max-h-[480px]"
@@ -398,7 +398,7 @@ function MediaGrid({ media, author, caption }) {
     }
     return (
       <>
-        <div className="overflow-hidden rounded-md border border-line">
+        <div className="overflow-hidden rounded-2xl border border-line">
           <MediaItem
             item={sole}
             className="max-h-[560px] w-full object-cover"
@@ -418,7 +418,7 @@ function MediaGrid({ media, author, caption }) {
   }[sliced.length]
   return (
     <>
-      <div className={cn('overflow-hidden rounded-md border border-line', layout)}>
+      <div className={cn('overflow-hidden rounded-2xl border border-line', layout)}>
         {sliced.map((item, index) => (
           <div
             key={item.id ?? index}
@@ -464,7 +464,7 @@ function ReelPlayer({ media, audioTrackName, postId }) {
   return (
     <div className="mx-auto w-full max-w-[260px] sm:max-w-[280px]">
       <div
-        className="relative isolate aspect-[9/16] overflow-hidden rounded-xl border border-white/10"
+        className="relative isolate aspect-[9/16] overflow-hidden rounded-2xl border border-white/10"
         style={{ background: 'linear-gradient(170deg, #1A1F2E 0%, #0B0E16 100%)' }}
       >
         <video
@@ -693,10 +693,10 @@ function FollowButton({ authorId, inView }) {
       disabled={busy || !known}
       aria-pressed={isFollowing}
       className={cn(
-        'inline-flex h-8 shrink-0 items-center gap-1 rounded-md border px-3 text-[12px] font-medium transition-colors',
+        'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-4 text-[12.5px] font-bold transition-colors',
         isFollowing
-          ? 'border-line bg-bg-soft text-fg-muted hover:text-fg'
-          : 'border-fg bg-fg text-background hover:bg-fg-soft',
+          ? 'border-line bg-card text-fg-soft hover:text-fg'
+          : 'border-transparent bg-[linear-gradient(135deg,var(--accent-indigo),var(--primary))] text-primary-foreground hover:-translate-y-px',
         (!known || busy) && 'opacity-70',
       )}
     >
@@ -878,7 +878,7 @@ function ShareMenu({ post, onShared, onRepostCreated }) {
               type="button"
               onClick={handleShare}
               disabled={busy}
-              className="rounded-md bg-fg text-background hover:bg-fg-soft"
+              className="rounded-full bg-[linear-gradient(135deg,var(--accent-indigo),var(--primary))] text-primary-foreground hover:-translate-y-px"
             >
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}
               {busy ? 'Sharing…' : 'Share post'}
@@ -899,7 +899,7 @@ function QuotedPost({ post }) {
   return (
     <Link
       to={profileHref}
-      className="block overflow-hidden rounded-md border border-line bg-bg-soft transition-colors hover:border-line-strong"
+      className="block overflow-hidden rounded-2xl border border-line bg-bg-soft transition-colors hover:border-line-strong"
     >
       <div className="flex items-center gap-2 px-3.5 pt-3">
         <UserAvatar user={author} className="size-7 rounded-full" />
@@ -1211,7 +1211,7 @@ export function PostCard({
   return (
     <article
       ref={composedRef}
-      className="group/post overflow-hidden rounded-lg border border-line bg-background transition-colors"
+      className="group/post overflow-hidden rounded-3xl border border-line bg-card shadow-soft card-hover"
     >
       {/* ── Repost banner ─────────────────────────────────── */}
       {(post.isRepost || postType === 'REPOST') && post.sharedPost ? (

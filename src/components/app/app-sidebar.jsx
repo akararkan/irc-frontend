@@ -1,6 +1,5 @@
 import {
   Activity,
-  Bell,
   BookMarked,
   BookOpenText,
   Clapperboard,
@@ -10,6 +9,7 @@ import {
   Settings,
   User2,
   Users,
+  Bell,
 } from 'lucide-react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { ResearchComposerButton } from '@/components/app/research-composer'
 import { canPublishResearch } from '@/lib/roles'
 import { UserAvatar } from '@/components/app/user-avatar'
+import { IrcWordmark } from '@/components/app/irc-mark'
 import { useAuth } from '@/features/auth/auth-context'
 import { useNotifications } from '@/features/notifications/notifications-context'
 import { cn } from '@/lib/utils'
@@ -51,6 +52,16 @@ const SOCIAL_ROUTES = [
   { to: '/people', icon: Users, key: 'nav.people' },
 ]
 
+// Active nav row = emerald gradient fill with a brass icon — the
+// "Modern Manuscript" selected state.
+const NAV_BTN = cn(
+  'h-11 rounded-2xl px-3 text-[14px] font-bold text-fg-soft transition-all',
+  'hover:bg-card hover:text-fg',
+  'data-[active=true]:bg-[linear-gradient(135deg,var(--accent-indigo),var(--primary))]',
+  'data-[active=true]:text-white data-[active=true]:shadow-soft',
+  'data-[active=true]:[&_svg]:text-[#D8B463]',
+)
+
 function NavRow({ item, onNavigate }) {
   const Icon = item.icon
   const { unreadCount } = useNotifications()
@@ -62,25 +73,16 @@ function NavRow({ item, onNavigate }) {
     <SidebarMenuItem>
       <NavLink to={item.to} end={item.end} onClick={onNavigate}>
         {({ isActive }) => (
-          <SidebarMenuButton
-            asChild
-            isActive={isActive}
-            tooltip={label}
-            className={cn(
-              'h-8 rounded-md text-[13px] font-medium text-fg-muted',
-              'hover:bg-bg-soft hover:text-fg',
-              'data-[active=true]:bg-bg-soft data-[active=true]:font-semibold data-[active=true]:text-fg',
-            )}
-          >
-            <span className="flex w-full items-center gap-2.5">
-              <Icon className="size-[15px] shrink-0" strokeWidth={1.7} />
+          <SidebarMenuButton asChild isActive={isActive} tooltip={label} className={NAV_BTN}>
+            <span className="flex w-full items-center gap-3">
+              <Icon className="size-[18px] shrink-0 text-fg-muted transition-colors" strokeWidth={1.9} />
               <span className="flex-1 truncate">{label}</span>
             </span>
           </SidebarMenuButton>
         )}
       </NavLink>
       {badge > 0 ? (
-        <SidebarMenuBadge className="right-2 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-line bg-bg-soft px-1.5 font-mono text-[10px] font-semibold text-fg">
+        <SidebarMenuBadge className="right-2.5 inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-warn px-1.5 text-[10.5px] font-extrabold text-[#3A2C0C]">
           {badge > 99 ? '99+' : badge}
         </SidebarMenuBadge>
       ) : null}
@@ -105,34 +107,19 @@ export function AppSidebar(props) {
   const closeMobile = () => setOpenMobile(false)
 
   return (
-    <Sidebar
-      collapsible="icon"
-      className="border-r border-line bg-background"
-      {...props}
-    >
-      {/* Brand — editorial mark + wordmark */}
-      <SidebarHeader className="px-3 py-4">
-        <Link
-          to="/"
-          onClick={closeMobile}
-          className="flex items-center gap-2.5 rounded-md transition-colors"
-        >
-          <div className="grid size-[22px] shrink-0 place-items-center rounded-[4px] bg-fg font-mono text-[11px] font-semibold text-background">
-            i
-          </div>
-          <div className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
-            <p className="truncate text-[14px] font-semibold tracking-[-0.01em] text-fg">
-              irc
-            </p>
-          </div>
+    <Sidebar collapsible="icon" className="border-r border-line bg-background" {...props}>
+      {/* Brand — geometric star mark + serif wordmark */}
+      <SidebarHeader className="px-3 py-5">
+        <Link to="/" onClick={closeMobile} className="flex items-center rounded-xl transition-colors">
+          <IrcWordmark className="group-data-[collapsible=icon]:[&>span:last-child]:hidden" />
         </Link>
       </SidebarHeader>
 
       {/* Navigation */}
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-2.5">
         <SidebarGroup className="px-1 py-2">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
+            <SidebarMenu className="gap-1">
               {PRIMARY_ROUTES.map((item) => (
                 <NavRow key={item.to} item={item} onNavigate={closeMobile} />
               ))}
@@ -141,11 +128,11 @@ export function AppSidebar(props) {
         </SidebarGroup>
 
         <SidebarGroup className="px-1 py-2">
-          <SidebarGroupLabel className="px-2 font-mono text-[10.5px] font-medium uppercase tracking-[0.04em] text-fg-faint">
+          <SidebarGroupLabel className="px-3 text-[10.5px] font-bold uppercase tracking-[0.1em] text-fg-faint">
             Activity
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
+            <SidebarMenu className="gap-1">
               {SOCIAL_ROUTES.map((item) => (
                 <NavRow key={item.to} item={item} onNavigate={closeMobile} />
               ))}
@@ -155,31 +142,18 @@ export function AppSidebar(props) {
 
         {isAuthenticated ? (
           <SidebarGroup className="px-1 py-2">
-            <SidebarGroupLabel className="px-2 font-mono text-[10.5px] font-medium uppercase tracking-[0.04em] text-fg-faint">
+            <SidebarGroupLabel className="px-3 text-[10.5px] font-bold uppercase tracking-[0.1em] text-fg-faint">
               {t('nav.workspaceLabel', 'Workspace')}
             </SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu className="gap-0.5">
+              <SidebarMenu className="gap-1">
                 {profileHref ? (
-                  <NavRow
-                    item={{ to: profileHref, icon: User2, label: t('nav.profile') }}
-                    onNavigate={closeMobile}
-                  />
+                  <NavRow item={{ to: profileHref, icon: User2, label: t('nav.profile') }} onNavigate={closeMobile} />
                 ) : null}
                 {canPublishResearch(user) ? (
-                  <NavRow
-                    item={{
-                      to: '/my-research',
-                      icon: BookMarked,
-                      label: t('nav.myResearch'),
-                    }}
-                    onNavigate={closeMobile}
-                  />
+                  <NavRow item={{ to: '/my-research', icon: BookMarked, label: t('nav.myResearch') }} onNavigate={closeMobile} />
                 ) : null}
-                <NavRow
-                  item={{ to: '/settings', icon: Settings, label: t('nav.settings') }}
-                  onNavigate={closeMobile}
-                />
+                <NavRow item={{ to: '/settings', icon: Settings, label: t('nav.settings') }} onNavigate={closeMobile} />
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -190,9 +164,8 @@ export function AppSidebar(props) {
             <SidebarGroupContent className="group-data-[collapsible=icon]:hidden">
               <ResearchComposerButton
                 className={cn(
-                  'h-8 w-full justify-center gap-1.5 rounded-md',
-                  'bg-fg text-background hover:bg-fg-soft',
-                  'text-[12.5px] font-medium',
+                  'h-12 w-full justify-center gap-2 rounded-2xl text-[14px] font-extrabold text-primary-foreground',
+                  'bg-[linear-gradient(135deg,var(--accent-indigo),var(--primary))] shadow-soft hover:-translate-y-px',
                 )}
               />
             </SidebarGroupContent>
@@ -201,24 +174,17 @@ export function AppSidebar(props) {
       </SidebarContent>
 
       {/* Footer / account */}
-      <SidebarFooter className="border-t border-line p-2">
+      <SidebarFooter className="border-t border-line p-2.5">
         {isAuthenticated && user ? (
-          <div className="flex items-center gap-2 rounded-md px-1.5 py-1.5 transition-colors hover:bg-bg-soft group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-stretch group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:px-0">
-            <Link
-              to={profileHref ?? '#'}
-              onClick={closeMobile}
-              className="flex min-w-0 flex-1 items-center gap-2.5"
-              title="View profile"
-            >
-              <UserAvatar user={user} className="size-7 shrink-0" />
+          <div className="flex items-center gap-2 rounded-2xl px-2 py-2 transition-colors hover:bg-card group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-stretch group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:px-0">
+            <Link to={profileHref ?? '#'} onClick={closeMobile} className="flex min-w-0 flex-1 items-center gap-3" title="View profile">
+              <UserAvatar user={user} className="size-9 shrink-0 ring-2 ring-brand/25" />
               <div className="min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:hidden">
-                <p className="truncate text-[12.5px] font-semibold text-fg">
+                <p className="truncate text-[13px] font-bold text-fg">
                   {getFullName(user) || getHandle(user) || 'Account'}
                 </p>
                 {getHandle(user) ? (
-                  <p className="mt-0.5 truncate font-mono text-[10.5px] text-fg-muted">
-                    @{getHandle(user)}
-                  </p>
+                  <p className="mt-0.5 truncate text-[11px] text-fg-muted">@{getHandle(user)}</p>
                 ) : null}
               </div>
             </Link>
@@ -226,31 +192,27 @@ export function AppSidebar(props) {
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="size-7 rounded-md text-fg-muted hover:bg-bg-muted hover:text-fg"
+              className="size-9 rounded-xl text-fg-muted hover:bg-bg-muted hover:text-destructive"
               onClick={handleSignOut}
               title="Sign out"
             >
-              <LogOut className="size-[14px]" strokeWidth={1.7} />
+              <LogOut className="size-[16px]" strokeWidth={1.8} />
             </Button>
           </div>
         ) : (
           <div className="grid gap-2 px-1 group-data-[collapsible=icon]:hidden">
             <Button
               asChild
-              className="h-8 w-full justify-center rounded-md bg-fg text-[12.5px] font-medium text-background hover:bg-fg-soft"
+              className="h-11 w-full justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent-indigo),var(--primary))] text-[13.5px] font-extrabold text-primary-foreground shadow-soft hover:-translate-y-px"
             >
-              <Link to="/login" onClick={closeMobile}>
-                Sign in
-              </Link>
+              <Link to="/login" onClick={closeMobile}>Sign in</Link>
             </Button>
             <Button
               asChild
               variant="outline"
-              className="h-8 w-full justify-center rounded-md border-line bg-background text-[12.5px] font-medium text-fg hover:bg-bg-soft"
+              className="h-11 w-full justify-center rounded-2xl border-line bg-card text-[13.5px] font-bold text-fg hover:bg-bg-soft"
             >
-              <Link to="/signup" onClick={closeMobile}>
-                Create account
-              </Link>
+              <Link to="/signup" onClick={closeMobile}>Create account</Link>
             </Button>
           </div>
         )}

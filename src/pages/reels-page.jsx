@@ -184,7 +184,7 @@ function FollowChip({ author }) {
       disabled={busy || following == null}
       className={cn(
         'absolute -bottom-2 left-1/2 grid size-[18px] -translate-x-1/2 place-items-center rounded-full',
-        'border-[2px] border-[#0B0E16] bg-brand text-white transition-transform',
+        'border-[2px] border-[#070D0B] bg-brand text-white transition-transform',
         'hover:scale-110 disabled:opacity-50',
       )}
       aria-label={`Follow ${followLabel}`}
@@ -775,7 +775,7 @@ const ReelCard = forwardRef(function ReelCard(
                 aria-label={`Audio: ${reel.audioTrackName}`}
                 title={reel.audioTrackName}
                 className={cn(
-                  'mt-1 grid size-[34px] place-items-center rounded-full border-2 border-white/25 bg-[#1A1F2E] text-white',
+                  'mt-1 grid size-[34px] place-items-center rounded-full border-2 border-white/25 bg-[#0E1714] text-white',
                   playing && 'animate-[spin_4s_linear_infinite]',
                 )}
               >
@@ -956,7 +956,7 @@ function ShareSheet({ open, onOpenChange, reel, onChange }) {
           </div>
 
           {/* Read-only link box */}
-          <div className="mt-5 flex items-center gap-2 rounded-md border border-line bg-bg-soft p-2">
+          <div className="mt-5 flex items-center gap-2 rounded-2xl border border-line bg-bg-soft p-2">
             <span className="grid size-8 shrink-0 place-items-center rounded-md bg-background text-fg-muted ring-1 ring-border">
               <LinkIcon className="size-3.5" />
             </span>
@@ -977,7 +977,7 @@ function ShareSheet({ open, onOpenChange, reel, onChange }) {
           </div>
 
           {/* Repost block */}
-          <div className="mt-5 rounded-lg border border-line bg-background">
+          <div className="mt-5 rounded-2xl border border-line bg-card">
             <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
               <Repeat2 className="size-3.5 text-accent-indigo" />
               <span className="font-semibold text-[13px] font-semibold tracking-[-0.005em]">
@@ -1009,7 +1009,7 @@ function ShareSheet({ open, onOpenChange, reel, onChange }) {
                   type="button"
                   onClick={repost}
                   disabled={!isAuthenticated || busy}
-                  className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-[13px] font-medium text-accent-indigo-foreground transition-colors hover:bg-brand/90 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--accent-indigo),var(--primary))] px-5 py-2 text-[13px] font-extrabold text-primary-foreground shadow-soft transition-all hover:-translate-y-px disabled:opacity-50"
                 >
                   {busy ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -1034,7 +1034,7 @@ function ShareIcon({ label, icon: Icon, emoji, onClick, tone }) {
       onClick={onClick}
       className="flex flex-col items-center gap-1.5 transition-transform hover:-translate-y-0.5"
     >
-      <span className={cn('grid size-12 place-items-center rounded-lg', tone)}>
+      <span className={cn('grid size-12 place-items-center rounded-2xl', tone)}>
         {Icon ? <Icon className="size-5" strokeWidth={2} /> : null}
         {emoji ? <span className="text-[22px] leading-none">{emoji}</span> : null}
       </span>

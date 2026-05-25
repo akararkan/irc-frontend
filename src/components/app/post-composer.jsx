@@ -259,7 +259,7 @@ function VisibilityMenu({ value, onChange }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-sm border border-line bg-bg-soft px-2 text-[12px] font-medium text-fg-soft transition-colors hover:border-line-strong hover:text-fg"
+          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-line bg-card px-3 text-[12.5px] font-bold text-brand transition-colors hover:border-line-strong"
         >
           <Icon className="size-3" strokeWidth={1.7} />
           {option.label}
@@ -322,7 +322,7 @@ function DropZone({ onFiles, accept, multiple = true, hint, tone = 'cyan', child
       }}
       onClick={() => inputRef.current?.click()}
       className={cn(
-        'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-[1.5px] border-dashed border-line bg-bg-soft px-6 py-7 text-center transition-colors',
+        'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line bg-bg-soft px-6 py-8 text-center transition-colors hover:border-ring hover:bg-card',
         'hover:border-line-strong',
         drag && 'border-fg bg-bg-soft',
       )}
@@ -367,7 +367,7 @@ function CarouselThumb({ file, index, onRemove }) {
   const label = audio ? 'AUD' : video ? 'VID' : 'IMG'
 
   return (
-    <div className="relative size-[88px] shrink-0 overflow-hidden rounded-md border border-line bg-bg-muted">
+    <div className="relative size-[88px] shrink-0 overflow-hidden rounded-2xl border border-line bg-bg-muted">
       {audio ? (
         <div className="flex h-full w-full items-center justify-center">
           <Music className="size-6 text-fg-faint" strokeWidth={1.5} />
@@ -423,7 +423,7 @@ function CarouselPreview({ files, onRemove, onAdd, maxFiles }) {
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="flex size-[88px] items-center justify-center rounded-md border border-dashed border-line-strong bg-bg-soft transition-colors hover:border-fg hover:bg-bg-muted"
+            className="flex size-[88px] items-center justify-center rounded-2xl border-2 border-dashed border-line-strong bg-bg-soft transition-colors hover:border-ring hover:bg-card"
           >
             <Plus className="size-5 text-fg-faint" strokeWidth={1.5} />
           </button>
@@ -454,7 +454,7 @@ function ReelPreview({ file, onClear }) {
     <div className="space-y-2">
       <div
         className={cn(
-          'relative mx-auto w-full overflow-hidden rounded-md border border-line bg-black',
+          'relative mx-auto w-full overflow-hidden rounded-2xl border border-line bg-black',
           widthClass,
         )}
       >
@@ -665,7 +665,7 @@ function VoiceRecorder({ value, previewUrl, onCapture, onClear, onError }) {
   }
 
   return (
-    <div className="rounded-md border border-line bg-bg-soft p-5">
+    <div className="rounded-2xl border border-line bg-bg-soft p-5">
       <div className="flex flex-col items-center gap-4">
         <motion.button
           type="button"
@@ -906,7 +906,7 @@ export function PostComposer({
   const formNode = (
     <form onSubmit={handleSubmit} className="flex flex-col">
       {/* ── Type tabs bar ─────────────────────────────────────── */}
-      <div className="scrollbar-none flex gap-0 overflow-x-auto border-b border-line bg-bg-soft px-3 py-2">
+      <div className="scrollbar-none flex gap-1.5 overflow-x-auto border-b border-line bg-bg-soft px-3 py-2.5">
         {POST_TYPES.map((item) => {
           const Icon = item.icon
           const active = item.value === postType
@@ -916,10 +916,10 @@ export function PostComposer({
               type="button"
               onClick={() => changeType(item.value)}
               className={cn(
-                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-[7px] text-[12.5px] font-medium transition-colors',
+                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-bold transition-colors',
                 active
-                  ? 'bg-fg text-background'
-                  : 'text-fg-muted hover:bg-background hover:text-fg',
+                  ? 'bg-[linear-gradient(135deg,var(--accent-indigo),var(--primary))] text-primary-foreground [&_svg]:text-[#D8B463]'
+                  : 'text-fg-muted hover:bg-card hover:text-fg',
               )}
             >
               <Icon className="size-[13px]" strokeWidth={1.8} />
@@ -1115,7 +1115,7 @@ export function PostComposer({
         {/* Save draft */}
         <button
           type="button"
-          className="mr-1.5 inline-flex h-8 items-center rounded-md border border-line bg-background px-3 text-[12.5px] font-medium text-fg-soft transition-colors hover:border-line-strong hover:text-fg"
+          className="mr-1.5 inline-flex h-9 items-center rounded-full border border-line bg-card px-4 text-[12.5px] font-bold text-fg-soft transition-colors hover:border-line-strong hover:text-fg"
         >
           Save draft
         </button>
@@ -1124,7 +1124,7 @@ export function PostComposer({
         <button
           type="submit"
           disabled={!canSubmit()}
-          className="inline-flex h-8 items-center rounded-md bg-fg px-4 text-[12.5px] font-medium text-background transition-colors hover:bg-fg-soft disabled:opacity-40"
+          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[linear-gradient(135deg,var(--accent-indigo),var(--primary))] px-5 text-[13px] font-extrabold text-primary-foreground shadow-soft transition-all hover:-translate-y-px disabled:opacity-40 disabled:hover:translate-y-0"
         >
           {submitting ? <Loader2 className="size-3.5 animate-spin" /> : null}
           {submitting ? 'Publishing…' : 'Publish'}
@@ -1146,7 +1146,7 @@ export function PostComposer({
 
   return (
     <>
-      <div className="overflow-hidden rounded-lg border border-line bg-background">
+      <div className="overflow-hidden rounded-3xl border border-line bg-card shadow-soft">
         {formNode}
       </div>
       {soundPickerEl}
